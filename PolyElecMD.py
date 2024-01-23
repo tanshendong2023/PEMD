@@ -408,6 +408,41 @@ def vis_2Dsmiles(smiles, mol_size=(350, 150)):
     img = dm.to_image(smiles, mol_size=mol_size)
     display(img)
 
+from rdkit.Chem import Descriptors
+
+# 计算分子的相对分子质量
+def calculate_molecular_weight(pdb_file):
+    mol = Chem.MolFromPDBFile(pdb_file, removeHs=False)
+    molecular_weight = Descriptors.MolWt(mol)
+    return molecular_weight
+
+# 根据密度和分子数量计算盒子大小
+def calculate_box_size(density, number, pdb_file):
+    molecular_weight = calculate_molecular_weight(pdb_file)  # 单位是g/mol
+    total_mass = molecular_weight * number / 6.022e23  # 转换为克
+    total_volume = total_mass / density  # 体积单位是cm^3
+    length = (total_volume * 1e24) ** (1 / 3)  # 转换为埃
+    return length
+
+
+# 定义生成Packmol输入文件的函数
+def generate_packmol_input(density, number, pdb_file, pcakmol_input = 'packmol.inp'):
+    box_length = calculate_box_size(density, number, pdb_file) + 4
+
+    input_content = [
+        "tolerance 2.5",
+        "output packmol_output.pdb",
+        "filetype pdb",
+        f"\nstructure {pdb_file}",
+        f"  number {number_of_molecules}",
+        f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}",
+        "end structure"
+    ]
+
+    with open(pcakmol_input, 'w') as file:
+        file.write('\n'.join(input_content))
+
+    return pcakmol_input
 
 
 
