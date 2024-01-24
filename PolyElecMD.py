@@ -426,23 +426,23 @@ def calculate_box_size(density, number, pdb_file):
 
 
 # 定义生成Packmol输入文件的函数
-def generate_packmol_input(density, number, pdb_file, pcakmol_input = 'packmol.inp'):
+def generate_packmol_input(density, number, pdb_file, packmol_input = 'packmol.inp', packmol_out = 'packmol.pdb'):
     box_length = calculate_box_size(density, number, pdb_file) + 4
 
     input_content = [
         "tolerance 2.5",
-        "output packmol_output.pdb",
+        f"output {packmol_out}",
         "filetype pdb",
         f"\nstructure {pdb_file}",
-        f"  number {number_of_molecules}",
+        f"  number {number}",
         f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}",
         "end structure"
     ]
 
-    with open(pcakmol_input, 'w') as file:
+    with open(packmol_input, 'w') as file:
         file.write('\n'.join(input_content))
 
-    return pcakmol_input
+    return packmol_input
 
 
 
