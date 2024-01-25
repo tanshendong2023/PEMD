@@ -90,7 +90,7 @@ def to_resp_gjf(xyz_content, out_file, charge=0, multiplicity=1):
     template = f"""%nprocshared=32
 %mem=64GB
 %chk=resp.chk
-#p HF/6-31G* SCF Pop=MK iop(6/33=2) iop(6/42=6) iop(6/50=1) opt
+# B3LYP/6-311G** em=GD3BJ opt 
 
 opt
 
@@ -413,32 +413,55 @@ from rdkit.Chem import Descriptors
 # 计算分子的相对分子质量
 def calculate_molecular_weight(pdb_file):
     mol = Chem.MolFromPDBFile(pdb_file, removeHs=False)
-    molecular_weight = Descriptors.MolWt(mol)
-    return molecular_weight
+    if mol is not None:
+        molecular_weight = Descriptors.MolWt(mol)
+        return molecular_weight
+    else:
+        raise ValueError(f"Unable to read molecular structure from {pdb_file}")
 
 # 根据密度和分子数量计算盒子大小
-def calculate_box_size(density, number, pdb_file):
-    molecular_weight = calculate_molecular_weight(pdb_file)  # 单位是g/mol
-    total_mass = molecular_weight * number / 6.022e23  # 转换为克
-    total_volume = total_mass / density  # 体积单位是cm^3
-    length = (total_volume * 1e24) ** (1 / 3)  # 转换为埃
+def calculate_box_size(numbers, pdb_files, density):
+    """
+    Calculate the edge length of the box needed based on the quantity of multiple molecules,
+    their corresponding PDB files, and the density of the entire system.
+
+    :param numbers: List of quantities of each type of molecule
+    :param pdb_files: List of PDB files corresponding to each molecule
+    :param system_density: Density of the entire system in g/cm^3
+    :return: Edge length of the box in Angstroms
+    """
+    total_mass = 0
+    for number, pdb_file in zip(numbers, pdb_files):
+        molecular_weight = calculate_molecular_weight(pdb_file)  # in g/mol
+        total_mass += molecular_weight * number / 6.022e23  # accumulate mass of each molecule in grams
+
+    total_volume = total_mass / density  # volume in cm^3
+    length = (total_volume * 1e24) ** (1 / 3)  # convert to Angstroms
     return length
 
 
 # 定义生成Packmol输入文件的函数
-def generate_packmol_input(density, number, pdb_file, packmol_input = 'packmol.inp', packmol_out = 'packmol.pdb'):
-    box_length = calculate_box_size(density, number, pdb_file) + 4
+def generate_packmol_input(density, numbers, pdb_files, packmol_input='packmol.inp', packmol_out='packmol.pdb'):
+    # Calculate the box size for the given molecules and density
+    box_length = calculate_box_size(numbers, pdb_files, density) + 4
 
+    # Initialize the input content with general settings
     input_content = [
         "tolerance 2.5",
         f"output {packmol_out}",
-        "filetype pdb",
-        f"\nstructure {pdb_file}",
-        f"  number {number}",
-        f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}",
-        "end structure"
+        "filetype pdb"
     ]
 
+    # Add the structure information for each molecule type
+    for number, pdb_file in zip(numbers, pdb_files):
+        input_content.extend([
+            f"\nstructure {pdb_file}",
+            f"  number {number}",
+            f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}",
+            "end structure"
+        ])
+
+    # Write the content to the specified Packmol input file
     with open(packmol_input, 'w') as file:
         file.write('\n'.join(input_content))
 
