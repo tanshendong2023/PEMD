@@ -16,6 +16,7 @@ from openbabel import pybel
 import random, os, subprocess
 from rdkit import Chem
 from rdkit.Chem import AllChem
+import pandas as pd
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
@@ -249,9 +250,6 @@ def vis_3Dxyz(xyz_file, width=400, height=400):
     view.zoomTo()
     return view
 
-import os
-import pandas as pd
-
 def read_and_merge_data(topology_path, directory='./', charge_file='RESP2.chg'):
     # 读取拓扑数据
     atoms_df = read_topology_atoms(topology_path)
@@ -427,7 +425,7 @@ def calculate_box_size(numbers, pdb_files, density):
 
     :param numbers: List of quantities of each type of molecule
     :param pdb_files: List of PDB files corresponding to each molecule
-    :param system_density: Density of the entire system in g/cm^3
+    :param density: Density of the entire system in g/cm^3
     :return: Edge length of the box in Angstroms
     """
     total_mass = 0
