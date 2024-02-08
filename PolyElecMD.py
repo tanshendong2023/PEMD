@@ -11,12 +11,19 @@ performance characteristics.
 Developed by: Tan Shendong
 Date: 2023.01.18
 """
-
+import os
+import random
+import subprocess
+import threading
+import py3Dmol
+import pandas as pd
+import datamol as dm
 from openbabel import pybel
-import random, os, subprocess
 from rdkit import Chem
 from rdkit.Chem import AllChem
-import pandas as pd
+from rdkit.Chem import Descriptors
+from IPython.display import display
+
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
@@ -26,7 +33,9 @@ def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     smiles = leftcap_cleaned + full_sequence + rightcap_cleaned
     return smiles
 
-def smiles_to_files(smiles, angle_range=(0, 0), apply_torsion=False, xyz=False, pdb=False, mol2=False, file_prefix=None):
+
+def smiles_to_files(smiles, angle_range=(0, 0), apply_torsion=False, xyz=False, pdb=False, mol2=False,
+                    file_prefix=None):
     if file_prefix is None:
         file_prefix = smiles
     mol = pybel.readstring("smi", smiles)
@@ -51,6 +60,7 @@ def smiles_to_files(smiles, angle_range=(0, 0), apply_torsion=False, xyz=False, 
     if mol2:
         mol.write("mol2", f"{file_prefix}.mol2", overwrite=True)
     # return mol
+
 
 def pdbtoxyz(pdb_file, xyz_file):
     """
@@ -77,6 +87,7 @@ def pdbtoxyz(pdb_file, xyz_file):
         file.write(f"{len(atoms)}\n\n")  # 文件头部，包含原子总数和空白标题行
         for atom in atoms:
             file.write(atom + "\n")
+
 
 def to_resp_gjf(xyz_content, out_file, charge=0, multiplicity=1):
     formatted_coordinates = ""
@@ -147,6 +158,7 @@ epsinf=2.1\n\n"""
     with open(out_file, 'w') as file:
         file.write(gaussian_input)
 
+
 def Conformers_search(smiles, Num, charge=0, multiplicity=1):
     mol = Chem.MolFromSmiles(smiles)
     mol = Chem.AddHs(mol)
@@ -163,13 +175,14 @@ def Conformers_search(smiles, Num, charge=0, multiplicity=1):
             xyz_content += f"{atom.GetSymbol()} {pos.x:.4f} {pos.y:.4f} {pos.z:.4f}\n"
 
         # Create a directory for each conformer
-        dir_name = f"RESP_{conf_id+1}"
+        dir_name = f"RESP_{conf_id + 1}"
         if not os.path.exists(dir_name):
             os.mkdir(dir_name)
 
         # Generate RESP file
-        resp_file = os.path.join(dir_name, f"RESP_{conf_id+1}.gjf")
+        resp_file = os.path.join(dir_name, f"RESP_{conf_id + 1}.gjf")
         to_resp_gjf(xyz_content, resp_file, charge, multiplicity)
+
 
 def write_subscript(partition="long", node=1, core=32):
     for folder in os.listdir('.'):
@@ -190,6 +203,7 @@ g16 $1
                 script_file.write(script_content)
             os.chmod(script_path, 0o755)
 
+
 def submit_gjf_files():
     current_dir = os.getcwd()  # 保存当前工作目录
     for folder in os.listdir('.'):
@@ -208,6 +222,7 @@ def submit_gjf_files():
                 print(f'Missing file in {folder}: {gjf_file} or {script_file}')
             os.chdir(current_dir)  # 切换回原始工作目录
     os.chdir(current_dir)  # 确保函数结束时回到原始目录
+
 
 # 计算RESP电荷拟合
 def run_calcRESP_command():
@@ -228,18 +243,19 @@ def run_calcRESP_command():
             # 返回到原始目录
             os.chdir(current_directory)
 
-import threading
+
 def run_function_in_background(func):
     def wrapper():
         # 封装的函数，用于在后台执行
         func()
+
     # 创建一个线程对象，目标函数是wrapper
     thread = threading.Thread(target=wrapper)
     # 启动线程
     thread.start()
 
+
 # 可视化xyz结构
-import py3Dmol
 def vis_3Dxyz(xyz_file, width=400, height=400):
     with open(xyz_file, 'r') as file:
         xyz_data = file.read()
@@ -250,17 +266,17 @@ def vis_3Dxyz(xyz_file, width=400, height=400):
     view.zoomTo()
     return view
 
+
 def read_and_merge_data(topology_path, directory='./', charge_file='RESP2.chg'):
     # 读取拓扑数据
     atoms_df = read_topology_atoms(topology_path)
-
     # 读取RESP电荷数据并计算平均电荷
     average_charge = read_resp_charges(directory, charge_file)
-
     # 合并数据
     merged_data = atoms_df.join(average_charge['Average_Charge'])
 
     return merged_data
+
 
 def read_topology_atoms(path):
     with open(path, 'r') as file:
@@ -284,6 +300,7 @@ def read_topology_atoms(path):
 
     atoms_df = pd.DataFrame(atoms_data, columns=['Atom', 'opls_type'])
     return atoms_df
+
 
 def read_resp_charges(directory='./', charge_file='RESP2.chg'):
     # Find all directories with "RESP" prefix in the given directory
@@ -314,7 +331,8 @@ def read_resp_charges(directory='./', charge_file='RESP2.chg'):
 
     return ave_charge
 
-def new_charges(df, charge_counts, scale = 1):
+
+def new_charges(df, charge_counts, scale=1):
     # Create a dictionary to store counters for each atom type
     atom_counters = {atom: 0 for atom in df['Atom'].unique()}
 
@@ -348,8 +366,9 @@ def new_charges(df, charge_counts, scale = 1):
             new_charge = (current_charge + last_charge) / 2
             results.append({'Atom': atom, 'opls_type': opls_type, 'Index': index, 'Average_Charge': new_charge})
         else:
-        # if atom_counters[atom] == charge_counts.get(atom, 0) + 1:
-            new_charge = df[df['Atom'] == atom].iloc[charge_counts.get(atom, 0):-charge_counts.get(atom, 0)]['Average_Charge'].mean()
+            # if atom_counters[atom] == charge_counts.get(atom, 0) + 1:
+            new_charge = df[df['Atom'] == atom].iloc[charge_counts.get(atom, 0):-charge_counts.get(atom, 0)][
+                'Average_Charge'].mean()
             results.append({'Atom': atom, 'opls_type': opls_type, 'Index': index, 'Average_Charge': new_charge})
 
     # Create new DataFrame
@@ -378,6 +397,7 @@ def insert_charge_top(input_file, insert_charge, output_file):
                 if df_index >= len(dataframe):
                     break
         return updated_content
+
     # Read the file
     with open(input_file, 'r') as file:
         peo10_top_contents = file.readlines()
@@ -399,14 +419,11 @@ def insert_charge_top(input_file, insert_charge, output_file):
 
     return output_file
 
-import datamol as dm
-from IPython.display import display
 
 def vis_2Dsmiles(smiles, mol_size=(350, 150)):
     img = dm.to_image(smiles, mol_size=mol_size)
     display(img)
 
-from rdkit.Chem import Descriptors
 
 # 计算分子的相对分子质量
 def calculate_molecular_weight(pdb_file):
@@ -416,6 +433,7 @@ def calculate_molecular_weight(pdb_file):
         return molecular_weight
     else:
         raise ValueError(f"Unable to read molecular structure from {pdb_file}")
+
 
 # 根据密度和分子数量计算盒子大小
 def calculate_box_size(numbers, pdb_files, density):
@@ -464,12 +482,3 @@ def generate_packmol_input(density, numbers, pdb_files, packmol_input='packmol.i
         file.write('\n'.join(input_content))
 
     return packmol_input
-
-
-
-
-
-
-
-
-
