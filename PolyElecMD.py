@@ -209,7 +209,7 @@ def write_subscript(partition=None, node=1, core=32, task_type='g16'):
                 script_content += """module load Gaussian
 g16 $1
 """
-            script_path = os.path.join(folder, 'sub_g16.sh')
+            script_path = os.path.join(folder, f'sub_{task_type}.sh')
             with open(script_path, 'w') as script_file:
                 script_file.write(script_content)
             # Use octal literal for setting permissions (755)
