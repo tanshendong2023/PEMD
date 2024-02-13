@@ -184,25 +184,36 @@ def Conformers_search(smiles, Num, charge=0, multiplicity=1):
         to_resp_gjf(xyz_content, resp_file, charge, multiplicity)
 
 
-def write_subscript(partition="long", node=1, core=32):
+import os
+
+def write_subscript(partition=None, node=1, core=32, task_type='g16'):
     for folder in os.listdir('.'):
         if os.path.isdir(folder) and folder.startswith('RESP'):
+            # Start building the script content with common headers
             script_content = f"""#!/bin/bash
-#SBATCH -J g16
-#SBATCH -p {partition}
-#SBATCH -N {node}
+#SBATCH -J {task_type}
+"""
+            # Add the partition line only if the partition parameter is provided
+            if partition:
+                script_content += f"#SBATCH -p {partition}\n"
+
+            # Continue adding the rest of the script content
+            script_content += f"""#SBATCH -N {node}
 #SBATCH -n {core}           
 #SBATCH -o stdout.%j
-#SBATCH -e stderr.%j
+#SBATCH -e stderr.%j\n
+"""
 
-module load Gaussian
+            # Add Gaussian module loading and execution command only for 'g16' tasks
+            if task_type == 'g16':
+                script_content += """module load Gaussian
 g16 $1
 """
             script_path = os.path.join(folder, 'sub_g16.sh')
             with open(script_path, 'w') as script_file:
                 script_file.write(script_content)
+            # Use octal literal for setting permissions (755)
             os.chmod(script_path, 0o755)
-
 
 def submit_gjf_files():
     current_dir = os.getcwd()  # 保存当前工作目录
