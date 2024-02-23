@@ -11,7 +11,7 @@ Date: 2024.02.23
 
 import py3Dmol
 import subprocess
-def visualize3D(input_file, supercell=[1,1,1]):
+def vis_3D(input_file, supercell=[1,1,1]):
   if input_file.split(".")[-1] == 'vasp':
     subprocess.run(['obabel', '-iposcar', input_file, '-ocif', '-Omodel_wCell.cif'])
     input_file = "model_wCell.cif"
