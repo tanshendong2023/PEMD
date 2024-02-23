@@ -10,9 +10,10 @@ Date: 2024.02.23
 """
 
 import py3Dmol
+import subprocess
 def visualize3D(input_file, supercell=[1,1,1]):
   if input_file.split(".")[-1] == 'vasp':
-    !obabel -iposcar $input_file -ocif > model_wCell.cif
+    subprocess.run(['obabel', '-iposcar', input_file, '-ocif', '-Omodel_wCell.cif'])
     input_file = "model_wCell.cif"
   with open(input_file) as ifile:
       print(input_file)
