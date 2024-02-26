@@ -14,8 +14,8 @@ argparse
 numpy
 """
 
-from LigParGen.BOSSReader import ucomb,pairing_func,bossPdbAtom2Element,bossElement2Mass
-from LigParGen.BOSSReader import Refine_PDB_file,get_coos_from_pdb
+from LigParGenPEMD.BOSSReader import ucomb,pairing_func,bossPdbAtom2Element,bossElement2Mass
+from LigParGenPEMD.BOSSReader import Refine_PDB_file,get_coos_from_pdb
 import pickle
 import pandas as pd
 import numpy as np
