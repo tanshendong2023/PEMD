@@ -113,7 +113,6 @@ def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     smiles = leftcap_cleaned + full_sequence + rightcap_cleaned
     return smiles
 
-
 def smiles_to_files(smiles, angle_range=(0, 0), apply_torsion=False, xyz=False, pdb=False, mol2=False,
                     file_prefix=None):
     if file_prefix is None:
