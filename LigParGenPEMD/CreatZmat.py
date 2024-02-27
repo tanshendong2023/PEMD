@@ -12,7 +12,7 @@ Created on Wed Jun 14 2017
 """
 import os
 import numpy as np
-from LigParGenPSP.Vector_algebra import (
+from LigParGenPEMD.Vector_algebra import (
     pairing_func,
     angle,
     dihedral,
@@ -25,17 +25,14 @@ import collections
 import networkx as nx
 import time
 
-
 def AsitIsZmat(ifile, optim, resid):
     iform = ifile.split('.')
     # CREATE A MOL FILE FROM ANY FILE
+    print(iform)
     if iform[1] == 'smi':
-        os.system('obabel -i%s %s -omol %s.mol --gen3D' % (iform[1], ifile, iform[0]))
+        os.system('obabel -i%s %s -O %s.mol --gen3D' % (iform[1], ifile, iform[0]))
     else:
-        os.system(
-            'obabel -i%s %s -omol %s.mol ---errorlevel 1 -b &>LL'
-            % (iform[1], ifile, iform[0])
-        )
+        os.system('obabel -i%s %s -O %s.mol ---errorlevel 1 -b &>LL' % (iform[1], ifile, iform[0]))
     while not os.path.exists(iform[0] + '.mol'):
         time.sleep(1)
     mollines = open(iform[0] + '.mol', 'r').readlines()
@@ -110,7 +107,6 @@ def Get_OPT(zmat, optim, charge):
     os.system('/bin/cp sum %s' % (zmat))
     return None
 
-
 def ReadMolFile(mollines):
     [nats, nbonds] = map(int, (mollines[3][0:3], mollines[3][3:6]))
     cooslines = mollines[4: 4 + nats]
@@ -129,7 +125,6 @@ def ReadMolFile(mollines):
         bonds['RIJ'].append(Distance(coos[bi], coos[bj]))
         bonds['UID'].append(pairing_func(bi, bj))
     return (coos, atypes, bonds)
-
 
 def make_graphs(atoms, coos, bonds):
     G = nx.DiGraph()
@@ -172,7 +167,6 @@ def make_graphs(atoms, coos, bonds):
         'IMPROPERS': all_imps,
     }
     return (G, MOL_ICOORDS)
-
 
 def Get_Add_Int(mol_icords, Z_BONDS, Z_ANGLES, Z_TORSIONS):
     all_bonds_mol, all_angles_mol, all_torsions_mol = (
