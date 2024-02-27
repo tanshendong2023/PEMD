@@ -31,6 +31,14 @@ def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir,
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
 
+    # location of input XYZ files
+    xyz_in_dir = 'work_dir/xyz-in/'
+    PEMD_lib.build_dir(xyz_in_dir)
+
+    # location of input XYZ files
+    xyz_in_dir = 'work_dir/xyz-in/'
+    PEMD_lib.build_dir(xyz_in_dir)
+
     # Dataframe
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
     df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
