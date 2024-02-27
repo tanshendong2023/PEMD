@@ -28,7 +28,6 @@ import time
 def AsitIsZmat(ifile, optim, resid):
     iform = ifile.split('.')
     # CREATE A MOL FILE FROM ANY FILE
-    print(iform)
     if iform[1] == 'smi':
         os.system('obabel -i%s %s -O %s.mol --gen3D' % (iform[1], ifile, iform[0]))
     else:
@@ -59,15 +58,19 @@ def CanonicaliedZmat(ifile, optim, resid):
 
 
 def GenMolRep(ifile, optim, resid, charge):
+    print('1')
     iform = ifile.split('.')
     try:
         AsitIsZmat(ifile, optim, resid)
+        print('2')
     except ZeroDivisionError:
         print(
             'Warning!!\n 1.Cannonicalising Input MOL/PDB file\n 2.Atom ordering may change \n 3.But the Coordinates remain the same'
         )
         CanonicaliedZmat(ifile, optim, resid)
+    print('3')
     Get_OPT('%s.z' % resid, optim, charge)
+    print('4')
     if os.path.exists('clu.pdb'):
         os.system('/bin/rm clu.pdb')
     if iform[1] == 'pdb':
@@ -85,6 +88,7 @@ def GenMolRep(ifile, optim, resid, charge):
 
 
 def Get_OPT(zmat, optim, charge):
+    print('5')
     assert os.path.isfile(zmat), 'File named %10s does not exist' % zmat
     assert (
         'BOSSdir' in os.environ
@@ -98,9 +102,13 @@ def Get_OPT(zmat, optim, charge):
     }
     print('MOLECULE HAS A CHARGE of %d' % charge)
     execfile = execs[charge]
+    print('6')
     coma = execfile + ' ' + zmat[:-2]
+    print('7')
     os.system(coma)
+    print('8')
     os.system('cp sum %s' % (zmat))
+    print('9')
     execfile = os.environ['BOSSdir'] + '/scripts/xSPM > olog'
     coma = execfile + ' ' + zmat[:-2]
     os.system(coma)

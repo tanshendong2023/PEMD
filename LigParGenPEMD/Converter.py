@@ -121,11 +121,9 @@ def convert(**kwargs):
         'resname': 'UNK',
         'pdb': None,
     }
-    print('2')
 
     # update the default values based on the arguments
     options.update(kwargs)
-    print('3')
 
     # set the arguments that you would used to get from argparse
     opt = options['opt']
@@ -143,7 +141,6 @@ def convert(**kwargs):
         optim = 0
 
     clu = False
-    print('4')
     # assert (which('obabel')
     # is not None), "OpenBabel is Not installed or \n the executable location is not accessable"
     if os.path.exists(outdir + resname + '.xml'):
@@ -157,16 +154,13 @@ def convert(**kwargs):
             print(
                 '1.14*CM1A-LBCC is only available for neutral molecules\n Assigning unscaled CM1A charges'
             )
-    print('5')
     if smiles is not None:
         print('smiles')
         os.chdir(outdir)
         smifile = open('%s.smi' % resname, 'w+')
         smifile.write('%s' % smiles)
         smifile.close()
-        print('6')
         GenMolRep('%s.smi' % resname, optim, resname, charge)
-        print('7')
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif mol is not None:
         if not os.path.exists(os.path.join(outdir, mol)):
@@ -183,13 +177,7 @@ def convert(**kwargs):
         obConversion.ReadFile(mole, pdb)
         mol = pdb.replace('pdb', 'mol')
         obConversion.WriteFile(mole, mol)
-        print(mol)
         GenMolRep(mol, optim, resname, charge)
-        print('%s.z' % resname)
-        print('%s' % outdir)
-        print(optim)
-        print(charge)
-        print(lbcc)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
         clu = True
 
@@ -199,7 +187,6 @@ def convert(**kwargs):
     assert CheckForHs(
         mol.MolData['ATOMS']
     ), "Hydrogens are not added. Please add Hydrogens"
-    print('6')
     pickle.dump(mol, open(resname + ".p", "wb"))
     mainBOSS2LAMMPS(resname, clu)
     print('DONE WITH LAMMPS')

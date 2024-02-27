@@ -296,7 +296,6 @@ def Refine_file(fname):
     flines.close()
     return lines
 
-
 class BOSSReader(object):
     def __init__(self, zmatrix, outdir, optim, charge=0, lbcc=False):
         self.zmat = zmatrix
