@@ -20,3 +20,8 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+__pycache__/
+*.pyc
+LigParGenPEMD/__pycache__/
+PEMD/__init__.py
