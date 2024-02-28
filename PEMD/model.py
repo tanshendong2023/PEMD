@@ -25,19 +25,11 @@ from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
 
-def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir,
-             Length, xyz_in_dir, NumConf, OPLS, NCores_opt,):
+def build_3D(unit_name, repeating_unit, leftcap, rightcap,
+             out_dir,Length, NumConf, OPLS, NCores_opt,):
     # location of directory for VASP inputs (polymers) and build a directory
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
-
-    # location of input XYZ files
-    xyz_in_dir = 'work_dir/xyz-in/'
-    PEMD_lib.build_dir(xyz_in_dir)
-
-    # location of input XYZ files
-    xyz_in_dir = 'work_dir/xyz-in/'
-    PEMD_lib.build_dir(xyz_in_dir)
 
     # Dataframe
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
@@ -73,7 +65,7 @@ def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir,
                 smiles_each_ind = Chem.MolToSmiles(mol_new)
             else:
                 (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info,oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_each, xyz_in_dir, Length)
+                    = PEMD_lib.Init_info(unit_name, smiles_each, Length)
 
                 if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == Length[-1]:
                     return unit_name, 'REJECT', Final_SMILES
@@ -82,13 +74,13 @@ def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir,
                 # Join end caps
                 smiles_each_ind = (
                     PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                 smiles_LCap_, smiles_RCap_, LCap_, RCap_, xyz_in_dir,)
+                                                 smiles_LCap_, smiles_RCap_, LCap_, RCap_,)
                 )
 
         elif ln > 1:
             # smiles_each = copy.copy(smiles_each_copy)
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, xyz_in_dir, Length)
+                = PEMD_lib.Init_info(unit_name, smiles_each, Length)
 
             if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == Length[-1]:
                 return unit_name, 'REJECT', Final_SMILES
@@ -96,7 +88,7 @@ def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir,
                 return unit_name, 'PARTIAL SUCCESS', Final_SMILES
 
             smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                           ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_, xyz_in_dir,)
+                                                           ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
 
         m1 = Chem.MolFromSmiles(smiles_each_ind)
         if m1 is None and len(Final_SMILES) == 0 and ln == Length[-1]:
