@@ -21,7 +21,5 @@ rad.json
 #Test results file
 TestResults.xml
 
-__pycache__/
 *.pyc
-LigParGenPEMD/__pycache__/
-PEMD/__init__.py
+__pycache__/
