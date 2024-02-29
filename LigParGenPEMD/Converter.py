@@ -175,7 +175,8 @@ def convert(**kwargs):
         # print(files_and_directories_2)
         # print(os.path.join(outdir, pdb))
         # print(pdb)
-        if not os.path.exists(pdb):
+        pdb_filename = os.path.basename(pdb)
+        if not os.path.exists(os.path.join(outdir, pdb_filename)):
             # current_path = os.getcwd()
             # print(current_path)
             # print(outdir)
@@ -184,8 +185,8 @@ def convert(**kwargs):
         os.chdir(outdir)
         # Convert pdb to mol using Obabelv3
         mole = ob.OBMol()
-        obConversion.ReadFile(mole, pdb)
-        mol = pdb.replace('pdb', 'mol')
+        obConversion.ReadFile(mole, pdb_filename)
+        mol = pdb_filename.replace('pdb', 'mol')
         obConversion.WriteFile(mole, mol)
         GenMolRep(mol, optim, resname, charge)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
