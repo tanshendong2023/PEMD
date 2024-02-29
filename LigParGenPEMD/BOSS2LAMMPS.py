@@ -20,10 +20,10 @@ import pandas as pd
 import numpy as np
 
 
-def Boss2LammpsLMP(resid, num2typ2symb, Qs, bnd_df, ang_df, tor_df, molecule_data):
+def Boss2LammpsLMP(resid, num2typ2symb, Qs, bnd_df, ang_df, tor_df, molecule_data, ln):
     xyz_df = molecule_data.MolData["XYZ"]
     max_mol_size = 50
-    prm = open(resid + ".lmp", "w+")
+    prm = open('{}_N{}.lmp'.format(resid, ln), "w+")
     prm.write("LAMMPS data file Created by - (Written by Leela S. Dodda)\n\n")
     prm.write("%8d atoms\n" % len(Qs))
     prm.write("%8d bonds\n" % len(bnd_df.KIJ))
@@ -230,15 +230,15 @@ def bossData(molecule_data):
     return (types, Qs, num2opls, st_no, num2typ2symb)
 
 
-def Boss2Lammps(resid, molecule_data):
+def Boss2Lammps(resid, molecule_data, ln):
     types, Qs, num2opls, st_no, num2typ2symb = bossData(molecule_data)
     bnd_df = boss2CharmmBond(molecule_data, st_no)
     ang_df = boss2CharmmAngle(molecule_data.MolData["ANGLES"], num2opls, st_no)
     tor_df = Boss2CharmmTorsion(bnd_df, num2opls, st_no, molecule_data, num2typ2symb)
-    Boss2LammpsLMP(resid, num2typ2symb, Qs, bnd_df, ang_df, tor_df, molecule_data)
+    Boss2LammpsLMP(resid, num2typ2symb, Qs, bnd_df, ang_df, tor_df, molecule_data, ln)
     return None
 
-def mainBOSS2LAMMPS(resid, clu=False):
+def mainBOSS2LAMMPS(resid, ln, clu=False):
     mol = pickle.load(open(resid + ".p", "rb"))
-    Boss2Lammps(resid, mol)
+    Boss2Lammps(resid, mol, ln)
     return None

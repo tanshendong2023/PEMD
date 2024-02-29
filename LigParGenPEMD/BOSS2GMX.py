@@ -194,8 +194,8 @@ def bossData(molecule_data):
     return (types, Qs, num2opls, st_no, num2typ2symb)
 
 
-def pdb2gro(atoms, coos, resid):
-    grof = open(resid + '.gro', 'w+')
+def pdb2gro(atoms, coos, resid, ln):
+    grof = open('{}_N{}.gro'.format(resid, ln), 'w+')
     grof.write('LIGPARGEN GENERATED GRO FILE\n')
     grof.write('%5d\n' % len(atoms))
     num = 0
@@ -218,7 +218,7 @@ def boss2gmxAtom(resid, num2typ2symb, Qs, itpf):
     return None
 
 
-def boss2gmx(resid, molecule_data, pdb_file):
+def boss2gmx(resid, molecule_data, pdb_file, ln):
     types, Qs, num2opls, st_no, num2typ2symb = bossData(
         molecule_data)
     itpf = open(resid + '.itp', 'w+')
@@ -281,15 +281,15 @@ def boss2gmx(resid, molecule_data, pdb_file):
     itpf.close()
     pdblines = Refine_PDB_file(pdb_file)
     atoms, coos = get_coos_from_pdb(pdblines)
-    pdb2gro(atoms, coos, resid)
+    pdb2gro(atoms, coos, resid, ln)
     return None
 
 
-def mainBOSS2GMX(resid, clu):
+def mainBOSS2GMX(resid, clu, ln):
     mol = pickle.load(open(resid + ".p", "rb"))
     if clu:
         pdb_file = 'clu.pdb'
     else:
         pdb_file = 'plt.pdb'
-    boss2gmx(resid, mol, pdb_file)
+    boss2gmx(resid, mol, pdb_file, ln)
     return None

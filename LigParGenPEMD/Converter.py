@@ -120,6 +120,7 @@ def convert(**kwargs):
         'mol': None,
         'resname': 'UNK',
         'pdb': None,
+        'ln': None,
     }
 
     # update the default values based on the arguments
@@ -135,6 +136,7 @@ def convert(**kwargs):
     mol = options['mol']
     pdb = options['pdb']
     outdir = options['outdir']
+    ln =  options['ln']
     if opt is not None:
         optim = opt
     else:
@@ -169,18 +171,8 @@ def convert(**kwargs):
         GenMolRep(mol, optim, resname, charge)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif pdb is not None:
-        # files_and_directories_1 = os.listdir()
-        # print(files_and_directories_1)
-        # files_and_directories_2 = os.listdir(outdir)
-        # print(files_and_directories_2)
-        # print(os.path.join(outdir, pdb))
-        # print(pdb)
         pdb_filename = os.path.basename(pdb)
         if not os.path.exists(os.path.join(outdir, pdb_filename)):
-            # current_path = os.getcwd()
-            # print(current_path)
-            # print(outdir)
-            # print('no pdb file')
             os.system('cp %s %s' % (pdb, outdir))
         os.chdir(outdir)
         # Convert pdb to mol using Obabelv3
@@ -200,9 +192,9 @@ def convert(**kwargs):
 
     print('1')
     pickle.dump(mol, open(resname + ".p", "wb"))
-    mainBOSS2LAMMPS(resname, clu)
+    mainBOSS2LAMMPS(resname, clu, ln)
     print('DONE WITH LAMMPS')
-    mainBOSS2GMX(resname, clu)
+    mainBOSS2GMX(resname, clu, ln)
     print('DONE WITH GROMACS')
 
     # Cleanup
