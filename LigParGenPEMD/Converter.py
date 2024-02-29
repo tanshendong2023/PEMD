@@ -190,7 +190,7 @@ def convert(**kwargs):
     pickle.dump(mol, open(resname + ".p", "wb"))
     mainBOSS2LAMMPS(resname, clu)
     print('DONE WITH LAMMPS')
-    mainBOSS2LAMMPS(resname, clu)
+    mainBOSS2GMX(resname, clu)
     print('DONE WITH GROMACS')
 
     # Cleanup
