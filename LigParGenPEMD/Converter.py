@@ -120,7 +120,6 @@ def convert(**kwargs):
         'mol': None,
         'resname': 'UNK',
         'pdb': None,
-        'outdir': 'out_dir',
     }
 
     # update the default values based on the arguments
@@ -135,7 +134,6 @@ def convert(**kwargs):
     resname = options['resname']
     mol = options['mol']
     pdb = options['pdb']
-    outdir = options['out_dir']
     if opt is not None:
         optim = opt
     else:
@@ -173,6 +171,7 @@ def convert(**kwargs):
         if not os.path.exists(os.path.join(outdir, pdb)):
             current_path = os.getcwd()
             print(current_path)
+            print(outdir)
             print('no pdb file')
             os.system('cp %s %s' % (pdb, outdir))
         os.chdir(outdir)
