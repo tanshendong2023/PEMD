@@ -134,7 +134,7 @@ def convert(**kwargs):
     resname = options['resname']
     mol = options['mol']
     pdb = options['pdb']
-    outdir = options['outdir']
+    outdir = options['out_dir']
     if opt is not None:
         optim = opt
     else:
