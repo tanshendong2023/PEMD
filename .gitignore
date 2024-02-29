@@ -23,3 +23,6 @@ TestResults.xml
 
 *.pyc
 __pycache__/
+
+PEMD/__init__.py
+LigParGenPEMD/__init__.py
