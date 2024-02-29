@@ -144,8 +144,8 @@ def convert(**kwargs):
     clu = False
     # assert (which('obabel')
     # is not None), "OpenBabel is Not installed or \n the executable location is not accessable"
-    # if os.path.exists(outdir + resname + '.xml'):
-    #     os.system('/bin/rm ' + outdir + resname + '.*')
+    if os.path.exists(outdir + resname + '.xml'):
+        os.system('/bin/rm ' + outdir + resname + '.*')
     if lbcc:
         if charge == 0:
             lbcc = True
@@ -170,6 +170,7 @@ def convert(**kwargs):
         GenMolRep(mol, optim, resname, charge)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif pdb is not None:
+        print(outdir)
         if not os.path.exists(os.path.join(outdir, pdb)):
             os.system('cp %s %s' % (pdb, outdir))
         os.chdir(outdir)
