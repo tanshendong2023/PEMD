@@ -169,17 +169,17 @@ def convert(**kwargs):
         GenMolRep(mol, optim, resname, charge)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif pdb is not None:
-        files_and_directories_1 = os.listdir()
-        print(files_and_directories_1)
-        files_and_directories_2 = os.listdir(outdir)
-        print(files_and_directories_2)
-        print(os.path.join(outdir, pdb))
-        print(pdb)
-        if not os.path.exists(os.path.join(outdir, pdb)):
-            current_path = os.getcwd()
-            print(current_path)
-            print(outdir)
-            print('no pdb file')
+        # files_and_directories_1 = os.listdir()
+        # print(files_and_directories_1)
+        # files_and_directories_2 = os.listdir(outdir)
+        # print(files_and_directories_2)
+        # print(os.path.join(outdir, pdb))
+        # print(pdb)
+        if not os.path.exists(pdb):
+            # current_path = os.getcwd()
+            # print(current_path)
+            # print(outdir)
+            # print('no pdb file')
             os.system('cp %s %s' % (pdb, outdir))
         os.chdir(outdir)
         # Convert pdb to mol using Obabelv3
