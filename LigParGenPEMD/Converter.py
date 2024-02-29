@@ -188,9 +188,9 @@ def convert(**kwargs):
         mol.MolData['ATOMS']
     ), "Hydrogens are not added. Please add Hydrogens"
     pickle.dump(mol, open(resname + ".p", "wb"))
-    mainBOSS2LAMMPS(resname, clu)
+    mainBOSS2LAMMPS(resname, clu = True)
     print('DONE WITH LAMMPS')
-    mainBOSS2GMX(resname, clu = True)
+    mainBOSS2GMX(resname, clu = False)
     print('DONE WITH GROMACS')
 
     # Cleanup
