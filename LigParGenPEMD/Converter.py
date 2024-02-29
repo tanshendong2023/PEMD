@@ -171,7 +171,6 @@ def convert(**kwargs):
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif pdb is not None:
         if not os.path.exists(os.path.join(outdir, pdb)):
-            print('no pdb file')
             os.system('cp %s %s' % (pdb, outdir))
         os.chdir(outdir)
         # Convert pdb to mol using Obabelv3
@@ -188,6 +187,8 @@ def convert(**kwargs):
     assert CheckForHs(
         mol.MolData['ATOMS']
     ), "Hydrogens are not added. Please add Hydrogens"
+
+    print('1')
     pickle.dump(mol, open(resname + ".p", "wb"))
     mainBOSS2LAMMPS(resname, clu)
     print('DONE WITH LAMMPS')
