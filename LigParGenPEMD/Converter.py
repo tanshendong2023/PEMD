@@ -170,7 +170,7 @@ def convert(**kwargs):
         GenMolRep(mol, optim, resname, charge)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif pdb is not None:
-        print(outdir)
+        # print(outdir)
         if not os.path.exists(os.path.join(outdir, pdb)):
             os.system('cp %s %s' % (pdb, outdir))
         os.chdir(outdir)
