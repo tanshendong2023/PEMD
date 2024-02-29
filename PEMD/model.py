@@ -11,7 +11,6 @@ performance characteristics.
 Developed by: Tan Shendong
 Date: 2023.01.18
 """
-import os
 import random
 import subprocess
 import threading
@@ -25,8 +24,7 @@ from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
 
-def build_3D(unit_name, repeating_unit, leftcap, rightcap,
-             out_dir,Length, NumConf, OPLS, NCores_opt,):
+def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, NumConf, OPLS, NCores_opt,):
     # location of directory for VASP inputs (polymers) and build a directory
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
@@ -55,6 +53,7 @@ def build_3D(unit_name, repeating_unit, leftcap, rightcap,
     smiles_each = df_smiles[df_smiles['ID'] == unit_name]['SMILES'].values[0]
 
     # count = 0
+    smiles_each_ind = None
     Final_SMILES = []
     for ln in Length:
         # start_1 = time.time()
