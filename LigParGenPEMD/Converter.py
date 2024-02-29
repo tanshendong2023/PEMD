@@ -173,6 +173,7 @@ def convert(**kwargs):
         print(files_and_directories_1)
         files_and_directories_2 = os.listdir(outdir)
         print(files_and_directories_2)
+        print(os.path.join(outdir, pdb))
         if not os.path.exists(os.path.join(outdir, pdb)):
             current_path = os.getcwd()
             print(current_path)
