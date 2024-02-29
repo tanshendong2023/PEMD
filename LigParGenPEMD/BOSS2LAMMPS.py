@@ -238,7 +238,6 @@ def Boss2Lammps(resid, molecule_data):
     Boss2LammpsLMP(resid, num2typ2symb, Qs, bnd_df, ang_df, tor_df, molecule_data)
     return None
 
-
 def mainBOSS2LAMMPS(resid, clu=False):
     mol = pickle.load(open(resid + ".p", "rb"))
     Boss2Lammps(resid, mol)

@@ -24,7 +24,7 @@ from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
 
-def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, NumConf=1, OPLS = True, NCores_opt = 1,):
+def build_3D(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1,):
     # location of directory for VASP inputs (polymers) and build a directory
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)

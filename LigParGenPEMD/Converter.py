@@ -1,5 +1,6 @@
 from LigParGenPEMD.BOSSReader import BOSSReader, CheckForHs
 from LigParGenPEMD.BOSS2LAMMPS import mainBOSS2LAMMPS
+from LigParGenPEMD.BOSS2GMX import mainBOSS2GMX
 from LigParGenPEMD.CreatZmat import GenMolRep
 import argparse
 import pickle
@@ -179,8 +180,7 @@ def convert(**kwargs):
         obConversion.WriteFile(mole, mol)
         GenMolRep(mol, optim, resname, charge)
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
-        clu = True
-
+        # clu = True
     assert (
         mol.MolData['TotalQ']['Reference-Solute'] == charge
     ), "PROPOSED CHARGE IS NOT POSSIBLE: SOLUTE MAY BE AN OPEN SHELL"
@@ -190,6 +190,8 @@ def convert(**kwargs):
     pickle.dump(mol, open(resname + ".p", "wb"))
     mainBOSS2LAMMPS(resname, clu)
     print('DONE WITH LAMMPS')
+    mainBOSS2LAMMPS(resname, clu)
+    print('DONE WITH GROMACS')
 
     # Cleanup
     list_files = [
