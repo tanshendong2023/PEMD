@@ -120,6 +120,7 @@ def convert(**kwargs):
         'mol': None,
         'resname': 'UNK',
         'pdb': None,
+        'outdir': 'out_dir',
     }
 
     # update the default values based on the arguments
