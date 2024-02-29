@@ -170,6 +170,7 @@ def convert(**kwargs):
         mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
     elif pdb is not None:
         files_and_directories = os.listdir()
+        print(files_and_directories)
         if not os.path.exists(os.path.join(outdir, pdb)):
             current_path = os.getcwd()
             print(current_path)
