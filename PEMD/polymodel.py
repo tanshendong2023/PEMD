@@ -98,6 +98,20 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         elif ln == Length[-1]:
             return unit_name, 'SUCCESS', Final_SMILES
 
+    import os
+    # 保存当前工作目录的路径
+    original_dir = os.getcwd()
+    # 目标目录的路径
+    target_dir = './'
+    # 切换到目标目录
+    os.chdir(target_dir)
+    # 在目标目录下执行你的操作...
+    # 例如：print(os.listdir('.'))  # 列出目标目录下的文件和目录
+    # 执行操作后，返回到原始工作目录
+    os.chdir(original_dir)
+    # 验证是否回到了原始目录
+    print("当前目录:", os.getcwd())
+
 def build_polymer(unit_name, repeating_unit, leftcap, rightcap, rot_angles_monomer, rot_angles_dimer,
                   Steps, Substeps, num_conf, length, method, IntraChainCorr, Tol_ChainCorr, Inter_Chain_Dis,):
 
