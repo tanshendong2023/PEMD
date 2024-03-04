@@ -189,7 +189,7 @@ def convert(**kwargs):
     assert CheckForHs(
         mol.MolData['ATOMS']
     ), "Hydrogens are not added. Please add Hydrogens"
-    
+
     pickle.dump(mol, open(resname + ".p", "wb"))
     mainBOSS2LAMMPS(resname, clu, ln)
     print('DONE WITH LAMMPS')
