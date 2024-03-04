@@ -20,12 +20,12 @@ from IPython.display import display
 from PEMD import PEMD_lib
 
 def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1,):
-    # location of directory for VASP inputs (polymers) and build a directory
+    # get origin dir
+    original_dir = os.getcwd()
+
+    # build a directory
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
-
-    # 保存当前工作目录的路径
-    original_dir = os.getcwd()
 
     # Dataframe
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
@@ -95,16 +95,14 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
 
         Final_SMILES.append(smiles_each_ind)
 
-        NumC = PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, NumConf, NCores_opt, OPLS, )
+        PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, NumConf, NCores_opt, OPLS, )
         # if NumC == 0 and ln == Length[-1]:
         #     return unit_name, 'FAILURE', Final_SMILES
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
-    
-    # 执行操作后，返回到原始工作目录
+
+    # go back the origin dir
     os.chdir(original_dir)
-    # 验证是否回到了原始目录
-    print("当前目录:", os.getcwd())
 
 def build_polymer(unit_name, repeating_unit, leftcap, rightcap, rot_angles_monomer, rot_angles_dimer,
                   Steps, Substeps, num_conf, length, method, IntraChainCorr, Tol_ChainCorr, Inter_Chain_Dis,):
