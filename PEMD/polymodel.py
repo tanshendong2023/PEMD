@@ -92,11 +92,12 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         Final_SMILES.append(smiles_each_ind)
 
         NumC = PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, NumConf, NCores_opt, OPLS, )
-
+        print("hello")
         if NumC == 0 and ln == Length[-1]:
             return unit_name, 'FAILURE', Final_SMILES
         elif ln == Length[-1]:
             return unit_name, 'SUCCESS', Final_SMILES
+        print("hello")
     print("hello")
     # import os
     # # 保存当前工作目录的路径
