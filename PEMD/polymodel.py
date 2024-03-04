@@ -100,7 +100,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
     # 保存当前工作目录的路径
     original_dir = os.getcwd()
     # 目标目录的路径
-    target_dir = './'
+    target_dir = '../'
     # 切换到目标目录
     os.chdir(target_dir)
     # 在目标目录下执行你的操作...
