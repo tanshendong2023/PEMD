@@ -87,6 +87,8 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
             smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
                                                            ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
 
+        print(os.getcwd())
+        os.remove('./' + unit_name + '.xyz')
         m1 = Chem.MolFromSmiles(smiles_each_ind)
         if m1 is None and len(Final_SMILES) == 0 and ln == Length[-1]:
             return unit_name, 'REJECT', Final_SMILES
