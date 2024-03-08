@@ -105,11 +105,24 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
     print(os.getcwd())
+    conformer_search(out_dir, working_dir='./')
 
     # go back the origin dir
     os.chdir(original_dir)
-    
 
+
+def conformer_search(out_dir, working_dir='./'):
+    # 使用Open Babel进行构象搜索，输出文件名直接使用，工作目录由run_command处理
+    obabel_command = f"obabel {out_dir}.mol -O traj.xyz --confab --verbose --conf 10000"
+    obabel_stdout, obabel_stderr = PEMD_lib.run_command(obabel_command, working_dir)
+
+    # 使用crest进行分子动力学优化，工作目录设置为out_dir
+    crest_command = f"crest -mdopt traj.xyz -niceprint"
+    crest_stdout, crest_stderr = PEMD_lib.run_command(crest_command, working_dir)
+
+    # 保存能量最低的n个结构为列表，并生成gaussian输入文件
+    lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_ensemble.xyz', 2)
+    PEMD_lib.save_structures(lowest_energy_structures, 'PEO')
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
