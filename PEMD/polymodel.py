@@ -7,6 +7,7 @@ Date: 2023.01.18
 
 import os
 import random
+import time
 import subprocess
 import threading
 import py3Dmol
@@ -130,9 +131,18 @@ def conformer_search(unit_name, ln, n, working_dir):
 
     slurm.sbatch(f'crest {mol_file}.xyz --gfn2 - T 32 - niceprint')
 
-    # 保存能量最低的n个结构为列表，并生成gaussian输入文件
-    lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_ensemble.xyz', n)
-    PEMD_lib.save_structures(lowest_energy_structures, 'PEO')
+    # 检查文件是否存在
+    while True:
+        if os.path.exists('crest_ensemble.xyz'):
+            print("crest finish, executing the gaussian task...")
+            # 保存能量最低的n个结构为列表，并生成gaussian输入文件
+            lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_ensemble.xyz', n)
+            PEMD_lib.save_structures(lowest_energy_structures, 'PEO')
+            break  # 任务执行完毕后跳出循环
+        else:
+            print("crest not finish, waiting...")
+            time.sleep(30)  # 等待30秒后再次检查
+
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
@@ -291,8 +301,6 @@ def Conformers_search(smiles, Num, charge=0, multiplicity=1):
         resp_file = os.path.join(dir_name, f"RESP_{conf_id + 1}.gjf")
         to_resp_gjf(xyz_content, resp_file, charge, multiplicity)
 
-
-import os
 
 def write_subscript(partition=None, node=1, core=32, task_type='g16'):
     for folder in os.listdir('.'):
