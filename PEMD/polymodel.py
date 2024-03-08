@@ -104,6 +104,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         #     return unit_name, 'FAILURE', Final_SMILES
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
+    print(os.getcwd())
 
     # go back the origin dir
     os.chdir(original_dir)
