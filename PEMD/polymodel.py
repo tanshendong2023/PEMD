@@ -105,6 +105,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
     print(os.getcwd())
+
     if conf is True:
         conformer_search(out_dir, working_dir='./')
 
@@ -114,9 +115,10 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
 
 def conformer_search(out_dir, working_dir='./'):
     # 使用Open Babel进行构象搜索，输出文件名直接使用，工作目录由run_command处理
+    print(os.getcwd())
     obabel_command = f"obabel {out_dir}.mol -O traj.xyz --confab --verbose --conf 10000"
     obabel_stdout, obabel_stderr = PEMD_lib.run_command(obabel_command, working_dir)
-
+    print(os.getcwd())
     # 使用crest进行分子动力学优化，工作目录设置为out_dir
     crest_command = f"crest -mdopt traj.xyz -niceprint"
     crest_stdout, crest_stderr = PEMD_lib.run_command(crest_command, working_dir)
