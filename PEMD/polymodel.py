@@ -107,16 +107,17 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
     print(os.getcwd())
 
     if conf is True:
-        conformer_search(out_dir, working_dir= os.getcwd())
+        conformer_search(unit_name, Length, working_dir= os.getcwd())
 
     # go back the origin dir
     os.chdir(original_dir)
 
 
-def conformer_search(out_dir, working_dir):
+def conformer_search(unit_name, Length, working_dir):
     # 使用Open Babel进行构象搜索，输出文件名直接使用，工作目录由run_command处理
     print(os.getcwd())
-    obabel_command = f"obabel {out_dir}.mol -O traj.xyz --confab --verbose --conf 10000"
+    mol_file = unit_name + '_N' + str(Length)
+    obabel_command = f"obabel {mol_file}.mol -O traj.xyz --confab --verbose --conf 10000"
     print(obabel_command)
     PEMD_lib.run_command(obabel_command, working_dir)
     print(os.getcwd())
