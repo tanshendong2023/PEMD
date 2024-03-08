@@ -19,7 +19,7 @@ from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
 
-def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1,):
+def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1, conf = False,):
     # get origin dir
     original_dir = os.getcwd()
 
@@ -105,7 +105,8 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
     print(os.getcwd())
-    conformer_search(out_dir, working_dir='./')
+    if conf is True:
+        conformer_search(out_dir, working_dir='./')
 
     # go back the origin dir
     os.chdir(original_dir)
