@@ -116,7 +116,7 @@ def conformer_search(unit_name, ln, working_dir):
     mol_file = unit_name + '_N' + str(ln)
     obabel_command = f"obabel {mol_file}.mol -O traj.xyz --confab --verbose --conf 10000"
     PEMD_lib.run_command(obabel_command, working_dir)
-    
+
     # 使用crest进行分子动力学优化，工作目录设置为out_dir
     crest_command = f"crest -mdopt traj.xyz -niceprint"
     PEMD_lib.run_command(crest_command, working_dir)
