@@ -18,8 +18,9 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
+from simple_slurm import Slurm
 
-def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1, conf = False,):
+def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1, conf = False, n = 10,):
     # get origin dir
     original_dir = os.getcwd()
 
@@ -105,24 +106,32 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
         if conf is True:
-            conformer_search(unit_name, ln, working_dir= os.getcwd())
+            conformer_search(unit_name, ln, n, working_dir = os.getcwd())
 
     # go back the origin dir
     os.chdir(original_dir)
 
 
-def conformer_search(unit_name, ln, working_dir):
+def conformer_search(unit_name, ln, n, working_dir):
     # 使用Open Babel进行构象搜索，输出文件名直接使用，工作目录由run_command处理
     mol_file = unit_name + '_N' + str(ln)
-    obabel_command = f"obabel {mol_file}.mol -O traj.xyz --confab --verbose --conf 10000"
-    PEMD_lib.run_command(obabel_command, working_dir)
+    # obabel_command = f"obabel {mol_file}.mol -O traj.xyz --confab --verbose --conf 10000"
+    # PEMD_lib.run_command(obabel_command, working_dir)
 
     # 使用crest进行分子动力学优化，工作目录设置为out_dir
-    crest_command = f"crest -mdopt traj.xyz -niceprint"
-    PEMD_lib.run_command(crest_command, working_dir)
+    # crest_command = f"crest -mdopt traj.xyz -niceprint"
+    # PEMD_lib.run_command(crest_command, working_dir)
+
+    slurm = Slurm(J='crest',
+                  N=1,
+                  n=32,
+                  output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                  )
+
+    slurm.sbatch(f'crest {mol_file}.xyz --gfn2 - T 32 - niceprint')
 
     # 保存能量最低的n个结构为列表，并生成gaussian输入文件
-    lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_ensemble.xyz', 2)
+    lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_ensemble.xyz', n)
     PEMD_lib.save_structures(lowest_energy_structures, 'PEO')
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
