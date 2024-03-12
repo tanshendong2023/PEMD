@@ -124,7 +124,7 @@ def conformer_search(unit_name, ln, n, working_dir):
     # PEMD_lib.run_command(crest_command, working_dir)
     current_path = os.getcwd()
     print(current_path)
-    
+
     slurm = Slurm(J='crest',
                   N=1,
                   n=32,
