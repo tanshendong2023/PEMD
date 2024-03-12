@@ -122,8 +122,8 @@ def conformer_search(unit_name, ln, n, working_dir):
     # 使用crest进行分子动力学优化，工作目录设置为out_dir
     # crest_command = f"crest -mdopt traj.xyz -niceprint"
     # PEMD_lib.run_command(crest_command, working_dir)
-    current_path = os.getcwd()
-    print(current_path)
+    # current_path = os.getcwd()
+    # print(current_path)
 
     slurm = Slurm(J='crest',
                   N=1,
@@ -131,13 +131,11 @@ def conformer_search(unit_name, ln, n, working_dir):
                   output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
-    job_id = slurm.sbatch(f'crest {mol_file}.xyz --gfn2 - T 32 - niceprint')
+    job_id = slurm.sbatch(f'crest {mol_file}.xyz --gfn2 --T 32 --niceprint')
 
     # 检查文件是否存在
     while True:
         status = get_slurm_job_status(job_id)
-        print(job_id)
-        print(status)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
             # 保存能量最低的n个结构为列表，并生成gaussian输入文件
@@ -146,7 +144,7 @@ def conformer_search(unit_name, ln, n, working_dir):
             break  # 任务执行完毕后跳出循环
         else:
             print("crest not finish, waiting...")
-            time.sleep(30)  # 等待30秒后再次检查
+            time.sleep(60)  # 等待60秒后再次检查
 
 
 def get_slurm_job_status(job_id):
