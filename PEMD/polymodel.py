@@ -122,27 +122,47 @@ def conformer_search(unit_name, ln, n, working_dir):
     # 使用crest进行分子动力学优化，工作目录设置为out_dir
     # crest_command = f"crest -mdopt traj.xyz -niceprint"
     # PEMD_lib.run_command(crest_command, working_dir)
-
+    current_path = os.getcwd()
+    print(current_path)
+    
     slurm = Slurm(J='crest',
                   N=1,
                   n=32,
                   output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
-    slurm.sbatch(f'crest {mol_file}.xyz --gfn2 - T 32 - niceprint')
+    job_id = slurm.sbatch(f'crest {mol_file}.xyz --gfn2 - T 32 - niceprint')
 
     # 检查文件是否存在
     while True:
-        if os.path.exists('crest_ensemble.xyz'):
+        status = get_slurm_job_status(job_id)
+        print(job_id)
+        print(status)
+        if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
             # 保存能量最低的n个结构为列表，并生成gaussian输入文件
-            lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_ensemble.xyz', n)
+            lowest_energy_structures = PEMD_lib.find_lowest_energy_structures('crest_conformers.xyz', n)
             PEMD_lib.save_structures(lowest_energy_structures, 'PEO')
             break  # 任务执行完毕后跳出循环
         else:
             print("crest not finish, waiting...")
             time.sleep(30)  # 等待30秒后再次检查
 
+
+def get_slurm_job_status(job_id):
+    command = f'sacct -j {job_id} --format=State --noheader'
+    process = subprocess.run(command, shell=True, capture_output=True, text=True)
+    # Split the output by newlines and strip whitespace
+    statuses = [line.strip() for line in process.stdout.strip().split('\n')]
+    # Check if all statuses indicate the job is completed
+    if all(status == 'COMPLETED' for status in statuses):
+        return 'COMPLETED'
+    elif any(status == 'FAILED' for status in statuses):
+        return 'FAILED'
+    elif any(status == 'CANCELLED' for status in statuses):
+        return 'CANCELLED'
+    else:
+        return 'RUNNING'
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
