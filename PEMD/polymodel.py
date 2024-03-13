@@ -19,7 +19,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
-import psp.simulated_annealing as an
+import PEMD.simulated_annealing as an
 
 
 def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1, conf = False, n = 10,):
@@ -118,8 +118,8 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
     os.chdir(original_dir)
 
 
-def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_dir, xyz_tmp_dir, vasp_out_dir,
-                  rot_angles_monomer, rot_angles_dimer,Steps, Substeps, num_conf, method, Tol_ChainCorr, Inter_Chain_Dis,):
+def build_polymer(unit_name, repeating_unit, leftcap, rightcap, length, xyz_in_dir, xyz_tmp_dir, vasp_out_dir,
+                  rot_angles_monomer, rot_angles_dimer, Steps, Substeps, num_conf, method, Inter_Chain_Dis,):
 
     # build a directory
     vasp_out_dir_indi = vasp_out_dir + unit_name + '/'
@@ -132,10 +132,6 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
     # Get SMILES
     smiles_each = df_smiles[df_smiles['ID'] == unit_name]['SMILES'].values[0]
 
-    # Initial values
-    decision = 'FAILURE'
-    SN = 0
-
     (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
         = PEMD_lib.Init_info(unit_name, smiles_each, xyz_in_dir, length)
 
@@ -146,20 +142,12 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
     if flag == 'REJECT':
         return unit_name, 'REJECT', 0
 
-    if atom1 == atom2:
-        smiles_each = PEMD_lib.gen_dimer_smiles(dum1, dum2, atom1, atom2, smiles_each)
-
-        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-            = PEMD_lib.Init_info(unit_name, smiles_each, xyz_in_dir, length)
-
-        if flag == 'REJECT':
-            return unit_name, 'REJECT', 0
-
     # create 100 conformers and select which has the largest dihedral angle (within 8 degree) and lowest energy
     PEMD_lib.find_best_conf(unit_name, m1, dum1, dum2, atom1, atom2, xyz_in_dir)
 
     # Minimize geometry using steepest descent
     unit = PEMD_lib.localopt(unit_name, xyz_in_dir + unit_name + '.xyz', dum1, dum2, atom1, atom2, xyz_tmp_dir,)
+    # print(unit)
 
     # Rearrange rows
     rows = unit.index.tolist()
@@ -174,20 +162,19 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
     # update neigh_atoms_info
     neigh_atoms_info = PEMD_lib.connec_info(xyz_tmp_dir + unit_name + '_rearranged.xyz')
 
-    check_connectivity_dimer = PEMD_lib.mono2dimer(
-        unit_name, unit, 'CORRECT', dum1, dum2, atom1, atom2, unit_dis
-    )
+    check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, unit, 'CORRECT',
+                                                   dum1, dum2, atom1, atom2, unit_dis)
 
     # building unit is copied and may be used in building flexible dimers
     unit_copied = unit.copy()
 
+    # Initial values
+    decision = 'FAILURE'
+    SN = 0
+
     if check_connectivity_dimer == 'CORRECT':
         decision = 'SUCCESS'
         SN += 1
-
-        if 'n' in length:
-            PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, unit, dum1, dum2, atom1, atom2, dum, unit_dis,
-                              Inter_Chain_Dis=Inter_Chain_Dis, Polymer=True,)
 
         if len(oligo_list) > 0:
             for oligo_len in oligo_list:
@@ -247,9 +234,8 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
             # update neigh_atoms_info
             neigh_atoms_info = PEMD_lib.connec_info(xyz_tmp_dir + unit_name + '_rearranged.xyz')
 
-            check_connectivity_dimer = PEMD_lib.mono2dimer(
-                unit_name, unit, 'CORRECT', dum1, dum2, atom1, atom2, unit_dis
-            )
+            check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, unit, 'CORRECT',
+                                                           dum1, dum2, atom1, atom2, unit_dis)
 
             # building unit is copied and may be used in building flexible dimers
             unit_copied = unit.copy()
@@ -257,10 +243,6 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
             if check_connectivity_dimer == 'CORRECT':
                 decision = 'SUCCESS'
                 SN += 1
-
-                if 'n' in length:
-                    PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, unit, dum1, dum2, atom1, atom2, dum,
-                                      unit_dis, Inter_Chain_Dis=Inter_Chain_Dis, Polymer=True,)
 
                 if len(oligo_list) > 0:
                     for oligo_len in oligo_list:
@@ -314,9 +296,7 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
 
             neigh_atoms_info_new = PEMD_lib.connec_info(final_unit_xyz)
             for row in neigh_atoms_info.index.tolist():
-                if sorted(neigh_atoms_info.loc[row]['NeiAtom']) != sorted(
-                    neigh_atoms_info_new.loc[row]['NeiAtom']
-                ):
+                if sorted(neigh_atoms_info.loc[row]['NeiAtom']) != sorted(neigh_atoms_info_new.loc[row]['NeiAtom']):
                     check_connectivity_monomer = 'WRONG'
 
             if check_connectivity_monomer == 'CORRECT' and first_conf_saved == 0:
@@ -339,6 +319,7 @@ def build_polymer(unit_name,  repeating_unit, leftcap, rightcap, length, xyz_in_
                         (oligomer, dum1_oligo, atom1_oligo, dum2_oligo, atom2_oligo,) \
                             = PEMD_lib.oligomer_build(final_unit, unit_name, dum1, dum2, atom1, atom2,
                                                       oligo_len, unit_dis, neigh_atoms_info_new,)
+
                         PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, oligomer, dum1_oligo, dum2_oligo, atom1_oligo,
                                           atom2_oligo, dum, unit_dis, length=oligo_len, Inter_Chain_Dis=Inter_Chain_Dis,)
 
