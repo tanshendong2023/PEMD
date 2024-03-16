@@ -81,14 +81,12 @@ def conformer_search(unit_name, ln,  numconf):
             print("crest finish, executing the gaussian task...")
             # 保存能量最低的n个结构为列表，并生成gaussian输入文件
             lowest_energy_structures = crest_lowest_energy_str('crest_conformers.xyz', numconf)
-            current_path_1 = os.getcwd()
             os.chdir(original_dir)
-            current_path_2 = os.getcwd()
             save_structures(lowest_energy_structures, 'PEO')
             break  # 任务执行完毕后跳出循环
         else:
             print("crest conformer search not finish, waiting...")
-            time.sleep(60)  # 等待60秒后再次检查
+            time.sleep(30)  # 等待60秒后再次检查
 
 
 def parse_xyz_with_energies(file_path):
@@ -174,7 +172,7 @@ def save_structures(structures, base_filename):
             break
         else:
             print("g16 conformer search not finish, waiting...")
-            time.sleep(60)  # 等待360秒后再次检查
+            time.sleep(30)  # 等待360秒后再次检查
 
 
 def crest_lowest_energy_str(file_path, NumConf):

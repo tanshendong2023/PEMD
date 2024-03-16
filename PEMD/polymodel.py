@@ -101,7 +101,6 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
             return unit_name, 'PARTIAL SUCCESS', Final_SMILES
 
         Final_SMILES.append(smiles_each_ind)
-        print(Final_SMILES)
 
         PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, opls, polymer,atom_typing_ = 'pysimm')
         # if NumC == 0 and ln == Length[-1]:
