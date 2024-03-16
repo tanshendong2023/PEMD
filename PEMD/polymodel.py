@@ -2,11 +2,10 @@
 Polymer model building tools.
 
 Developed by: Tan Shendong
-Date: 2023.01.18
+Date: 2024.01.18
 """
 
 import os
-import numpy as np
 import random
 import subprocess
 import threading
@@ -19,10 +18,10 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD import PEMD_lib
-import PEMD.simulated_annealing as an
 
 
-def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length, OPLS = True, NumConf=1, NCores_opt = 1, conf = False, n = 10,):
+def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, opls=False,
+                  polymer=False, conf=False, numconf=10,):
     # get origin dir
     original_dir = os.getcwd()
 
@@ -56,8 +55,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
     # count = 0
     smiles_each_ind = None
     Final_SMILES = []
-    for ln in Length:
-        # start_1 = time.time()
+    for ln in length:
         if ln == 1:
             if LCap_ is False and RCap_ is False:
                 mol = Chem.MolFromSmiles(smiles_each)
@@ -65,11 +63,11 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
                 smiles_each_ind = Chem.MolToSmiles(mol_new)
             else:
                 (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info,oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_each, Length)
+                    = PEMD_lib.Init_info(unit_name, smiles_each, length)
 
-                if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == Length[-1]:
+                if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
                     return unit_name, 'REJECT', Final_SMILES
-                elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == Length[-1]:
+                elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == length[-1]:
                     return unit_name, 'PARTIAL SUCCESS', Final_SMILES
                 # Join end caps
                 smiles_each_ind = (
@@ -80,11 +78,11 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         elif ln > 1:
             # smiles_each = copy.copy(smiles_each_copy)
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, Length)
+                = PEMD_lib.Init_info(unit_name, smiles_each, length)
 
-            if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == Length[-1]:
+            if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
                 return unit_name, 'REJECT', Final_SMILES
-            elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == Length[-1]:
+            elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == length[-1]:
                 return unit_name, 'PARTIAL SUCCESS', Final_SMILES
 
             smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
@@ -95,405 +93,28 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, Length
         os.remove('./' + unit_name + '.xyz')
 
         m1 = Chem.MolFromSmiles(smiles_each_ind)
-        if m1 is None and len(Final_SMILES) == 0 and ln == Length[-1]:
+        if m1 is None and len(Final_SMILES) == 0 and ln == length[-1]:
             return unit_name, 'REJECT', Final_SMILES
-        elif m1 is None and len(Final_SMILES) >= 1 and ln == Length[-1]:
+        elif m1 is None and len(Final_SMILES) >= 1 and ln == length[-1]:
             return unit_name, 'PARTIAL SUCCESS', Final_SMILES
 
         Final_SMILES.append(smiles_each_ind)
+        print(Final_SMILES)
 
-        PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, NumConf, NCores_opt, OPLS, )
+        PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, opls, polymer,atom_typing_ = 'pysimm')
         # if NumC == 0 and ln == Length[-1]:
         #     return unit_name, 'FAILURE', Final_SMILES
         # elif ln == Length[-1]:
         #     return unit_name, 'SUCCESS', Final_SMILES
-        if conf is True:
+        if polymer is False and conf is True:
             try:
-                PEMD_lib.conformer_search(unit_name, ln, n, working_dir=os.getcwd())
+                PEMD_lib.conformer_search(unit_name, ln, numconf, working_dir=os.getcwd())
                 print('conformer search finish.')
             except BaseException:
                 print('conformer search failed.')
 
     # go back the origin dir
     os.chdir(original_dir)
-
-
-def build_polymer(unit_name, repeating_unit, leftcap, rightcap, length, xyz_in_dir, xyz_tmp_dir, vasp_out_dir,
-                  rot_angles_monomer, rot_angles_dimer, Steps, Substeps, num_conf, method, Inter_Chain_Dis,):
-
-    # build a directory
-    vasp_out_dir_indi = vasp_out_dir + unit_name + '/'
-    PEMD_lib.build_dir(vasp_out_dir_indi)
-
-    # Dataframe
-    input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
-    df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
-
-    # Get SMILES
-    smiles_each = df_smiles[df_smiles['ID'] == unit_name]['SMILES'].values[0]
-
-    (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-        = PEMD_lib.Init_info(unit_name, smiles_each, xyz_in_dir, length)
-
-    # keep a copy of idx of dummy and linking atoms
-    # These idx will be used if there is no rotatable bonds
-    dum1_smi, dum2_smi, atom1_smi, atom2_smi = dum1, dum2, atom1, atom2
-
-    if flag == 'REJECT':
-        return unit_name, 'REJECT', 0
-
-    # create 100 conformers and select which has the largest dihedral angle (within 8 degree) and lowest energy
-    PEMD_lib.find_best_conf(unit_name, m1, dum1, dum2, atom1, atom2, xyz_in_dir)
-
-    # Minimize geometry using steepest descent
-    unit = PEMD_lib.localopt(unit_name, xyz_in_dir + unit_name + '.xyz', dum1, dum2, atom1, atom2, xyz_tmp_dir,)
-    # print(unit)
-
-    # Rearrange rows
-    rows = unit.index.tolist()
-    for i in [dum1, atom1, atom2, dum2]:
-        rows.remove(i)
-    new_rows = [dum1, atom1, atom2, dum2] + rows
-    unit = unit.loc[new_rows].reset_index(drop=True)
-    dum1, atom1, atom2, dum2 = 0, 1, 2, 3
-
-    PEMD_lib.gen_xyz(xyz_tmp_dir + unit_name + '_rearranged.xyz', unit)
-
-    # update neigh_atoms_info
-    neigh_atoms_info = PEMD_lib.connec_info(xyz_tmp_dir + unit_name + '_rearranged.xyz')
-
-    check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, unit, 'CORRECT',
-                                                   dum1, dum2, atom1, atom2, unit_dis)
-
-    # building unit is copied and may be used in building flexible dimers
-    unit_copied = unit.copy()
-
-    # Initial values
-    decision = 'FAILURE'
-    SN = 0
-
-    if check_connectivity_dimer == 'CORRECT':
-        decision = 'SUCCESS'
-        SN += 1
-
-        if len(oligo_list) > 0:
-            for oligo_len in oligo_list:
-                (oligomer, dum1_oligo, atom1_oligo, dum2_oligo, atom2_oligo,) \
-                    = PEMD_lib.oligomer_build(unit, unit_name, dum1, dum2, atom1, atom2, oligo_len, unit_dis, neigh_atoms_info,)
-                PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, oligomer, dum1_oligo, dum2_oligo, atom1_oligo,
-                                  atom2_oligo, dum, unit_dis, length=oligo_len, Inter_Chain_Dis=Inter_Chain_Dis,)
-
-                # Remove dummy atoms
-                oligomer = oligomer.drop([dum1_oligo, dum2_oligo])
-
-                if SN > 1:
-                    xyz_file_name = (vasp_out_dir_indi + unit_name + '_' + str(SN) + '_N' + str(oligo_len) + '.xyz')
-                else:
-                    xyz_file_name = (vasp_out_dir_indi + unit_name + '_N' + str(oligo_len) + '.xyz')
-
-                PEMD_lib.gen_xyz(xyz_file_name, oligomer)
-
-        if SN >= num_conf:
-            print(" Chain model building completed for", unit_name, ".")
-            return unit_name, 'SUCCESS', SN
-
-    # Simulated Annealing
-    if method == 'SA' and SN < num_conf:
-        print(" Entering simulated annealing steps", unit_name, "...")
-        #  Find single bonds and rotate
-        single_bond = PEMD_lib.single_bonds(unit_name, unit, xyz_tmp_dir)
-
-        isempty = single_bond.empty
-        if isempty is True and SN < num_conf:
-            print(unit_name, "No rotatable single bonds, building a dimer ...")
-
-            smiles_each = PEMD_lib.gen_dimer_smiles(dum1_smi, dum2_smi, atom1_smi, atom2_smi, smiles_each)
-
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, xyz_in_dir, length)
-
-            if flag == 'REJECT':
-                return unit_name, 'REJECT', 0
-
-            # create 100 conformers and select which has the largest dihedral angle (within 8 degree) and lowest energy
-            PEMD_lib.find_best_conf(unit_name, m1, dum1, dum2, atom1, atom2, xyz_in_dir)
-
-            # Minimize geometry using steepest descent
-            unit = PEMD_lib.localopt(unit_name, xyz_in_dir + unit_name + '.xyz', dum1, dum2, atom1, atom2, xyz_tmp_dir,)
-
-            # Rearrange rows
-            rows = unit.index.tolist()
-            for i in [dum1, atom1, atom2, dum2]:
-                rows.remove(i)
-            new_rows = [dum1, atom1, atom2, dum2] + rows
-            unit = unit.loc[new_rows].reset_index(drop=True)
-            dum1, atom1, atom2, dum2 = 0, 1, 2, 3
-
-            PEMD_lib.gen_xyz(xyz_tmp_dir + unit_name + '_rearranged.xyz', unit)
-
-            # update neigh_atoms_info
-            neigh_atoms_info = PEMD_lib.connec_info(xyz_tmp_dir + unit_name + '_rearranged.xyz')
-
-            check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, unit, 'CORRECT',
-                                                           dum1, dum2, atom1, atom2, unit_dis)
-
-            # building unit is copied and may be used in building flexible dimers
-            unit_copied = unit.copy()
-
-            if check_connectivity_dimer == 'CORRECT':
-                decision = 'SUCCESS'
-                SN += 1
-
-                if len(oligo_list) > 0:
-                    for oligo_len in oligo_list:
-                        (oligomer, dum1_oligo, atom1_oligo, dum2_oligo, atom2_oligo,) \
-                            = PEMD_lib.oligomer_build(unit, unit_name, dum1, dum2, atom1, atom2, oligo_len, unit_dis, neigh_atoms_info,)
-
-                        PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, oligomer, dum1_oligo, dum2_oligo, atom1_oligo,
-                                          atom2_oligo, dum, unit_dis, length=oligo_len, Inter_Chain_Dis=Inter_Chain_Dis,)
-
-                        # Remove dummy atoms
-                        oligomer = oligomer.drop([dum1_oligo, dum2_oligo])
-
-                        if SN > 1:
-                            xyz_file_name = (vasp_out_dir_indi + unit_name + '_' + str(SN) + '_N' + str(oligo_len) + '.xyz')
-                        else:
-                            xyz_file_name = (vasp_out_dir_indi + unit_name + '_N' + str(oligo_len) + '.xyz')
-
-                        PEMD_lib.gen_xyz(xyz_file_name, oligomer)
-
-                if SN >= num_conf:
-                    print(" Chain model building completed for", unit_name, ".")
-                    return unit_name, 'SUCCESS', SN
-                else:
-                    #  Find single bonds and rotate
-                    single_bond = PEMD_lib.single_bonds(unit_name, unit, xyz_tmp_dir)
-
-        if isempty is True and SN > 0:
-            print(" Chain model building completed for", unit_name, ".")
-            return unit_name, 'SUCCESS', SN
-        if isempty is True and SN == 0:
-            return unit_name, 'FAILURE', 0
-
-        results = an.SA(unit_name, unit, single_bond, rot_angles_monomer, neigh_atoms_info,
-                        xyz_tmp_dir, dum1, dum2, atom1, atom2, Steps, Substeps,)
-
-        results = results.sort_index(ascending=False)
-
-        # Keep num_conf+10 rows to reduce computational costs
-        results = results.head(num_conf + 10)
-        TotalSN, first_conf_saved = 0, 0
-        for index, row in results.iterrows():
-            TotalSN += 1
-
-            # Minimize geometry using steepest descent
-            final_unit = PEMD_lib.localopt(unit_name, row['xyzFile'], dum1, dum2, atom1, atom2, xyz_tmp_dir)
-
-            final_unit_xyz = row['xyzFile']
-
-            # Check connectivity
-            check_connectivity_monomer = 'CORRECT'
-
-            neigh_atoms_info_new = PEMD_lib.connec_info(final_unit_xyz)
-            for row in neigh_atoms_info.index.tolist():
-                if sorted(neigh_atoms_info.loc[row]['NeiAtom']) != sorted(neigh_atoms_info_new.loc[row]['NeiAtom']):
-                    check_connectivity_monomer = 'WRONG'
-
-            if check_connectivity_monomer == 'CORRECT' and first_conf_saved == 0:
-                # building unit is copied and may be used in building flexible dimers
-                unit_copied = final_unit.copy()
-                first_conf_saved = 1
-
-            check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, final_unit, check_connectivity_monomer,
-                                                           dum1, dum2, atom1, atom2, unit_dis,)
-
-            if check_connectivity_dimer == 'CORRECT':
-                decision = 'SUCCESS'
-                SN += 1
-                if 'n' in length:
-                    PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, final_unit, dum1, dum2, atom1, atom2,
-                                      dum, unit_dis, Inter_Chain_Dis=Inter_Chain_Dis, Polymer=True,)
-
-                if len(oligo_list) > 0:
-                    for oligo_len in oligo_list:
-                        (oligomer, dum1_oligo, atom1_oligo, dum2_oligo, atom2_oligo,) \
-                            = PEMD_lib.oligomer_build(final_unit, unit_name, dum1, dum2, atom1, atom2,
-                                                      oligo_len, unit_dis, neigh_atoms_info_new,)
-
-                        PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, oligomer, dum1_oligo, dum2_oligo, atom1_oligo,
-                                          atom2_oligo, dum, unit_dis, length=oligo_len, Inter_Chain_Dis=Inter_Chain_Dis,)
-
-                        # Remove dummy atoms
-                        oligomer = oligomer.drop([dum1_oligo, dum2_oligo])
-
-                        if SN > 1:
-                            xyz_file_name = (vasp_out_dir_indi + unit_name + '_' + str(SN) + '_N' + str(oligo_len) + '.xyz')
-                        else:
-                            xyz_file_name = (vasp_out_dir_indi + unit_name + '_N' + str(oligo_len) + '.xyz')
-
-                        PEMD_lib.gen_xyz(xyz_file_name, oligomer)
-
-                if SN == num_conf:
-                    break
-
-            # If we do not get a proper monomer unit, then consider a dimer as a monomer unit and
-            # build a dimer of the same
-            if SN < num_conf and TotalSN == results.index.size:
-                unit = unit_copied.copy()
-                unit = PEMD_lib.trans_origin(unit, atom1)
-                unit = PEMD_lib.alignZ(unit, atom1, atom2)
-                (unit_dimer, neigh_atoms_info_dimer, dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd,) \
-                    = PEMD_lib.build_dimer_rotate(unit_name, rot_angles_dimer, unit, unit, dum, dum1, dum2, atom1, atom2, unit_dis,)
-
-                isempty = unit_dimer.empty
-
-                if isempty is True and SN == 0:
-                    print(unit_name, "Couldn't find an acceptable dimer.")
-                    return unit_name, 'FAILURE', 0
-                elif isempty is True and SN > 0:
-                    print(" Chain model building completed for", unit_name, ".")
-                    return unit_name, 'SUCCESS', SN
-
-                # Generate XYZ file
-                PEMD_lib.gen_xyz(xyz_tmp_dir + unit_name + '_dimer.xyz', unit_dimer)
-
-                # Minimize geometry using steepest descent
-                unit_dimer = PEMD_lib.localopt(unit_name, xyz_tmp_dir + unit_name + '_dimer.xyz', dum1_2nd,
-                                               dum2_2nd, atom1_2nd, atom2_2nd, xyz_tmp_dir,)
-
-                check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, unit_dimer,'CORRECT',
-                                                               dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd, unit_dis,)
-
-                if check_connectivity_dimer == 'CORRECT':
-                    decision = 'SUCCESS'
-                    SN += 1
-                    if 'n' in length:
-                        PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, unit_dimer, dum1_2nd, dum2_2nd,atom1_2nd,
-                                          atom2_2nd, dum, unit_dis, Inter_Chain_Dis=Inter_Chain_Dis, Polymer=True,)
-
-                    if len(oligo_list) > 0:
-                        for oligo_len in oligo_list:
-                            (oligomer, dum1_oligo, atom1_oligo, dum2_oligo, atom2_oligo,) = \
-                                (PEMD_lib.oligomer_build(unit_dimer, unit_name, dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd,
-                                                         oligo_len, unit_dis, neigh_atoms_info_dimer,))
-
-                            PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, oligomer, dum1_oligo, dum2_oligo, atom1_oligo,
-                                              atom2_oligo, dum, unit_dis, length=oligo_len,Inter_Chain_Dis=Inter_Chain_Dis,)
-
-                            # Remove dummy atoms
-                            oligomer = oligomer.drop([dum1_oligo, dum2_oligo])
-                            if SN > 1:
-                                xyz_file_name = (vasp_out_dir_indi + unit_name + '_' + str(SN) + '_N' + str(oligo_len) + '.xyz')
-                            else:
-                                xyz_file_name = (vasp_out_dir_indi + unit_name + '_N' + str(oligo_len) + '.xyz')
-
-                            PEMD_lib.gen_xyz(xyz_file_name, oligomer)
-
-                    if SN == num_conf:
-                        break
-
-                # Generate XYZ file and find connectivity
-                # gen_xyz(xyz_tmp_dir + unit_name + '_dimer.xyz', unit_dimer)
-                neigh_atoms_info_dimer = PEMD_lib.connec_info(xyz_tmp_dir + unit_name + '_dimer.xyz')
-
-                #  Find single bonds and rotate
-                single_bond_dimer = PEMD_lib.single_bonds(unit_name, unit_dimer, xyz_tmp_dir)
-
-                isempty = single_bond_dimer.empty
-                if isempty is True and SN == 0:
-                    print(unit_name, "No rotatable single bonds in dimer")
-                    return unit_name, 'FAILURE', 0
-                elif isempty is True and SN > 0:
-                    print(" Chain model building completed for", unit_name, ".")
-                    return unit_name, 'SUCCESS', SN
-
-                results = an.SA(unit_name, unit_dimer, single_bond_dimer, rot_angles_monomer, neigh_atoms_info_dimer,
-                                xyz_tmp_dir, dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd, Steps, Substeps,)
-
-                results = results.sort_index(ascending=False)
-
-                for index, row in results.iterrows():
-
-                    # Minimize geometry using steepest descent
-                    final_unit = PEMD_lib.localopt(unit_name, row['xyzFile'], dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd, xyz_tmp_dir,)
-
-                    final_unit_xyz = row['xyzFile']
-
-                    # Check Connectivity
-                    check_connectivity_monomer = 'CORRECT'
-
-                    neigh_atoms_info_new = PEMD_lib.connec_info(final_unit_xyz)
-                    for row in neigh_atoms_info_dimer.index.tolist():
-                        if sorted(neigh_atoms_info_dimer.loc[row]['NeiAtom']) != sorted(
-                            neigh_atoms_info_new.loc[row]['NeiAtom']
-                        ):
-                            check_connectivity_monomer = 'WRONG'
-
-                    check_connectivity_dimer = PEMD_lib.mono2dimer(unit_name, final_unit, check_connectivity_monomer,
-                                                                   dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd, unit_dis,)
-                    if check_connectivity_dimer == 'CORRECT':
-                        decision = 'SUCCESS'
-                        SN += 1
-                        if 'n' in length:
-                            PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, final_unit, dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd,
-                                              dum, unit_dis,Inter_Chain_Dis=Inter_Chain_Dis, Polymer=True,)
-
-                        if len(oligo_list) > 0:
-                            for oligo_len in oligo_list:
-                                (oligomer, dum1_oligo, atom1_oligo, dum2_oligo, atom2_oligo,) = (
-                                    PEMD_lib.oligomer_build(final_unit, unit_name, dum1_2nd, dum2_2nd,
-                                                            atom1_2nd, atom2_2nd, oligo_len, unit_dis, neigh_atoms_info_new,))
-
-                                PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, oligomer, dum1_oligo, dum2_oligo, atom1_oligo,
-                                                  atom2_oligo, dum, unit_dis, length=oligo_len, Inter_Chain_Dis=Inter_Chain_Dis,)
-
-                                # Remove dummy atoms
-                                oligomer = oligomer.drop([dum1_oligo, dum2_oligo])
-
-                                if SN > 1:
-                                    xyz_file_name = (vasp_out_dir_indi + unit_name + '_' + str(SN) + '_N' + str(oligo_len) + '.xyz')
-                                else:
-                                    xyz_file_name = (vasp_out_dir_indi + unit_name + '_N' + str(oligo_len) + '.xyz')
-
-                                PEMD_lib.gen_xyz(xyz_file_name, oligomer)
-
-                        if SN == num_conf:
-                            break
-
-    elif method == 'Dimer' and SN < num_conf:
-        print(" Generating dimers", unit_name, "...")
-        SN = 0
-        for angle in rot_angles_dimer:
-            unit1 = unit.copy()
-            unit2 = unit.copy()
-            unit2 = PEMD_lib.trans_origin(unit2, atom1)
-            unit2 = PEMD_lib.alignZ(unit2, atom1, atom2)
-            unit2 = PEMD_lib.rotateZ(unit2, angle, np.arange(len(unit2[0].values)))
-
-            (dimer, check_connectivity_monomer, dum1_2nd, dum2_2nd, atom1_2nd, atom2_2nd,) = (
-                PEMD_lib.TwoMonomers_Dimer(unit_name, unit1, unit2, dum1, dum2, atom1, atom2, dum, unit_dis))
-
-            if atom1_2nd != atom2_2nd:
-                if check_connectivity_monomer == 'CORRECT':
-                    unit = dimer.copy()
-                    # Build a dimer
-                    unit = PEMD_lib.trans_origin(unit, dum1_2nd)
-                    unit = PEMD_lib.alignZ(unit, dum1_2nd, dum2_2nd)
-                    polymer, check_connectivity_dimer = PEMD_lib.build(unit_name,2, unit, dum1_2nd, dum2_2nd,
-                                                                       atom1_2nd, atom2_2nd, unit_dis,)
-
-                    if check_connectivity_dimer == 'CORRECT':
-                        decision = 'SUCCESS'
-                        SN += 1
-                        if 'n' in length:
-                            PEMD_lib.gen_vasp(vasp_out_dir_indi, unit_name, dimer, dum1_2nd, dum2_2nd, atom1_2nd,
-                                              atom2_2nd, dum, unit_dis, Inter_Chain_Dis=Inter_Chain_Dis, Polymer=True,)
-
-                        if SN == num_conf:
-                            break
-    print(" Chain model building completed for", unit_name, ".")
-    return unit_name, decision, SN
-
 
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):

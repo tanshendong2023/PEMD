@@ -1,4 +1,4 @@
-import psp.PSP_lib as bd
+import PEMD.PEMD_lib as bd
 import numpy as np
 import pandas as pd
 import random
@@ -15,48 +15,26 @@ np.set_printoptions(precision=20)
 # define objective function
 def f(unit_name, sl, unit, bond, angle, neigh_atoms_info, xyz_tmp_dir, dum1, dum2, atom1, atom2,):
 
-    file_name, conf_unit, dis_dum1_dum2, ang_1st_2nd, penalty = bd.create_conformer(
-        unit_name,
-        sl,
-        unit,
-        bond,
-        neigh_atoms_info,
-        angle,
-        xyz_tmp_dir,
-        dum1,
-        dum2,
-        atom1,
-        atom2,
-    )
+    file_name, conf_unit, dis_dum1_dum2, ang_1st_2nd, penalty \
+        = bd.create_conformer(unit_name, sl, unit, bond, neigh_atoms_info, angle, xyz_tmp_dir, dum1, dum2, atom1, atom2,)
+
     obConversion.ReadFile(mol, file_name)
     ff.Setup(mol)
-    E_cost = (
-        ff.Energy()
-        + ff.Energy() * (1 - (ang_1st_2nd / 180.0))
-        + ff.Energy() * penalty * 10
-    )
+    E_cost = (ff.Energy() + ff.Energy() * (1 - (ang_1st_2nd / 180.0)) + ff.Energy() * penalty * 10)
     return E_cost, conf_unit, file_name
 
 
 ######################################################
 # Simulated Annealing
 ######################################################
-def SA(
-    unit_name,
-    unit,
-    bonds,
-    angle,
-    neigh_atoms_info,
-    xyz_tmp_dir,
-    dum1,
-    dum2,
-    atom1,
-    atom2,
-    Steps,
-    Substeps,
-):
+def SA(unit_name, unit, bonds, angle, neigh_atoms_info, xyz_tmp_dir, dum1, dum2, atom1, atom2, Steps, Substeps,):
+
+    ang_level = {'intense':np.arange(-180, 180, 10),
+                 'medium':[0, 30, -30, 45, -45, 60, -60, 90, 120, -120, 135, -135, 150, -150, 180,],
+                 'low':[0, 45, -45, 60, -60, 90, 120, -120, 180]}
+
     i1 = bonds.index.values
-    i2 = angle
+    i2 = ang_level[angle]
 
     # Start location
     x_start = [i1[0], i2[0]]
@@ -81,6 +59,8 @@ def SA(
     # Initialize x
     x = np.zeros((n + 1, 2))
 
+    print(x_start)
+
     x[0] = x_start
 
     results = []
@@ -92,19 +72,7 @@ def SA(
     # Current best results so far
     xc = np.zeros(2)
     xc = x[0]
-    fc, unit_new, file_name = f(
-        unit_name,
-        0,
-        unit,
-        bonds.loc[0],
-        0.0,
-        neigh_atoms_info,
-        xyz_tmp_dir,
-        dum1,
-        dum2,
-        atom1,
-        atom2,
-    )
+    fc, unit_new, file_name = f(unit_name,0, unit, bonds.loc[0], 0.0, neigh_atoms_info, xyz_tmp_dir, dum1, dum2, atom1, atom2,)
     fs = np.zeros(n + 1)
     fs[0] = fc
     results.append([0, fc, file_name])
@@ -119,19 +87,7 @@ def SA(
             unit_prev = unit.copy()
             xi[0] = np.random.choice(i1)
             xi[1] = np.random.choice(i2)
-            fc_new, unit, file_name = f(
-                unit_name,
-                i,
-                unit,
-                bonds.loc[xi[0]],
-                xi[1],
-                neigh_atoms_info,
-                xyz_tmp_dir,
-                dum1,
-                dum2,
-                atom1,
-                atom2,
-            )
+            fc_new, unit, file_name = f(unit_name, i, unit, bonds.loc[xi[0]], xi[1], neigh_atoms_info, xyz_tmp_dir, dum1, dum2, atom1, atom2,)
             DeltaE = abs(fc_new - fc)
 
             if fc_new > fc:
