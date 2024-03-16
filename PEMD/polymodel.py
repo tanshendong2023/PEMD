@@ -5,11 +5,13 @@ Developed by: Tan Shendong
 Date: 2024.01.18
 """
 
+
 import os
 import random
 import subprocess
 import threading
 import py3Dmol
+import shutil
 import pandas as pd
 import datamol as dm
 from openbabel import pybel
@@ -25,7 +27,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
     # get origin dir
     original_dir = os.getcwd()
 
-    # build a directory
+    # build directory
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
 
@@ -108,10 +110,14 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
         #     return unit_name, 'SUCCESS', Final_SMILES
         if polymer is False and conf is True:
             try:
-                PEMD_lib.conformer_search(unit_name, ln, numconf, working_dir=os.getcwd())
+                PEMD_lib.conformer_search(unit_name, ln, numconf)
                 print('conformer search finish.')
             except BaseException:
                 print('conformer search failed.')
+
+    # Delete crest work directory
+    if os.path.isdir('crest_work/'):
+        shutil.rmtree('crest_work/')
 
     # go back the origin dir
     os.chdir(original_dir)
@@ -124,6 +130,7 @@ def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     rightcap_cleaned = rightcap.replace('[*]', '')
     smiles = leftcap_cleaned + full_sequence + rightcap_cleaned
     return smiles
+
 
 def smiles_to_files(smiles, angle_range=(0, 0), apply_torsion=False, xyz=False, pdb=False, mol2=False,
                     file_prefix=None):

@@ -5,6 +5,7 @@ Developed by: Tan Shendong
 Date: 2024.03.15
 """
 
+
 import os
 import time
 import shutil
@@ -57,9 +58,13 @@ def get_slurm_job_status(job_id):
         return 'RUNNING'
 
 
-def conformer_search(unit_name, ln, NumConf, working_dir):
+def conformer_search(unit_name, ln,  numconf):
+    work_dir = 'crest_work'
+    os.makedirs(work_dir, exist_ok=True)
+    original_dir = os.getcwd()
+    os.chdir(work_dir)
 
-    mol_file = unit_name + '_N' + str(ln)
+    mol_file = original_dir + '/' + unit_name + '_N' + str(ln)
 
     slurm = Slurm(J='crest',
                   N=1,
@@ -75,7 +80,8 @@ def conformer_search(unit_name, ln, NumConf, working_dir):
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
             # 保存能量最低的n个结构为列表，并生成gaussian输入文件
-            lowest_energy_structures = crest_lowest_energy_str('crest_conformers.xyz', NumConf)
+            lowest_energy_structures = crest_lowest_energy_str('crest_conformers.xyz', numconf)
+            os.chdir(original_dir)
             save_structures(lowest_energy_structures, 'PEO')
             break  # 任务执行完毕后跳出循环
         else:

@@ -8,7 +8,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/PEMD_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/PEMD_lib.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/polymodel.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/polymodel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/simulated_annealing.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/simulated_annealing.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
