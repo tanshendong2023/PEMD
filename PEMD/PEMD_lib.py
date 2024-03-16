@@ -81,7 +81,9 @@ def conformer_search(unit_name, ln,  numconf):
             print("crest finish, executing the gaussian task...")
             # 保存能量最低的n个结构为列表，并生成gaussian输入文件
             lowest_energy_structures = crest_lowest_energy_str('crest_conformers.xyz', numconf)
+            current_path_1 = os.getcwd()
             os.chdir(original_dir)
+            current_path_2 = os.getcwd()
             save_structures(lowest_energy_structures, 'PEO')
             break  # 任务执行完毕后跳出循环
         else:
