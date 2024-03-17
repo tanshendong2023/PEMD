@@ -23,7 +23,7 @@ from PEMD import PEMD_lib
 
 
 def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, opls=False,
-                  polymer=False, conf=False, numconf=10,):
+                  polymer=False, numconf=10,):
     # get origin dir
     original_dir = os.getcwd()
 
@@ -65,7 +65,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
                 smiles_each_ind = Chem.MolToSmiles(mol_new)
             else:
                 (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info,oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_each, length)
+                    = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
 
                 if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
                     return unit_name, 'REJECT', Final_SMILES
@@ -80,7 +80,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
         elif ln > 1:
             # smiles_each = copy.copy(smiles_each_copy)
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, length)
+                = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
 
             if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
                 return unit_name, 'REJECT', Final_SMILES
@@ -92,7 +92,7 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
 
         # print(os.getcwd())
         # delete 中间的xyz文件
-        os.remove('./' + unit_name + '.xyz')
+        os.remove(out_dir + '/' + unit_name + '.xyz')
 
         m1 = Chem.MolFromSmiles(smiles_each_ind)
         if m1 is None and len(Final_SMILES) == 0 and ln == length[-1]:
@@ -102,17 +102,19 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
 
         Final_SMILES.append(smiles_each_ind)
 
-        PEMD_lib.gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, opls, polymer,atom_typing_ = 'pysimm')
-        # if NumC == 0 and ln == Length[-1]:
-        #     return unit_name, 'FAILURE', Final_SMILES
-        # elif ln == Length[-1]:
-        #     return unit_name, 'SUCCESS', Final_SMILES
-        if polymer is False and conf is True:
+        if polymer is False:
             try:
-                PEMD_lib.conformer_search(unit_name, ln, numconf)
-                print('conformer search finish.')
+                PEMD_lib.conformer_search(unit_name, m1, out_dir, ln,  numconf)
+                print('Conformer search succeeded.')
             except BaseException:
-                print('conformer search failed.')
+                print('Conformer search failed.')
+        else:
+            try:
+                PEMD_lib.gen_poly_conf(unit_name, m1, out_dir, ln, opls, polymer,atom_typing_ = 'pysimm')
+                print('Polymer generation succeeded')
+            except BaseException:
+                print('Polymer generation failed.')
+
 
     # Delete crest work directory
     if os.path.isdir('crest_work/'):

@@ -58,13 +58,40 @@ def get_slurm_job_status(job_id):
         return 'RUNNING'
 
 
-def conformer_search(unit_name, ln,  numconf):
-    work_dir = 'crest_work'
+def conformer_search(unit_name, m1, out_dir, ln,  numconf):
+    m2 = Chem.AddHs(m1)
+    NAttempt = 100000
+
+    for i in range(10):
+        cids = AllChem.EmbedMultipleConfs(
+            m2,
+            numConfs=10,
+            numThreads=64,
+            randomSeed=i,
+            maxAttempts=NAttempt,
+        )
+
+        if len(cids) > 0:
+            break
+
+    cid = cids[0]
+    AllChem.UFFOptimizeMolecule(m2, confId=cid)
+    # AllChem.MMFFOptimizeMolecule(m2, confId=cid)
+
+    # 使用 os.path.join 来正确地拼接路径和文件名
+    file_base = '{}_N{}'.format(unit_name, ln)
+    pdb_filename = os.path.join(out_dir, file_base + '.pdb')
+    xyz_filename = os.path.join(out_dir, file_base + '.xyz')
+
+    Chem.MolToPDBFile(m2, pdb_filename, confId=cid)  # Generate pdb file
+    Chem.MolToXYZFile(m2, xyz_filename, confId=cid)  # Generate xyz file
+
+    work_dir = file_base + '/' + 'crest_work'
     os.makedirs(work_dir, exist_ok=True)
     original_dir = os.getcwd()
     os.chdir(work_dir)
 
-    mol_file = original_dir + '/' + unit_name + '_N' + str(ln)
+    mol_file = original_dir + '/' + xyz_filename
 
     slurm = Slurm(J='crest',
                   N=1,
@@ -72,7 +99,7 @@ def conformer_search(unit_name, ln,  numconf):
                   output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
-    job_id = slurm.sbatch(f'crest {mol_file}.xyz --gfn2 --T 32 --niceprint')
+    job_id = slurm.sbatch(f'crest {mol_file} --gfn2 --T 32 --niceprint')
 
     # 检查文件是否存在
     while True:
@@ -82,7 +109,7 @@ def conformer_search(unit_name, ln,  numconf):
             # 保存能量最低的n个结构为列表，并生成gaussian输入文件
             lowest_energy_structures = crest_lowest_energy_str('crest_conformers.xyz', numconf)
             os.chdir(original_dir)
-            save_structures(lowest_energy_structures, 'PEO')
+            save_structures(lowest_energy_structures, unit_name, ln)
             break  # 任务执行完毕后跳出循环
         else:
             print("crest conformer search not finish, waiting...")
@@ -116,18 +143,17 @@ def parse_xyz_with_energies(file_path):
     return structures, energies
 
 
-def save_structures(structures, base_filename):
+def save_structures(structures, unit_name, ln):
     # 获取当前工作目录的路径
     current_directory = os.getcwd()
     job_ids = []
+    structure_directory = current_directory + '/' + f'{unit_name}_N{ln}' + '/' + f'{unit_name}_conf_g16'
+    os.makedirs(structure_directory, exist_ok=True)
 
     for i, structure in enumerate(structures):
-        # 为每个结构创建一个新目录
-        structure_directory = os.path.join(current_directory, f"{base_filename}_{i + 1}")
-        os.makedirs(structure_directory, exist_ok=True)
 
         # 在新创建的目录中保存XYZ文件
-        file_path = os.path.join(structure_directory, f"{base_filename}_{i + 1}.xyz")
+        file_path = os.path.join(structure_directory, f"{unit_name}_{i + 1}.xyz")
 
         with open(file_path, 'w') as file:
             for line in structure:
@@ -153,7 +179,7 @@ def save_structures(structures, base_filename):
 
         # com_file = os.path.join(structure_directory, f"{base_filename}_{i + 1}_conf_1.com")
         #         print(f'g16 {structure_directory}/{base_filename}_{i+1}_conf_1.com')
-        job_id = slurm.sbatch(f'g16 {structure_directory}/{base_filename}_{i + 1}_conf_1.com')
+        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_{i + 1}_conf_1.com')
         job_ids.append(job_id)
 
     # 检查所有任务的状态
@@ -168,53 +194,52 @@ def save_structures(structures, base_filename):
         if all_completed:
             print("All gaussian tasks finished, find the lowest energy structure...")
             # 执行下一个任务的代码...
-            g16_lowest_energy_str(file_path='./')
+            g16_lowest_energy_str(structure_directory, unit_name, ln)
             break
         else:
             print("g16 conformer search not finish, waiting...")
-            time.sleep(30)  # 等待360秒后再次检查
+            time.sleep(30)  # 等待30秒后再次检查
 
 
-def crest_lowest_energy_str(file_path, NumConf):
+def crest_lowest_energy_str(file_path, numconf):
+    # Parse XYZ file to obtain structures and their corresponding energies
     structures, energies = parse_xyz_with_energies(file_path)
 
-    # 获取能量最低的n个结构的索引
-    lowest_indices = sorted(range(len(energies)), key=lambda i: energies[i])[:NumConf]
+    # Get indices of the NumConf lowest energy structures
+    lowest_indices = sorted(range(len(energies)), key=lambda i: energies[i])[:numconf]
 
-    # 提取这些结构
+    # Extract the structures with the lowest energies
     lowest_energy_structures = [structures[i] for i in lowest_indices]
 
     return lowest_energy_structures
 
 
-def g16_lowest_energy_str(file_path = './'):
+def g16_lowest_energy_str(dir_path, unit_name, ln):
     data = []
-    for root, dirs, files in os.walk(file_path):
-        for dir_name in dirs:
-            if dir_name.startswith("PEO"):
+    # 遍历指定文件夹中的所有文件
+    for file in os.listdir(dir_path):
+        if file.endswith(".log"):
+            log_file_path = os.path.join(dir_path, file)
+            energy = read_log_file(log_file_path)
+            if energy is not None:
+                # 将文件路径、文件名和能量值添加到数据列表中
+                data.append({"File_Path": log_file_path, "Energy": float(energy)})
 
-                dir_path = os.path.join(root, dir_name)
-                # print(dir_path)
-                for file in os.listdir(dir_path):
-                    if file.endswith(".log"):
-                        log_file_path = os.path.join(dir_path, file)
-                        energy = read_log_file(log_file_path)
-                        if energy is not None:
-                            data.append({"Directory": dir_path, "File": file, "Energy": float(
-                                energy)})  # Append the directory, file name, and energy value to the data list
-
+    # 将数据列表转换为DataFrame
     df = pd.DataFrame(data)
-    min_str = df.loc[df['Energy'].idxmin()]
 
-    # Renaming the directory with the lowest energy structure
-    lowest_energy_dir = min_str['Directory']
-    os.rename(lowest_energy_dir, "PEO_lowest_confor")
+    # 找到能量最低的结构对应的行
+    if not df.empty:
+        min_energy_row = df.loc[df['Energy'].idxmin()]
 
-    # Deleting other directories
-    for index, row in df.iterrows():
-        dir_path = row['Directory']
-        if dir_path != "PEO_conformer":
-            shutil.rmtree(dir_path, ignore_errors=True)
+        # 获取最低能量结构的文件路径
+        lowest_energy_file_path = min_energy_row['File_Path']
+
+        # 构造新的文件名，带有 'lowest_energy_' 前缀
+        new_file_name = f"{unit_name}_N{ln}_lowest.log"
+
+        # 复制文件到新的文件名
+        shutil.copy(lowest_energy_file_path, os.path.join(dir_path, new_file_name))
 
 
 def read_log_file(log_file_path):
@@ -226,15 +251,15 @@ def read_log_file(log_file_path):
     return energy
 
 
-def rdkitmol2xyz(unit_name, m, dir_xyz, IDNum):
+def rdkitmol2xyz(unit_name, m, out_dir, IDNum):
     try:
-        Chem.MolToXYZFile(m, dir_xyz + unit_name + '.xyz', confId=IDNum)
+        Chem.MolToXYZFile(m, out_dir + '/' + unit_name + '.xyz', confId=IDNum)
     except Exception:
         obConversion.SetInAndOutFormats("mol", "xyz")
-        Chem.MolToMolFile(m, dir_xyz + unit_name + '.mol', confId=IDNum)
+        Chem.MolToMolFile(m, out_dir + '/' + unit_name + '.mol', confId=IDNum)
         mol = ob.OBMol()
-        obConversion.ReadFile(mol, dir_xyz + unit_name + '.mol')
-        obConversion.WriteFile(mol, dir_xyz + unit_name + '.xyz')
+        obConversion.ReadFile(mol, out_dir + '/' + unit_name + '.mol')
+        obConversion.WriteFile(mol, out_dir + '/' + unit_name + '.xyz')
 
 
 # This function generates a VASP input (polymer) file
@@ -309,7 +334,7 @@ def gen_vasp(vasp_dir, unit_name, unit, dum1, dum2, atom1, atom2, dum, unit_dis,
 # This function create XYZ files from SMILES
 # INPUT: ID, SMILES, directory name
 # OUTPUT: xyz files in 'work_dir', result = DONE/NOT DONE, mol without Hydrogen atom
-def smiles_xyz(unit_name, SMILES, dir_xyz):
+def smiles_xyz(unit_name, SMILES, out_dir):
     try:
         m1 = Chem.MolFromSmiles(SMILES)    # Get mol(m1) from smiles
         m2 = Chem.AddHs(m1)   # Add H
@@ -317,7 +342,7 @@ def smiles_xyz(unit_name, SMILES, dir_xyz):
         AllChem.EmbedMolecule(m2)    # Make 3D mol
         m2.SetProp("_Name", unit_name + '   ' + SMILES)    # Change title
         AllChem.UFFOptimizeMolecule(m2, maxIters=200)    # Optimize 3D str
-        rdkitmol2xyz(unit_name, m2, dir_xyz, -1)
+        rdkitmol2xyz(unit_name, m2, out_dir, -1)
         result = 'DONE'
     except Exception:
         result, m1 = 'NOT_DONE', ''
@@ -458,7 +483,7 @@ def trans_origin(unit, atom1):  # XYZ coordinates and angle
 
 
 # complex function
-def Init_info(unit_name, smiles_each_ori, length):
+def Init_info(unit_name, smiles_each_ori, length, out_dir):
     # Get index of dummy atoms and bond type associated with it
     try:
         dum_index, bond_type = FetchDum(smiles_each_ori)
@@ -469,7 +494,7 @@ def Init_info(unit_name, smiles_each_ori, length):
             print(
                 unit_name,
                 ": There are more or less than two dummy atoms in the SMILES string; "
-                "Hint: PSP works only for one-dimensional polymers.",
+                "Hint: PEMD works only for one-dimensional polymers.",
             )
             return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
     except Exception:
@@ -502,7 +527,7 @@ def Init_info(unit_name, smiles_each_ori, length):
     smiles_each = smiles_each_ori.replace(r'*', dum)
 
     # Convert SMILES to XYZ coordinates
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, './')
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, out_dir)
 
     # if fails to get XYZ coordinates; STOP
     if convert_smiles2xyz == 'NOT_DONE':
@@ -514,7 +539,7 @@ def Init_info(unit_name, smiles_each_ori, length):
         return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
     # Collect valency and connecting information for each atom
-    neigh_atoms_info = connec_info('./' + unit_name + '.xyz')
+    neigh_atoms_info = connec_info(out_dir + '/' + unit_name + '.xyz')
 
     try:
         # Find connecting atoms associated with dummy atoms.
@@ -757,7 +782,7 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     )
 
 
-def gen_conf_xyz_vasp(unit_name, m1, out_dir, ln, OPLS, polymer, atom_typing_):
+def gen_poly_conf(unit_name, m1, out_dir, ln, OPLS, polymer, atom_typing_):
     m2 = Chem.AddHs(m1)
     NAttempt = 100000
 
