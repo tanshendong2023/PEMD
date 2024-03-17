@@ -9,12 +9,14 @@ Date: 2024.03.15
 import os
 import time
 import shutil
+import random
 import subprocess
 import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
+from openbabel import pybel
 from LigParGenPEMD import Converter
 from PEMD.sim_API.gaussian import gaussian
 from simple_slurm import Slurm
@@ -782,50 +784,42 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     )
 
 
-def gen_poly_conf(unit_name, m1, out_dir, ln, OPLS, polymer, atom_typing_):
-    m2 = Chem.AddHs(m1)
-    NAttempt = 100000
+def gen_poly_conf(unit_name, smiles, out_dir, ln, OPLS, atom_typing_):
+    # print(smiles)
+    mol = pybel.readstring("smi", smiles)
+    mol.addh()
+    mol.make3D()
+    obmol = mol.OBMol
+    angle_range = (0, 0.1)
+    for obatom in pybel.ob.OBMolAtomIter(obmol):
+        for bond in pybel.ob.OBAtomBondIter(obatom):
+            neighbor = bond.GetNbrAtom(obatom)
+            if len(list(pybel.ob.OBAtomAtomIter(neighbor))) < 2:
+                continue
+            angle = random.uniform(*angle_range)
+            n1 = next(pybel.ob.OBAtomAtomIter(neighbor))
+            n2 = next(pybel.ob.OBAtomAtomIter(n1))
+            obmol.SetTorsion(obatom.GetIdx(), neighbor.GetIdx(), n1.GetIdx(), n2.GetIdx(), angle)
+    mol.localopt()
 
-    for i in range(10):
-        cids = AllChem.EmbedMultipleConfs(
-            m2,
-            numConfs=10,
-            numThreads=64,
-            randomSeed=i,
-            maxAttempts=NAttempt,
-        )
-
-        if len(cids) > 0:
-            break
-
-    cid = cids[0]
-    AllChem.UFFOptimizeMolecule(m2, confId=cid)
-    # AllChem.MMFFOptimizeMolecule(m2, confId=cid)
-
-    # 使用 os.path.join 来正确地拼接路径和文件名
+    # 写入文件
     file_base = '{}_N{}'.format(unit_name, ln)
-    pdb_filename = os.path.join(out_dir, file_base + '.pdb')
-    xyz_filename = os.path.join(out_dir, file_base + '.xyz')
+    pdb_file = file_base + '/' + f"{unit_name}_N{ln}.pdb"
+    xyz_file = file_base + '/' + f"{unit_name}_N{ln}.xyz"
+    mol_file = file_base + '/' + f"{unit_name}_N{ln}.mol2"
 
-    Chem.MolToPDBFile(m2, pdb_filename, confId=cid)  # Generate pdb file
-    Chem.MolToXYZFile(m2, xyz_filename, confId=cid)  # Generate xyz file
-
-    Chem.MolToPDBFile(m2, pdb_filename, confId=cid)  # Generate pdb file
-    Chem.MolToXYZFile(m2, xyz_filename, confId=cid)  # Generate xyz file
-
-    # outfile_name = out_dir + unit_name + '_N' + str(ln) + '_C' + str(n)
-
-    # if IrrStruc is False:
-    # Chem.MolToPDBFile(m2, outfile_name + '.pdb', confId=cid)  # Generate pdb file
-    # Chem.MolToXYZFile(m2, outfile_name + '.xyz', confId=cid)  # Generate xyz file
+    mol.write("pdb", pdb_file, overwrite=True)
+    mol.write("xyz", xyz_file, overwrite=True)
+    mol.write("mol2", mol_file, overwrite=True)
 
     # Generate OPLS parameter file
     if OPLS is True:
         print(unit_name, ": Generating OPLS parameter file ...")
-        if os.path.exists(pdb_filename):
+
+        if os.path.exists(f"{unit_name}_N{ln}.xyz"):
             try:
                 Converter.convert(
-                    pdb=pdb_filename,
+                    pdb=pdb_file,
                     resname=unit_name,
                     charge=0,
                     opt=0,
@@ -834,17 +828,16 @@ def gen_poly_conf(unit_name, m1, out_dir, ln, OPLS, polymer, atom_typing_):
                 )
                 print(unit_name, ": OPLS parameter file generated.")
             except BaseException:
-                print('problem running LigParGen for {}.pdb.'.format(pdb_filename))
+                print('problem running LigParGen for {}.pdb.'.format(pdb_file))
     else:
         os.chdir(out_dir)
 
-    if polymer is True:
-        print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
-        get_gaff2(file_base, out_dir, atom_typing=atom_typing_)
-        # input_file = file_base + '_gaff2.lmp'
-        # output_file = file_base + '_gaff2.data'
-        relax_polymer_lmp(file_base)
-        print("\n", unit_name, ": MD simulation normally terminated.\n")
+    print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
+    get_gaff2(file_base, out_dir, atom_typing=atom_typing_)
+    # input_file = file_base + '_gaff2.lmp'
+    # output_file = file_base + '_gaff2.data'
+    relax_polymer_lmp(file_base)
+    print("\n", unit_name, ": MD simulation normally terminated.\n")
 
 
 def get_gaff2(file_base, mol, atom_typing='pysimm'):
@@ -1022,7 +1015,7 @@ def relax_polymer_lmp(file_base):
     angle_style harmonic
     dihedral_style fourier
     improper_style harmonic
-    pair_style lj/cut 3.0
+    pair_style lj/cut 2.0
     read_data {0}_gaff2.lmp
     thermo 100
     thermo_style custom step temp pxx pyy pzz ebond eangle edihed eimp epair ecoul evdwl pe ke etotal lx ly lz vol density
@@ -1034,7 +1027,7 @@ def relax_polymer_lmp(file_base):
     dump 1 all custom 500 soft.lammpstrj id type mass mol x y z
     dump dump_xyz all xyz 1000 {0}_lmp.xyz
     fix 1 all nvt temp 800 800 100 drag 2
-    run 50000000
+    run 5000000
     write_data {0}_gaff2.data
     """.format(file_base)
 

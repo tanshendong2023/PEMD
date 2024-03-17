@@ -102,15 +102,15 @@ def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length
 
         Final_SMILES.append(smiles_each_ind)
 
-        if polymer is False:
+        if polymer is False and numconf is not None:
             try:
                 PEMD_lib.conformer_search(unit_name, m1, out_dir, ln,  numconf)
                 print('Conformer search succeeded.')
             except BaseException:
                 print('Conformer search failed.')
-        else:
+        elif polymer is True:
             try:
-                PEMD_lib.gen_poly_conf(unit_name, m1, out_dir, ln, opls, polymer,atom_typing_ = 'pysimm')
+                PEMD_lib.gen_poly_conf(unit_name, smiles_each_ind, out_dir, ln, opls, atom_typing_ = 'pysimm')
                 print('Polymer generation succeeded')
             except BaseException:
                 print('Polymer generation failed.')
