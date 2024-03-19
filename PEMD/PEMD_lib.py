@@ -407,59 +407,41 @@ def Init_info(unit_name, smiles_each_ori, out_dir='./'):
         return unit_name, 'REJECT'
 
     return unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis
+    # return unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, flag
 
 
 
-def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,):
+
+def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_):
+
     input_mol = Chem.MolFromSmiles(smiles_each)
     edit_m1 = Chem.EditableMol(input_mol)
 
-    edit_m1.RemoveAtom(dum1)
-
-    if dum1 < dum2:
-        edit_m1.RemoveAtom(dum2 - 1)
-
-    else:
-        edit_m1.RemoveAtom(dum2)
+    # 移除虚拟原子
+    if dum1 > dum2:  # 保证 dum1 < dum2
+        dum1, dum2 = dum2, dum1
+    edit_m1.RemoveAtom(dum2)  # 先移除索引较大的虚拟原子
+    edit_m1.RemoveAtom(dum1)  # 再移除索引较小的虚拟原子
 
     monomer_mol = edit_m1.GetMol()
-    inti_mol = monomer_mol
 
+    # 确定首尾原子的正确顺序
     if atom1 > atom2:
         atom1, atom2 = atom2, atom1
 
-    if dum1 < atom1 and dum2 < atom1:
-        first_atom = atom1 - 2
-    elif (dum1 < atom1 and dum2 > atom1) or (dum1 > atom1 and dum2 < atom1):
-        first_atom = atom1 - 1
-    else:
-        first_atom = atom1
-
-    if dum1 < atom2 and dum2 < atom2:
-        second_atom = atom2 - 2
-    elif (dum1 < atom2 and dum2 > atom2) or (dum1 > atom2 and dum2 < atom2):
-        second_atom = atom2 - 1
-    else:
-        second_atom = atom2
-
     for i in range(1, ln):
-        combo = Chem.CombineMols(inti_mol, monomer_mol)
+        combo = Chem.CombineMols(monomer_mol, monomer_mol)
         edcombo = Chem.EditableMol(combo)
-        edcombo.AddBond(
-            second_atom + (i - 1) * monomer_mol.GetNumAtoms(),
-            first_atom + i * monomer_mol.GetNumAtoms(),
-            order=Chem.rdchem.BondType.SINGLE,
-        )
+        edcombo.AddBond(atom2 + (i - 1) * monomer_mol.GetNumAtoms(), atom1 + i * monomer_mol.GetNumAtoms(), order=Chem.rdchem.BondType.SINGLE)
+        monomer_mol = edcombo.GetMol()
 
-        inti_mol = edcombo.GetMol()
+    final_mol = monomer_mol
 
-    if LCap_ is True or RCap_ is True:
-        inti_mol = gen_smiles_with_cap(unit_name,0,0, first_atom, second_atom + i * monomer_mol.GetNumAtoms(),
-                                       inti_mol, smiles_LCap_, smiles_RCap_, LCap_, RCap_, WithDum=False,)
+    if LCap_ or RCap_:
+        final_mol = gen_smiles_with_cap(unit_name, 0, 0, atom1, atom2 + (ln - 1) * monomer_mol.GetNumAtoms(), final_mol, smiles_LCap_, smiles_RCap_, LCap_, RCap_, WithDum=False)
 
-        return inti_mol
+    return Chem.MolToSmiles(final_mol)
 
-    return Chem.MolToSmiles(inti_mol)
 
 
 def gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each, smiles_LCap_, smiles_RCap_, LCap_, RCap_, WithDum=True,):
