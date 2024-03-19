@@ -60,7 +60,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length,):
         if LCap_ is False and RCap_ is False:
             mol = Chem.MolFromSmiles(smiles_each)
             mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
-            smiles_each_ind = Chem.MolToSmiles(mol_new)
+            smiles_poly = Chem.MolToSmiles(mol_new)
         else:
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis,) \
                 = PEMD_lib.Init_info(unit_name, smiles_each, length)
