@@ -371,73 +371,131 @@ def trans_origin(unit, atom1):  # XYZ coordinates and angle
 
 
 # complex function
-def Init_info(unit_name, smiles_mid, out_dir='./'):
+def Init_info(unit_name, smiles_each_ori, length, out_dir = './'):
+    # Get index of dummy atoms and bond type associated with it
     try:
-        dum_index, bond_type = FetchDum(smiles_mid)
-        if len(dum_index) != 2:
-            print(f"{unit_name}: There should be exactly two dummy atoms in the SMILES string.")
-            return unit_name, 'REJECT'
-        dum1, dum2 = dum_index
-    except Exception as e:
-        print(f"{unit_name}: Error fetching dummy atoms positions - {e}")
-        return unit_name, 'REJECT'
+        dum_index, bond_type = FetchDum(smiles_each_ori)
+        if len(dum_index) == 2:
+            dum1 = dum_index[0]
+            dum2 = dum_index[1]
+        else:
+            print(
+                unit_name,
+                ": There are more or less than two dummy atoms in the SMILES string; "
+                "Hint: PEMD works only for one-dimensional polymers.",
+            )
+            return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+    except Exception:
+        print(
+            unit_name,
+            ": Couldn't fetch the position of dummy atoms. Hints: (1) In SMILES strings, use '*' for a dummy atom,"
+            "(2) Check RDKit installation.",
+        )
+        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
+    # Assign dummy atom according to bond type
     if bond_type == 'SINGLE':
         dum, unit_dis = 'Cl', -0.17
+        # List of oligomers
+        oligo_list = [length]
     elif bond_type == 'DOUBLE':
         dum, unit_dis = 'O', 0.25
+        # List of oligomers
+        oligo_list = []
     else:
-        print(f"{unit_name}: Unsupported bond type - Only single or double bonds are acceptable.")
-        return unit_name, 'REJECT'
+        print(
+            unit_name,
+            ": Unusal bond type (Only single or double bonds are acceptable)."
+            "Hints: (1) Check bonds between the dummy and connecting atoms in SMILES string"
+            "       (2) Check RDKit installation.",
+        )
+        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
-    psmiles_mid = smiles_mid.replace('*', dum)
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, psmiles_mid, out_dir)
+    # Replace '*' with dummy atom
+    smiles_each = smiles_each_ori.replace(r'*', dum)
 
+    # Convert SMILES to XYZ coordinates
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, out_dir)
+
+    # if fails to get XYZ coordinates; STOP
     if convert_smiles2xyz == 'NOT_DONE':
-        print(f"{unit_name}: Failed to get XYZ coordinates from SMILES string.")
-        return unit_name, 'REJECT'
+        print(
+            unit_name,
+            ": Couldn't get XYZ coordinates from SMILES string. Hints: (1) Check SMILES string,"
+            "(2) Check RDKit installation.",
+        )
+        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
-    neigh_atoms_info = connec_info(os.path.join(out_dir, unit_name + '.xyz'))
+    # Collect valency and connecting information for each atom
+    neigh_atoms_info = connec_info(out_dir + '/' + unit_name + '.xyz')
 
     try:
-        atom1 = neigh_atoms_info['NeiAtom'][dum1][0]
-        atom2 = neigh_atoms_info['NeiAtom'][dum2][0]
-    except Exception as e:
-        print(f"{unit_name}: Error getting position of connecting atoms - {e}")
-        return unit_name, 'REJECT'
+        # Find connecting atoms associated with dummy atoms.
+        # dum1 and dum2 are connected to atom1 and atom2, respectively.
+        atom1 = neigh_atoms_info['NeiAtom'][dum1].copy()[0]
+        atom2 = neigh_atoms_info['NeiAtom'][dum2].copy()[0]
 
-    return unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis
+    except Exception:
+        print(
+            unit_name,
+            ": Couldn't get the position of connecting atoms. Hints: (1) XYZ coordinates are not acceptable,"
+            "(2) Check Open Babel installation.",
+        )
+        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+
+    return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, '',)
 
 
-def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_):
-
+def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, length, smiles_LCap_, LCap_, smiles_RCap_, RCap_,):
     input_mol = Chem.MolFromSmiles(smiles_each)
     edit_m1 = Chem.EditableMol(input_mol)
 
-    # 移除虚拟原子
-    if dum1 > dum2:  # 保证 dum1 < dum2
-        dum1, dum2 = dum2, dum1
-    edit_m1.RemoveAtom(dum2)  # 先移除索引较大的虚拟原子
-    edit_m1.RemoveAtom(dum1)  # 再移除索引较小的虚拟原子
+    edit_m1.RemoveAtom(dum1)
+
+    if dum1 < dum2:
+        edit_m1.RemoveAtom(dum2 - 1)
+
+    else:
+        edit_m1.RemoveAtom(dum2)
 
     monomer_mol = edit_m1.GetMol()
+    inti_mol = monomer_mol
 
-    # 确定首尾原子的正确顺序
     if atom1 > atom2:
         atom1, atom2 = atom2, atom1
 
-    for i in range(1, ln):
-        combo = Chem.CombineMols(monomer_mol, monomer_mol)
+    if dum1 < atom1 and dum2 < atom1:
+        first_atom = atom1 - 2
+    elif (dum1 < atom1 and dum2 > atom1) or (dum1 > atom1 and dum2 < atom1):
+        first_atom = atom1 - 1
+    else:
+        first_atom = atom1
+
+    if dum1 < atom2 and dum2 < atom2:
+        second_atom = atom2 - 2
+    elif (dum1 < atom2 and dum2 > atom2) or (dum1 > atom2 and dum2 < atom2):
+        second_atom = atom2 - 1
+    else:
+        second_atom = atom2
+
+    for i in range(1, length):
+        combo = Chem.CombineMols(inti_mol, monomer_mol)
         edcombo = Chem.EditableMol(combo)
-        edcombo.AddBond(atom2 + (i - 1) * monomer_mol.GetNumAtoms(), atom1 + i * monomer_mol.GetNumAtoms(), order=Chem.rdchem.BondType.SINGLE)
-        monomer_mol = edcombo.GetMol()
+        edcombo.AddBond(
+            second_atom + (i - 1) * monomer_mol.GetNumAtoms(),
+            first_atom + i * monomer_mol.GetNumAtoms(),
+            order=Chem.rdchem.BondType.SINGLE,
+        )
 
-    final_mol = monomer_mol
+        inti_mol = edcombo.GetMol()
 
-    if LCap_ or RCap_:
-        final_mol = gen_smiles_with_cap(unit_name, 0, 0, atom1, atom2 + (ln - 1) * monomer_mol.GetNumAtoms(), final_mol, smiles_LCap_, smiles_RCap_, LCap_, RCap_, WithDum=False)
+    if LCap_ is True or RCap_ is True:
+        inti_mol = gen_smiles_with_cap(unit_name,0,0, first_atom, second_atom + i * monomer_mol.GetNumAtoms(),
+                                       inti_mol, smiles_LCap_, smiles_RCap_, LCap_, RCap_, WithDum=False,)
 
-    return Chem.MolToSmiles(final_mol)
+        return inti_mol
+
+    return Chem.MolToSmiles(inti_mol)
 
 
 

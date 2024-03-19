@@ -45,16 +45,21 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
             smiles_poly = Chem.MolToSmiles(mol_new)
 
         else:
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis) = \
-                (PEMD_lib.Init_info(unit_name, smiles_mid))
-            smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
-                                                       smiles_LCap_, smiles_RCap_, LCap_, RCap_)
+            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+                = PEMD_lib.Init_info(unit_name, smiles_mid, length,)
+            # Join end caps
+            smiles_each_ind = (
+                PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
+                                             smiles_LCap_, smiles_RCap_, LCap_, RCap_, )
+            )
 
-    else:
-        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis) = \
-            (PEMD_lib.Init_info(unit_name, smiles_mid))
+    elif length > 1:
+        # smiles_each = copy.copy(smiles_each_copy)
+        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+            = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
+
         smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
-                                                       length, smiles_LCap_, LCap_, smiles_RCap_, RCap_)
+                                                       length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
 
     # Delete intermediate XYZ file if exists
     xyz_file_path = unit_name + '.xyz'
