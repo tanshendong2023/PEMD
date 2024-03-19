@@ -23,6 +23,7 @@ from PEMD import PEMD_lib
 
 
 def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
+
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
     df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
 
@@ -34,19 +35,26 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     RCap_ = not pd.isna(smiles_RCap_)
 
     # Get repeating unit SMILES
-    smiles_each = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
+    smiles_mid = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
 
     if length == 1:
+
         if not LCap_ and not RCap_:
-            mol = Chem.MolFromSmiles(smiles_each)
+            mol = Chem.MolFromSmiles(smiles_mid)
             mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
             smiles_poly = Chem.MolToSmiles(mol_new)
+
         else:
-            info = PEMD_lib.Init_info(unit_name, smiles_each)
-            smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, *info, smiles_LCap_, smiles_RCap_, LCap_, RCap_)
+            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis) = \
+                (PEMD_lib.Init_info(unit_name, smiles_mid))
+            smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
+                                                       smiles_LCap_, smiles_RCap_, LCap_, RCap_)
+
     else:
-        info = PEMD_lib.Init_info(unit_name, smiles_each)
-        smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, *info, length, smiles_LCap_, LCap_, smiles_RCap_, RCap_)
+        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis) = \
+            (PEMD_lib.Init_info(unit_name, smiles_mid))
+        smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
+                                                       length, smiles_LCap_, LCap_, smiles_RCap_, RCap_)
 
     # Delete intermediate XYZ file if exists
     xyz_file_path = unit_name + '.xyz'

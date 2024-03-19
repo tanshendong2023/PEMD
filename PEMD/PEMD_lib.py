@@ -371,9 +371,9 @@ def trans_origin(unit, atom1):  # XYZ coordinates and angle
 
 
 # complex function
-def Init_info(unit_name, smiles_each_ori, out_dir='./'):
+def Init_info(unit_name, smiles_mid, out_dir='./'):
     try:
-        dum_index, bond_type = FetchDum(smiles_each_ori)
+        dum_index, bond_type = FetchDum(smiles_mid)
         if len(dum_index) != 2:
             print(f"{unit_name}: There should be exactly two dummy atoms in the SMILES string.")
             return unit_name, 'REJECT'
@@ -390,8 +390,8 @@ def Init_info(unit_name, smiles_each_ori, out_dir='./'):
         print(f"{unit_name}: Unsupported bond type - Only single or double bonds are acceptable.")
         return unit_name, 'REJECT'
 
-    smiles_each = smiles_each_ori.replace('*', dum)
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, out_dir)
+    psmiles_mid = smiles_mid.replace('*', dum)
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, psmiles_mid, out_dir)
 
     if convert_smiles2xyz == 'NOT_DONE':
         print(f"{unit_name}: Failed to get XYZ coordinates from SMILES string.")
@@ -407,9 +407,6 @@ def Init_info(unit_name, smiles_each_ori, out_dir='./'):
         return unit_name, 'REJECT'
 
     return unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis
-    # return unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, flag
-
-
 
 
 def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_):
