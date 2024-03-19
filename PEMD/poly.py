@@ -25,6 +25,7 @@ from PEMD import PEMD_lib
 def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, length,):
     # get origin dir
     original_dir = os.getcwd()
+    print(original_dir)
 
     # build directory
     out_dir = out_dir + '/'
@@ -55,147 +56,57 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, lengt
 
     # count = 0
     smiles_each_ind = None
-    Final_SMILES = []
-    for ln in length:
-        if ln == 1:
-            if LCap_ is False and RCap_ is False:
-                mol = Chem.MolFromSmiles(smiles_each)
-                mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
-                smiles_each_ind = Chem.MolToSmiles(mol_new)
-            else:
-                (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info,oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
+    if length == 1:
+        if LCap_ is False and RCap_ is False:
+            mol = Chem.MolFromSmiles(smiles_each)
+            mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
+            smiles_each_ind = Chem.MolToSmiles(mol_new)
+        else:
+            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info,oligo_list, dum, unit_dis, flag,) \
+                 = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
 
-                if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
-                    return unit_name, 'REJECT', Final_SMILES
-                elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == length[-1]:
-                    return unit_name, 'PARTIAL SUCCESS', Final_SMILES
-                # Join end caps
-                smiles_each_ind = (
-                    PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each,
+            # Join end caps
+            smiles_each_ind = (
+                PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each,
                                                  smiles_LCap_, smiles_RCap_, LCap_, RCap_,)
-                )
+            )
 
-        elif ln > 1:
-            # smiles_each = copy.copy(smiles_each_copy)
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
+    elif length > 1:
+        # smiles_each = copy.copy(smiles_each_copy)
+        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+            = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
 
-            if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
-                return unit_name, 'REJECT', Final_SMILES
-            elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == length[-1]:
-                return unit_name, 'PARTIAL SUCCESS', Final_SMILES
+        smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
+                                                        length, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
 
-            smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                           ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
+    # print(os.getcwd())
+    # delete 中间的xyz文件
+    os.remove(out_dir + '/' + unit_name + '.xyz')
 
-        # print(os.getcwd())
-        # delete 中间的xyz文件
-        os.remove(out_dir + '/' + unit_name + '.xyz')
+    mol = Chem.MolFromSmiles(smiles_each_ind)
+    return smiles_each_ind, mol
 
-        m1 = Chem.MolFromSmiles(smiles_each_ind)
-    return m1
+def build_polymer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, opls=False,):
 
-def build_oligomer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, opls=False,
-                  polymer=False, numconf=10,):
-    # get origin dir
-    original_dir = os.getcwd()
+    try:
+        smiles_each_ind, mol = mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, )
+    except BaseException:
+        print('Mol from smiles failed')
 
-    # build directory
-    out_dir = out_dir + '/'
-    PEMD_lib.build_dir(out_dir)
+    try:
+        PEMD_lib.gen_poly_conf(unit_name, smiles_each_ind, out_dir, length, opls, atom_typing_ = 'pysimm')
+        print('Polymer generation succeeded')
+    except BaseException:
+        print('Polymer generation failed.')
 
-    # Dataframe
-    input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
-    df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
-
-    # Obtain Cap smiles
-    LCap_ = False
-    RCap_ = False
-    if 'LeftCap' in df_smiles.columns:
-        smiles_LCap_ = df_smiles[df_smiles['ID'] == unit_name]['LeftCap'].values[0]
-        if PEMD_lib.is_nan(smiles_LCap_) is False:          # Check if the SMILES string is NaN
-            LCap_ = True
-    else:
-        smiles_LCap_ = ''
-    if 'RightCap' in df_smiles.columns:
-        smiles_RCap_ = df_smiles[df_smiles['ID'] == unit_name]['RightCap'].values[0]
-        if PEMD_lib.is_nan(smiles_RCap_) is False:           # Check if the SMILES string is NaN
-            RCap_ = True
-    else:
-        smiles_RCap_ = ''
-
-    # Get repeating_unit SMILES
-    smiles_each = df_smiles[df_smiles['ID'] == unit_name]['SMILES'].values[0]
-
-    # count = 0
-    smiles_each_ind = None
-    Final_SMILES = []
-    for ln in length:
-        if ln == 1:
-            if LCap_ is False and RCap_ is False:
-                mol = Chem.MolFromSmiles(smiles_each)
-                mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
-                smiles_each_ind = Chem.MolToSmiles(mol_new)
-            else:
-                (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info,oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
-
-                if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
-                    return unit_name, 'REJECT', Final_SMILES
-                elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == length[-1]:
-                    return unit_name, 'PARTIAL SUCCESS', Final_SMILES
-                # Join end caps
-                smiles_each_ind = (
-                    PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                 smiles_LCap_, smiles_RCap_, LCap_, RCap_,)
-                )
-
-        elif ln > 1:
-            # smiles_each = copy.copy(smiles_each_copy)
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
-
-            if flag == 'REJECT' and len(Final_SMILES) == 0 and ln == length[-1]:
-                return unit_name, 'REJECT', Final_SMILES
-            elif flag == 'REJECT' and len(Final_SMILES) >= 1 and ln == length[-1]:
-                return unit_name, 'PARTIAL SUCCESS', Final_SMILES
-
-            smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                           ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
-
-        # print(os.getcwd())
-        # delete 中间的xyz文件
-        os.remove(out_dir + '/' + unit_name + '.xyz')
-
-        m1 = Chem.MolFromSmiles(smiles_each_ind)
-        if m1 is None and len(Final_SMILES) == 0 and ln == length[-1]:
-            return unit_name, 'REJECT', Final_SMILES
-        elif m1 is None and len(Final_SMILES) >= 1 and ln == length[-1]:
-            return unit_name, 'PARTIAL SUCCESS', Final_SMILES
-
-        Final_SMILES.append(smiles_each_ind)
-
-        if polymer is False and numconf is not None:
-            try:
-                PEMD_lib.conformer_search(unit_name, m1, out_dir, ln,  numconf)
-                print('Conformer search succeeded.')
-            except BaseException:
-                print('Conformer search failed.')
-        elif polymer is True:
-            try:
-                PEMD_lib.gen_poly_conf(unit_name, smiles_each_ind, out_dir, ln, opls, atom_typing_ = 'pysimm')
-                print('Polymer generation succeeded')
-            except BaseException:
-                print('Polymer generation failed.')
-
-
-    # Delete crest work directory
-    if os.path.isdir('crest_work/'):
-        shutil.rmtree('crest_work/')
+    # # Delete crest work directory
+    # if os.path.isdir('crest_work/'):
+    #     shutil.rmtree('crest_work/')
 
     # go back the origin dir
-    os.chdir(original_dir)
+    original_dir = os.getcwd()
+    print(original_dir)
+    # os.chdir(original_dir)
 
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
