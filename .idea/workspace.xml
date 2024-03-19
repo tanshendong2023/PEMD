@@ -5,10 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/PEMD/calc_properties.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/sim/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/sim/qm.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/PEMD_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/PEMD_lib.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/polymodel.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/polymodel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/polymodel.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/poly.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -45,13 +46,17 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/tanshendong/Documents/GitHub/PolyElecMD/PEMD&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;terminal&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/PEMD" />
       <recent name="$PROJECT_DIR$/PEMD/sim_API" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/PEMD/sim" />
+      <recent name="$PROJECT_DIR$/PEMD" />
     </key>
   </component>
   <component name="RunManager" selected="Python.PolyElecMD">

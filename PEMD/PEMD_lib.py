@@ -18,7 +18,7 @@ from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
 from openbabel import pybel
 from LigParGenPEMD import Converter
-from PEMD.sim_API.gaussian import gaussian
+from PEMD.sim_API import gaussian
 from simple_slurm import Slurm
 import PEMD.MD_lib as MDlib
 from pysimm import system, lmps, forcefield
@@ -58,64 +58,6 @@ def get_slurm_job_status(job_id):
         return 'CANCELLED'
     else:
         return 'RUNNING'
-
-
-def conformer_search(unit_name, m1, out_dir, ln,  numconf):
-    m2 = Chem.AddHs(m1)
-    NAttempt = 100000
-
-    for i in range(10):
-        cids = AllChem.EmbedMultipleConfs(
-            m2,
-            numConfs=10,
-            numThreads=64,
-            randomSeed=i,
-            maxAttempts=NAttempt,
-        )
-
-        if len(cids) > 0:
-            break
-
-    cid = cids[0]
-    AllChem.UFFOptimizeMolecule(m2, confId=cid)
-    # AllChem.MMFFOptimizeMolecule(m2, confId=cid)
-
-    # 使用 os.path.join 来正确地拼接路径和文件名
-    file_base = '{}_N{}'.format(unit_name, ln)
-    pdb_filename = os.path.join(out_dir, file_base + '.pdb')
-    xyz_filename = os.path.join(out_dir, file_base + '.xyz')
-
-    Chem.MolToPDBFile(m2, pdb_filename, confId=cid)  # Generate pdb file
-    Chem.MolToXYZFile(m2, xyz_filename, confId=cid)  # Generate xyz file
-
-    work_dir = file_base + '/' + 'crest_work'
-    os.makedirs(work_dir, exist_ok=True)
-    original_dir = os.getcwd()
-    os.chdir(work_dir)
-
-    mol_file = original_dir + '/' + xyz_filename
-
-    slurm = Slurm(J='crest',
-                  N=1,
-                  n=32,
-                  output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
-                  )
-
-    job_id = slurm.sbatch(f'crest {mol_file} --gfn2 --T 32 --niceprint')
-
-    # 检查文件是否存在
-    while True:
-        status = get_slurm_job_status(job_id)
-        if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
-            print("crest finish, executing the gaussian task...")
-            # 保存能量最低的n个结构为列表，并生成gaussian输入文件
-            lowest_energy_structures = crest_lowest_energy_str('crest_conformers.xyz', numconf)
-            os.chdir(original_dir)
-            save_structures(lowest_energy_structures, unit_name, ln)
-            break  # 任务执行完毕后跳出循环
-        else:
-            print("crest conformer search not finish, waiting...")
-            time.sleep(30)  # 等待60秒后再次检查
 
 
 def parse_xyz_with_energies(file_path):
@@ -161,7 +103,7 @@ def save_structures(structures, unit_name, ln):
             for line in structure:
                 file.write(f"{line}\n")
 
-        gaussian(files=file_path,
+        gaussian.gaussian(files=file_path,
                  qm_input='opt freq B3LYP/6-311+g(d,p) nosymm em=GD3BJ',
                  suffix='',
                  prefix='',
