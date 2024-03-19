@@ -22,7 +22,7 @@ from IPython.display import display
 from PEMD import PEMD_lib
 
 
-def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, length,):
+def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length,):
     # # get origin dir
     # original_dir = os.getcwd()
     # print(original_dir)
