@@ -11,7 +11,7 @@ import random
 import subprocess
 import threading
 import py3Dmol
-import shutil
+# import shutil
 import pandas as pd
 import datamol as dm
 from openbabel import pybel
@@ -23,13 +23,13 @@ from PEMD import PEMD_lib
 
 
 def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, length,):
-    # get origin dir
-    original_dir = os.getcwd()
-    print(original_dir)
-
-    # build directory
-    out_dir = out_dir + '/'
-    PEMD_lib.build_dir(out_dir)
+    # # get origin dir
+    # original_dir = os.getcwd()
+    # print(original_dir)
+    #
+    # # build directory
+    # out_dir = out_dir + '/'
+    # PEMD_lib.build_dir(out_dir)
 
     # Dataframe
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
@@ -55,7 +55,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, lengt
     smiles_each = df_smiles[df_smiles['ID'] == unit_name]['SMILES'].values[0]
 
     # count = 0
-    smiles_each_ind = None
+    smiles_poly = None
     if length == 1:
         if LCap_ is False and RCap_ is False:
             mol = Chem.MolFromSmiles(smiles_each)
@@ -63,10 +63,10 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, lengt
             smiles_each_ind = Chem.MolToSmiles(mol_new)
         else:
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, flag,) \
-                 = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
+                 = PEMD_lib.Init_info(unit_name, smiles_each, length)
 
             # Join end caps
-            smiles_each_ind = (
+            smiles_poly = (
                 PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each,
                                                  smiles_LCap_, smiles_RCap_, LCap_, RCap_,)
             )
@@ -74,27 +74,22 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, lengt
     elif length > 1:
         # smiles_each = copy.copy(smiles_each_copy)
         (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, flag,) \
-            = PEMD_lib.Init_info(unit_name, smiles_each, length, out_dir)
+            = PEMD_lib.Init_info(unit_name, smiles_each, length,)
 
-        smiles_each_ind = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
+        smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
                                                         length, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
 
     # print(os.getcwd())
     # delete 中间的xyz文件
-    os.remove(out_dir + '/' + unit_name + '.xyz')
+    os.remove(unit_name + '.xyz')
 
-    mol = Chem.MolFromSmiles(smiles_each_ind)
-    return smiles_each_ind, mol
+    mol = Chem.MolFromSmiles(smiles_poly)
+    return smiles_poly, mol
 
-def build_polymer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, opls=False,):
 
+def build_polymer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, smiles_poly, mol, opls=False,):
     try:
-        smiles_each_ind, mol = mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, )
-    except BaseException:
-        print('Mol from smiles failed')
-
-    try:
-        PEMD_lib.gen_poly_conf(unit_name, smiles_each_ind, out_dir, length, opls, atom_typing_ = 'pysimm')
+        PEMD_lib.gen_poly_conf(unit_name, smiles_poly, out_dir, length, opls, atom_typing_ = 'pysimm')
         print('Polymer generation succeeded')
     except BaseException:
         print('Polymer generation failed.')

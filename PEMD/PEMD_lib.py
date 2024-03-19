@@ -18,7 +18,6 @@ from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
 from openbabel import pybel
 from LigParGenPEMD import Converter
-from PEMD.sim_API import gaussian
 from simple_slurm import Slurm
 import PEMD.MD_lib as MDlib
 from pysimm import system, lmps, forcefield
@@ -87,62 +86,7 @@ def parse_xyz_with_energies(file_path):
     return structures, energies
 
 
-def save_structures(structures, unit_name, ln):
-    # 获取当前工作目录的路径
-    current_directory = os.getcwd()
-    job_ids = []
-    structure_directory = current_directory + '/' + f'{unit_name}_N{ln}' + '/' + f'{unit_name}_conf_g16'
-    os.makedirs(structure_directory, exist_ok=True)
 
-    for i, structure in enumerate(structures):
-
-        # 在新创建的目录中保存XYZ文件
-        file_path = os.path.join(structure_directory, f"{unit_name}_{i + 1}.xyz")
-
-        with open(file_path, 'w') as file:
-            for line in structure:
-                file.write(f"{line}\n")
-
-        gaussian.gaussian(files=file_path,
-                 qm_input='opt freq B3LYP/6-311+g(d,p) nosymm em=GD3BJ',
-                 suffix='',
-                 prefix='',
-                 program='gaussian',
-                 mem='64GB',
-                 nprocs=32,
-                 chk=True,
-                 chk_path=structure_directory,
-                 destination=structure_directory,
-                 )
-
-        slurm = Slurm(J='g16',
-                      N=1,
-                      n=32,
-                      output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
-                      )
-
-        # com_file = os.path.join(structure_directory, f"{base_filename}_{i + 1}_conf_1.com")
-        #         print(f'g16 {structure_directory}/{base_filename}_{i+1}_conf_1.com')
-        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_{i + 1}_conf_1.com')
-        job_ids.append(job_id)
-
-    # 检查所有任务的状态
-    while True:
-        all_completed = True
-        for job_id in job_ids:
-            status = get_slurm_job_status(job_id)
-            if status not in ['COMPLETED', 'FAILED', 'CANCELLED']:
-                all_completed = False
-                break
-
-        if all_completed:
-            print("All gaussian tasks finished, find the lowest energy structure...")
-            # 执行下一个任务的代码...
-            g16_lowest_energy_str(structure_directory, unit_name, ln)
-            break
-        else:
-            print("g16 conformer search not finish, waiting...")
-            time.sleep(30)  # 等待30秒后再次检查
 
 
 def crest_lowest_energy_str(file_path, numconf):
@@ -427,7 +371,7 @@ def trans_origin(unit, atom1):  # XYZ coordinates and angle
 
 
 # complex function
-def Init_info(unit_name, smiles_each_ori, length, out_dir):
+def Init_info(unit_name, smiles_each_ori, out_dir = './'):
     # Get index of dummy atoms and bond type associated with it
     try:
         dum_index, bond_type = FetchDum(smiles_each_ori)
