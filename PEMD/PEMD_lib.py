@@ -371,80 +371,43 @@ def trans_origin(unit, atom1):  # XYZ coordinates and angle
 
 
 # complex function
-def Init_info(unit_name, smiles_each_ori, out_dir = './'):
-    # Get index of dummy atoms and bond type associated with it
+def Init_info(unit_name, smiles_each_ori, out_dir='./'):
     try:
         dum_index, bond_type = FetchDum(smiles_each_ori)
-        if len(dum_index) == 2:
-            dum1 = dum_index[0]
-            dum2 = dum_index[1]
-        else:
-            print(
-                unit_name,
-                ": There are more or less than two dummy atoms in the SMILES string; "
-                "Hint: PEMD works only for one-dimensional polymers.",
-            )
-            return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
-    except Exception:
-        print(
-            unit_name,
-            ": Couldn't fetch the position of dummy atoms. Hints: (1) In SMILES strings, use '*' for a dummy atom,"
-            "(2) Check RDKit installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+        if len(dum_index) != 2:
+            print(f"{unit_name}: There should be exactly two dummy atoms in the SMILES string.")
+            return unit_name, 'REJECT'
+        dum1, dum2 = dum_index
+    except Exception as e:
+        print(f"{unit_name}: Error fetching dummy atoms positions - {e}")
+        return unit_name, 'REJECT'
 
-    # Assign dummy atom according to bond type
     if bond_type == 'SINGLE':
         dum, unit_dis = 'Cl', -0.17
-        # List of oligomers
-        # oligo_list = list(set(length) - set(['n']))
     elif bond_type == 'DOUBLE':
         dum, unit_dis = 'O', 0.25
-        # List of oligomers
-        # oligo_list = []
     else:
-        print(
-            unit_name,
-            ": Unusal bond type (Only single or double bonds are acceptable)."
-            "Hints: (1) Check bonds between the dummy and connecting atoms in SMILES string"
-            "       (2) Check RDKit installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+        print(f"{unit_name}: Unsupported bond type - Only single or double bonds are acceptable.")
+        return unit_name, 'REJECT'
 
-    # Replace '*' with dummy atom
-    smiles_each = smiles_each_ori.replace(r'*', dum)
-
-    # Convert SMILES to XYZ coordinates
+    smiles_each = smiles_each_ori.replace('*', dum)
     convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, out_dir)
 
-    # if fails to get XYZ coordinates; STOP
     if convert_smiles2xyz == 'NOT_DONE':
-        print(
-            unit_name,
-            ": Couldn't get XYZ coordinates from SMILES string. Hints: (1) Check SMILES string,"
-            "(2) Check RDKit installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+        print(f"{unit_name}: Failed to get XYZ coordinates from SMILES string.")
+        return unit_name, 'REJECT'
 
-    # Collect valency and connecting information for each atom
-    neigh_atoms_info = connec_info(out_dir + '/' + unit_name + '.xyz')
+    neigh_atoms_info = connec_info(os.path.join(out_dir, unit_name + '.xyz'))
 
     try:
-        # Find connecting atoms associated with dummy atoms.
-        # dum1 and dum2 are connected to atom1 and atom2, respectively.
-        atom1 = neigh_atoms_info['NeiAtom'][dum1].copy()[0]
-        atom2 = neigh_atoms_info['NeiAtom'][dum2].copy()[0]
+        atom1 = neigh_atoms_info['NeiAtom'][dum1][0]
+        atom2 = neigh_atoms_info['NeiAtom'][dum2][0]
+    except Exception as e:
+        print(f"{unit_name}: Error getting position of connecting atoms - {e}")
+        return unit_name, 'REJECT'
 
-    except Exception:
-        print(
-            unit_name,
-            ": Couldn't get the position of connecting atoms. Hints: (1) XYZ coordinates are not acceptable,"
-            "(2) Check Open Babel installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+    return unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis
 
-    # return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, '',)
-    return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, '',)
 
 
 def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,):

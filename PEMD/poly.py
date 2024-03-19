@@ -22,68 +22,41 @@ from IPython.display import display
 from PEMD import PEMD_lib
 
 
-def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length,):
-    # # get origin dir
-    # original_dir = os.getcwd()
-    # print(original_dir)
-    #
-    # # build directory
-    # out_dir = out_dir + '/'
-    # PEMD_lib.build_dir(out_dir)
-
-    # Dataframe
+def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
     df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
 
-    # Obtain Cap smiles
-    LCap_ = False
-    RCap_ = False
-    if 'LeftCap' in df_smiles.columns:
-        smiles_LCap_ = df_smiles[df_smiles['ID'] == unit_name]['LeftCap'].values[0]
-        if PEMD_lib.is_nan(smiles_LCap_) is False:          # Check if the SMILES string is NaN
-            LCap_ = True
-    else:
-        smiles_LCap_ = ''
-    if 'RightCap' in df_smiles.columns:
-        smiles_RCap_ = df_smiles[df_smiles['ID'] == unit_name]['RightCap'].values[0]
-        if PEMD_lib.is_nan(smiles_RCap_) is False:           # Check if the SMILES string is NaN
-            RCap_ = True
-    else:
-        smiles_RCap_ = ''
+    # Extract cap SMILES if available
+    smiles_LCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'LeftCap'].values[0]
+    LCap_ = not pd.isna(smiles_LCap_)
 
-    # Get repeating_unit SMILES
-    smiles_each = df_smiles[df_smiles['ID'] == unit_name]['SMILES'].values[0]
+    smiles_RCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'RightCap'].values[0]
+    RCap_ = not pd.isna(smiles_RCap_)
 
-    # count = 0
-    smiles_poly = None
+    # Get repeating unit SMILES
+    smiles_each = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
+
     if length == 1:
-        if LCap_ is False and RCap_ is False:
+        if not LCap_ and not RCap_:
             mol = Chem.MolFromSmiles(smiles_each)
             mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
             smiles_poly = Chem.MolToSmiles(mol_new)
         else:
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis,) \
-                = PEMD_lib.Init_info(unit_name, smiles_each, length)
+            info = PEMD_lib.Init_info(unit_name, smiles_each)
+            smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, *info, smiles_LCap_, smiles_RCap_, LCap_, RCap_)
+    else:
+        info = PEMD_lib.Init_info(unit_name, smiles_each)
+        smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, *info, length, smiles_LCap_, LCap_, smiles_RCap_, RCap_)
 
-            # Join end caps
-            smiles_poly = (
-                PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                 smiles_LCap_, smiles_RCap_, LCap_, RCap_,)
-            )
-
-    elif length > 1:
-        # smiles_each = copy.copy(smiles_each_copy)
-        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, ) \
-            = PEMD_lib.Init_info(unit_name, smiles_each, length,)
-
-        smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
-                                                        length, smiles_LCap_, LCap_, smiles_RCap_, RCap_,)
-
-    # print(os.getcwd())
-    # delete 中间的xyz文件
-    os.remove(unit_name + '.xyz')
+    # Delete intermediate XYZ file if exists
+    xyz_file_path = unit_name + '.xyz'
+    if os.path.exists(xyz_file_path):
+        os.remove(xyz_file_path)
 
     mol = Chem.MolFromSmiles(smiles_poly)
+    if mol is None:
+        raise ValueError(f"Invalid SMILES string generated: {smiles_poly}")
+
     return smiles_poly, mol
 
 
