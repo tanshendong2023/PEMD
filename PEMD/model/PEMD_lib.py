@@ -7,19 +7,15 @@ Date: 2024.03.15
 
 
 import os
-import time
 import shutil
-import random
 import subprocess
 import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
-from openbabel import pybel
-from LigParGenPEMD import Converter
 from simple_slurm import Slurm
-import PEMD.MD_lib as MDlib
+import PEMD.model.MD_lib as MDlib
 from pysimm import system, lmps, forcefield
 
 
@@ -87,8 +83,6 @@ def parse_xyz_with_energies(file_path):
 
 
 
-
-
 def crest_lowest_energy_str(file_path, numconf):
     # Parse XYZ file to obtain structures and their corresponding energies
     structures, energies = parse_xyz_with_energies(file_path)
@@ -148,75 +142,6 @@ def rdkitmol2xyz(unit_name, m, out_dir, IDNum):
         mol = ob.OBMol()
         obConversion.ReadFile(mol, out_dir + '/' + unit_name + '.mol')
         obConversion.WriteFile(mol, out_dir + '/' + unit_name + '.xyz')
-
-
-# This function generates a VASP input (polymer) file
-# INPUT: name of VASP directory, name of a monomer, XYZ-coordinates, row numbers for dummy and
-# connecting atoms , chemical name of dummy atom, Serial number
-# OUTPUT: Generates a VASP input file
-def gen_vasp(vasp_dir, unit_name, unit, dum1, dum2, atom1, atom2, dum, unit_dis, SN=0, length=0, Inter_Chain_Dis=12, Polymer=False,):
-
-    add_dis = add_dis_func(unit, atom1, atom2)
-
-    unit = trans_origin(unit, atom2)
-    unit = alignZ(unit, atom2, dum1)
-    unit = unit.sort_values(by=[0])
-
-    if SN == 0 and length == 0:
-        file_name = vasp_dir + unit_name.replace('.xyz', '') + '.vasp'
-    elif SN == 0 and length != 0:
-        file_name = (
-            vasp_dir + unit_name.replace('.xyz', '') + '_N' + str(length) + '.vasp'
-        )
-    elif SN != 0 and length == 0:
-        file_name = vasp_dir + unit_name.replace('.xyz', '') + '_C' + str(SN) + '.vasp'
-    else:
-        file_name = (vasp_dir + unit_name.replace('.xyz', '') + '_N' + str(length) + '_C' + str(SN) + '.vasp')
-
-    file = open(file_name, 'w+')
-    file.write('### ' + str(unit_name) + ' ###\n')
-    file.write('1\n')
-
-    # Get the size of the box
-    a_vec = unit[1].max() - unit[1].min() + Inter_Chain_Dis
-    b_vec = unit[2].max() - unit[2].min() + Inter_Chain_Dis
-
-    if Polymer:
-        c_vec = unit.loc[dum1][3] + unit_dis + add_dis  #
-    else:
-        c_vec = unit[3].max() - unit[3].min() + Inter_Chain_Dis
-
-    # move unit to the center of a box
-    unit[1] = unit[1] - unit[1].min() + Inter_Chain_Dis / 2
-    unit[2] = unit[2] - unit[2].min() + Inter_Chain_Dis / 2
-
-    if Polymer:
-        unit[3] = unit[3] + (1.68 + unit_dis + add_dis) / 2
-    else:
-        unit[3] = unit[3] - unit[3].min() + Inter_Chain_Dis / 2
-
-    unit = unit.drop([dum1, dum2])
-    file.write(' ' + str(a_vec) + ' ' + str(0.0) + ' ' + str(0.0) + '\n')
-    file.write(' ' + str(0.0) + ' ' + str(b_vec) + ' ' + str(0.0) + '\n')
-    file.write(' ' + str(0.0) + ' ' + str(0.0) + ' ' + str(c_vec) + '\n')
-
-    ele_list = []
-    count_ele_list = []
-    for element in sorted(set(unit[0].values)):
-        ele_list.append(element)
-        count_ele_list.append(list(unit[0].values).count(element))
-
-    for item in ele_list:
-        file.write(str(item) + '  ')
-
-    file.write('\n ')
-    for item in count_ele_list:
-        file.write(str(item) + ' ')
-
-    file.write('\nCartesian\n')
-
-    file.write(unit[[1, 2, 3]].to_string(header=False, index=False))
-    file.close()
 
 
 # This function create XYZ files from SMILES
@@ -635,7 +560,7 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     smiles_each = smiles_each_ori.replace(r'*', 'Cl')
 
     # Convert SMILES to XYZ coordinates
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, './')
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, '../')
 
     # if fails to get XYZ coordinates; STOP
     if convert_smiles2xyz == 'NOT_DONE':
@@ -671,66 +596,12 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     )
 
 
-def gen_poly_conf(unit_name, smiles, out_dir, ln, OPLS, atom_typing_):
-    # print(smiles)
-    mol = pybel.readstring("smi", smiles)
-    mol.addh()
-    mol.make3D()
-    obmol = mol.OBMol
-    angle_range = (0, 0.1)
-    for obatom in pybel.ob.OBMolAtomIter(obmol):
-        for bond in pybel.ob.OBAtomBondIter(obatom):
-            neighbor = bond.GetNbrAtom(obatom)
-            if len(list(pybel.ob.OBAtomAtomIter(neighbor))) < 2:
-                continue
-            angle = random.uniform(*angle_range)
-            n1 = next(pybel.ob.OBAtomAtomIter(neighbor))
-            n2 = next(pybel.ob.OBAtomAtomIter(n1))
-            obmol.SetTorsion(obatom.GetIdx(), neighbor.GetIdx(), n1.GetIdx(), n2.GetIdx(), angle)
-    mol.localopt()
-
-    # 写入文件
-    file_base = '{}_N{}'.format(unit_name, ln)
-    pdb_file = file_base + '/' + f"{unit_name}_N{ln}.pdb"
-    xyz_file = file_base + '/' + f"{unit_name}_N{ln}.xyz"
-    mol_file = file_base + '/' + f"{unit_name}_N{ln}.mol2"
-
-    mol.write("pdb", pdb_file, overwrite=True)
-    mol.write("xyz", xyz_file, overwrite=True)
-    mol.write("mol2", mol_file, overwrite=True)
-
-    # Generate OPLS parameter file
-    if OPLS is True:
-        print(unit_name, ": Generating OPLS parameter file ...")
-
-        if os.path.exists(f"{unit_name}_N{ln}.xyz"):
-            try:
-                Converter.convert(
-                    pdb=pdb_file,
-                    resname=unit_name,
-                    charge=0,
-                    opt=0,
-                    outdir= out_dir,
-                    ln = ln,
-                )
-                print(unit_name, ": OPLS parameter file generated.")
-            except BaseException:
-                print('problem running LigParGen for {}.pdb.'.format(pdb_file))
-    else:
-        os.chdir(out_dir)
-
-    print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
-    get_gaff2(file_base, out_dir, atom_typing=atom_typing_)
-    # input_file = file_base + '_gaff2.lmp'
-    # output_file = file_base + '_gaff2.data'
-    relax_polymer_lmp(file_base)
-    print("\n", unit_name, ": MD simulation normally terminated.\n")
-
-
-def get_gaff2(file_base, mol, atom_typing='pysimm'):
+def get_gaff2(unit_name, length, out_dir, mol, atom_typing='pysimm'):
     print("\nGenerating GAFF2 parameter file ...\n")
     # r = MDlib.get_coord_from_pdb(outfile_name + ".pdb")
     # from pysimm import system, forcefield
+
+    file_base = out_dir + "/" + '{}_N{}'.format(unit_name, length)
 
     obConversion.SetInAndOutFormats("pdb", "cml")
     if os.path.exists(file_base + '.pdb'):
@@ -891,8 +762,11 @@ def localopt(unit_name, file_name, dum1, dum2, atom1, atom2, xyz_tmp_dir):
             return unit_opt
 
 
-def relax_polymer_lmp(file_base):
+def relax_polymer_lmp(unit_name, length, out_dir):
+    origin_dir = os.getcwd()
+    os.chdir(out_dir)
     # 创建LAMMPS输入文件字符串
+    file_base = '{}_N{}'.format(unit_name, length)
     lmp_commands = """
     units real
     boundary s s s
@@ -919,7 +793,7 @@ def relax_polymer_lmp(file_base):
     """.format(file_base)
 
     # 将LAMMPS输入命令写入临时文件
-    with open("lammps_input.in", "w") as f:
+    with open('lammps_input.in', "w") as f:
         f.write(lmp_commands)
 
     slurm = Slurm(J='lammps',
@@ -930,6 +804,7 @@ def relax_polymer_lmp(file_base):
 
     slurm.add_cmd('module load LAMMPS')
     job_id = slurm.sbatch('mpirun lmp < lammps_input.in >out.lmp 2>lmp.err')
+    os.chdir(origin_dir)
 
     # while True:
     #     status = get_slurm_job_status(job_id)

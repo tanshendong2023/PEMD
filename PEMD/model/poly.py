@@ -11,7 +11,6 @@ import random
 import subprocess
 import threading
 import py3Dmol
-# import shutil
 import pandas as pd
 import datamol as dm
 from openbabel import pybel
@@ -19,7 +18,8 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from IPython.display import display
-from PEMD import PEMD_lib
+from PEMD.model import PEMD_lib
+from LigParGenPEMD import Converter
 
 
 def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
@@ -47,7 +47,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
 
         else:
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_mid, length,)
+                = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
             # Join end caps
             smiles_poly = (
                 PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
@@ -60,12 +60,12 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
             = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
 
         smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
-                                                       length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
+                                                   length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
 
     # Delete intermediate XYZ file if exists
-    # xyz_file_path = unit_name + '.xyz'
-    # if os.path.exists(xyz_file_path):
-    #     os.remove(xyz_file_path)
+    xyz_file_path = unit_name + '.xyz'
+    if os.path.exists(xyz_file_path):
+        os.remove(xyz_file_path)
 
     mol = Chem.MolFromSmiles(smiles_poly)
     if mol is None:
@@ -74,21 +74,69 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     return smiles_poly, mol
 
 
-def build_polymer(unit_name, repeating_unit, leftcap, rightcap, out_dir, length, smiles_poly, mol, opls=False,):
-    try:
-        PEMD_lib.gen_poly_conf(unit_name, smiles_poly, out_dir, length, opls, atom_typing_ = 'pysimm')
-        print('Polymer generation succeeded')
-    except BaseException:
-        print('Polymer generation failed.')
+def build_polymer(unit_name, smiles_poly, out_dir, length, opls, atom_typing_ = 'pysimm'):
 
-    # # Delete crest work directory
-    # if os.path.isdir('crest_work/'):
-    #     shutil.rmtree('crest_work/')
+    # get origin dir
+    # origin_dir = os.getcwd()
 
-    # go back the origin dir
-    original_dir = os.getcwd()
-    print(original_dir)
-    # os.chdir(original_dir)
+    # build directory
+    out_dir = out_dir + '/'
+    PEMD_lib.build_dir(out_dir)
+
+    # print(smiles)
+    mol = pybel.readstring("smi", smiles_poly)
+    mol.addh()
+    mol.make3D()
+    obmol = mol.OBMol
+    angle_range = (0, 0.1)
+    for obatom in pybel.ob.OBMolAtomIter(obmol):
+        for bond in pybel.ob.OBAtomBondIter(obatom):
+            neighbor = bond.GetNbrAtom(obatom)
+            if len(list(pybel.ob.OBAtomAtomIter(neighbor))) < 2:
+                continue
+            angle = random.uniform(*angle_range)
+            n1 = next(pybel.ob.OBAtomAtomIter(neighbor))
+            n2 = next(pybel.ob.OBAtomAtomIter(n1))
+            obmol.SetTorsion(obatom.GetIdx(), neighbor.GetIdx(), n1.GetIdx(), n2.GetIdx(), angle)
+    mol.localopt()
+
+    # 写入文件
+    # file_base = '{}_N{}'.format(unit_name, length)
+    pdb_file = out_dir + '/' + f"{unit_name}_N{length}.pdb"
+    xyz_file = out_dir + '/' + f"{unit_name}_N{length}.xyz"
+    mol_file = out_dir + '/' + f"{unit_name}_N{length}.mol2"
+
+    mol.write("pdb", pdb_file, overwrite=True)
+    mol.write("xyz", xyz_file, overwrite=True)
+    mol.write("mol2", mol_file, overwrite=True)
+
+    # Generate OPLS parameter file
+    if opls is True:
+        print(unit_name, ": Generating OPLS parameter file ...")
+
+        if os.path.exists(f"{unit_name}_N{length}.xyz"):
+            try:
+                Converter.convert(
+                    pdb=pdb_file,
+                    resname=unit_name,
+                    charge=0,
+                    opt=0,
+                    outdir= out_dir,
+                    ln = length,
+                )
+                print(unit_name, ": OPLS parameter file generated.")
+            except BaseException:
+                print('problem running LigParGen for {}.pdb.'.format(pdb_file))
+
+    # os.chdir(out_dir)
+
+    print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
+
+    PEMD_lib.get_gaff2(unit_name, length, out_dir, mol, atom_typing=atom_typing_)
+    # input_file = file_base + '_gaff2.lmp'
+    # output_file = file_base + '_gaff2.data'
+    PEMD_lib.relax_polymer_lmp(unit_name, length, out_dir)
+    print("\n", unit_name, ": MD simulation normally terminated.\n")
 
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
@@ -251,7 +299,7 @@ def Conformers_search(smiles, Num, charge=0, multiplicity=1):
 
 
 def write_subscript(partition=None, node=1, core=32, task_type='g16'):
-    for folder in os.listdir('.'):
+    for folder in os.listdir('..'):
         if os.path.isdir(folder) and folder.startswith('RESP'):
             # Start building the script content with common headers
             script_content = f"""#!/bin/bash
@@ -281,7 +329,7 @@ g16 $1
 
 def submit_gjf_files():
     current_dir = os.getcwd()  # 保存当前工作目录
-    for folder in os.listdir('.'):
+    for folder in os.listdir('..'):
         if os.path.isdir(folder) and folder.startswith('RESP'):
             gjf_file = f'{folder}.gjf'
             script_file = 'sub_g16.sh'
