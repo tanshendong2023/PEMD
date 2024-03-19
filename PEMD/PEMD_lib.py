@@ -444,7 +444,7 @@ def Init_info(unit_name, smiles_each_ori, out_dir = './'):
         return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
     # return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, '',)
-    return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, '',)
+    return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, )
 
 
 def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, ln, smiles_LCap_, LCap_, smiles_RCap_, RCap_,):
