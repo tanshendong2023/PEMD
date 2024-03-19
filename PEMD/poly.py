@@ -37,6 +37,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     # Get repeating unit SMILES
     smiles_mid = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
 
+    smiles_poly = None
     if length == 1:
 
         if not LCap_ and not RCap_:
@@ -48,7 +49,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
             (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
                 = PEMD_lib.Init_info(unit_name, smiles_mid, length,)
             # Join end caps
-            smiles_each_ind = (
+            smiles_poly = (
                 PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
                                              smiles_LCap_, smiles_RCap_, LCap_, RCap_, )
             )
@@ -62,9 +63,9 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
                                                        length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
 
     # Delete intermediate XYZ file if exists
-    xyz_file_path = unit_name + '.xyz'
-    if os.path.exists(xyz_file_path):
-        os.remove(xyz_file_path)
+    # xyz_file_path = unit_name + '.xyz'
+    # if os.path.exists(xyz_file_path):
+    #     os.remove(xyz_file_path)
 
     mol = Chem.MolFromSmiles(smiles_poly)
     if mol is None:
