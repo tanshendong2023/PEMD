@@ -62,8 +62,8 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length,):
             mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
             smiles_each_ind = Chem.MolToSmiles(mol_new)
         else:
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, flag,) \
-                 = PEMD_lib.Init_info(unit_name, smiles_each, length)
+            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis,) \
+                = PEMD_lib.Init_info(unit_name, smiles_each, length)
 
             # Join end caps
             smiles_poly = (
@@ -73,7 +73,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length,):
 
     elif length > 1:
         # smiles_each = copy.copy(smiles_each_copy)
-        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, flag,) \
+        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, dum, unit_dis, ) \
             = PEMD_lib.Init_info(unit_name, smiles_each, length,)
 
         smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each,
