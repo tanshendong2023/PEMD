@@ -560,7 +560,7 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     smiles_each = smiles_each_ori.replace(r'*', 'Cl')
 
     # Convert SMILES to XYZ coordinates
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, '../')
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, './')
 
     # if fails to get XYZ coordinates; STOP
     if convert_smiles2xyz == 'NOT_DONE':
