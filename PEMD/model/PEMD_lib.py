@@ -96,7 +96,7 @@ def crest_lowest_energy_str(file_path, numconf):
     return lowest_energy_structures
 
 
-def g16_lowest_energy_str(dir_path, unit_name, ln):
+def g16_lowest_energy_str(dir_path, unit_name,length):
     data = []
     # 遍历指定文件夹中的所有文件
     for file in os.listdir(dir_path):
@@ -118,7 +118,7 @@ def g16_lowest_energy_str(dir_path, unit_name, ln):
         lowest_energy_file_path = min_energy_row['File_Path']
 
         # 构造新的文件名，带有 'lowest_energy_' 前缀
-        new_file_name = f"{unit_name}_N{ln}_lowest.log"
+        new_file_name = f"{unit_name}_N{length}_lowest.log"
 
         # 复制文件到新的文件名
         shutil.copy(lowest_energy_file_path, os.path.join(dir_path, new_file_name))

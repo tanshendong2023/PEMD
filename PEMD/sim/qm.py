@@ -127,7 +127,7 @@ def save_structures(structures, unit_name, length, charge, multiplicity, memory,
         if all_completed:
             print("All gaussian tasks finished, find the lowest energy structure...")
             # 执行下一个任务的代码...
-            PEMD_lib.g16_lowest_energy_str(structure_directory, unit_name, length)
+            PEMD_lib.g16_lowest_energy_str(structure_directory, unit_name,length)
             break
         else:
             print("g16 conformer search not finish, waiting...")
