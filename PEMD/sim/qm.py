@@ -17,7 +17,11 @@ from PEMD.sim_API import gaussian
 
 def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, multiplicity=1, memory='64GB', core = '32', chk = True,
                     opt_method='B3LYP', opt_basis='6-311+g(d,p)', dispersion_corr = 'em=GD3BJ', freq = 'freq',
-                    solv_model = 'scrf=(pcm,solvent=generic,read)', custom_solv='5.0 \nepsinf=2.1'):
+                    solv_model = 'scrf=(pcm,solvent=generic,read)', custom_solv='eps=5.0 \nepsinf=2.1'):
+
+    out_dir = out_dir + '/'
+    PEMD_lib.build_dir(out_dir)
+
     mol2 = Chem.AddHs(mol)
     NAttempt = 100000
 
@@ -44,7 +48,7 @@ def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, m
     Chem.MolToPDBFile(mol2, pdb_file, confId=cid)
     Chem.MolToXYZFile(mol2, xyz_file, confId=cid)
 
-    crest_dir = os.path.join(out_dir, file_base, 'crest_work')
+    crest_dir = os.path.join(file_base, 'crest_work')
     os.makedirs(crest_dir, exist_ok=True)
     origin_dir = os.getcwd()
     os.chdir(crest_dir)
@@ -68,9 +72,8 @@ def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, m
             time.sleep(30)
 
 
-def save_structures(structures, unit_name, length, charge =0, multiplicity=1, memory='64GB', core = '32', chk = True,
-                    opt_method='B3LYP', opt_basis='6-311+g(d,p)', dispersion_corr = 'em=GD3BJ', freq = 'freq',
-                    solv_model = 'scrf=(pcm,solvent=generic,read)', custom_solv='5.0 \nepsinf=2.1'):
+def save_structures(structures, unit_name, length, charge, multiplicity, memory, core, chk,
+                    opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv):
     # 获取当前工作目录的路径
     current_directory = os.getcwd()
     job_ids = []
