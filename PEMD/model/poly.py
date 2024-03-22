@@ -10,6 +10,7 @@ import os
 import random
 import subprocess
 import threading
+import itertools
 import py3Dmol
 import pandas as pd
 import datamol as dm
@@ -46,7 +47,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
             smiles_poly = Chem.MolToSmiles(mol_new)
 
         else:
-            (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+            (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
                 = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
             # Join end caps
             smiles_poly = (
@@ -56,7 +57,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
 
     elif length > 1:
         # smiles_each = copy.copy(smiles_each_copy)
-        (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+        (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
             = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
 
         smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
@@ -137,6 +138,43 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, atom_typing_ = 
     # output_file = file_base + '_gaff2.data'
     PEMD_lib.relax_polymer_lmp(unit_name, length, out_dir)
     print("\n", unit_name, ": MD simulation normally terminated.\n")
+
+
+def F_poly_gen(unit_name, smiles_mid,length,):
+    (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+        = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
+
+    # 初始分子定义
+    mol = Chem.MolFromSmiles(smiles_each)
+    mol = Chem.AddHs(mol)
+
+    # 获取所有氢原子的索引
+    hydrogen_atoms = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetSymbol() == 'H']
+
+    # 存储所有生成的分子及其图表示
+    mol_list = []
+    smiles_list = []
+    graphs = []
+
+    # 逐步替换氢原子为氟原子
+    for num_replacements in range(1, len(hydrogen_atoms) + 1):
+        for hydrogen_idxs in itertools.combinations(hydrogen_atoms, num_replacements):
+            modified_mol = Chem.RWMol(mol)
+            for idx in hydrogen_idxs:
+                modified_mol.ReplaceAtom(idx, Chem.Atom('F'))
+            Chem.SanitizeMol(modified_mol)
+
+            # 检查是否有同构的分子已经存在
+            modified_mol_graph = PEMD_lib.mol_to_nx(modified_mol)
+            if not any(PEMD_lib.is_isomorphic(modified_mol_graph, graph) for graph in graphs):
+                # molecules.append(modified_mol)
+                graphs.append(modified_mol_graph)
+                # remove the H atoms
+                mol_noHs = Chem.RemoveHs(modified_mol)
+                mol_list.append(mol_noHs)
+                smiles_noHs = Chem.MolToSmiles(mol_noHs)
+                smiles_list.append(smiles_noHs)
+    return mol_list, smiles_list
 
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):

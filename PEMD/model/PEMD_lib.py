@@ -11,11 +11,13 @@ import shutil
 import subprocess
 import numpy as np
 import pandas as pd
+import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
 from simple_slurm import Slurm
 import PEMD.model.MD_lib as MDlib
+from networkx.algorithms import isomorphism
 from pysimm import system, lmps, forcefield
 
 
@@ -203,98 +205,6 @@ def connec_info(unit_name):
     return neigh_atoms_info
 
 
-
-# This function estimate distance between two repeating units
-# INPUT: XYZ coordinates, row numbers for connecting atoms
-# OUTPUT: Distance
-def add_dis_func(unit, atom1, atom2):
-    add_dis = 0.0
-    if unit.loc[atom1][0] == 'C' and unit.loc[atom2][0] == 'N':
-        add_dis = -0.207
-    elif unit.loc[atom1][0] == 'N' and unit.loc[atom2][0] == 'N':
-        add_dis = -0.4
-    elif unit.loc[atom1][0] == 'C' and unit.loc[atom2][0] == 'O':
-        add_dis = -0.223
-    elif unit.loc[atom1][0] == 'O' and unit.loc[atom2][0] == 'O':
-        add_dis = -0.223
-    return add_dis
-
-
-# Align a molecule on Z-axis wrt two atoms
-# INPUT: XYZ-coordinates, row numbers of two atoms
-# OUTPUT: A new sets of XYZ-coordinates
-def alignZ(unit, atom1, atom2):
-    dis_zx = np.sqrt(
-        (unit.iloc[atom1].values[3] - unit.iloc[atom2].values[3]) ** 2
-        + (unit.iloc[atom1].values[1] - unit.iloc[atom2].values[1]) ** 2
-    )
-    angle_zx = (np.arccos(unit.iloc[atom2].values[3] / dis_zx)) * 180.0 / np.pi
-    if unit.iloc[atom2].values[1] > 0.0:  # or angle_zx < 90.0: # check and improve
-        angle_zx = -angle_zx
-    unit = rotateXZ(unit, angle_zx)
-
-    dis_zy = np.sqrt(
-        (unit.iloc[atom1].values[3] - unit.iloc[atom2].values[3]) ** 2
-        + (unit.iloc[atom1].values[2] - unit.iloc[atom2].values[2]) ** 2
-    )
-    angle_zy = (np.arccos(unit.iloc[atom2].values[3] / dis_zy)) * 180.0 / np.pi
-    if unit.iloc[atom2].values[2] > 0.0:  # or angle_zy < 90.0: # need to improve
-        angle_zy = -angle_zy
-
-    unit = rotateYZ(unit, angle_zy)
-    return unit
-
-
-# Rotate on ZY plane
-# INPUT: XYZ-coordinates and angle in Degree
-# OUTPUT: A new sets of XYZ-coordinates
-def rotateYZ(unit, theta):  # XYZ coordinates and angle
-    R_z = np.array(
-        [
-            [np.cos(theta * np.pi / 180.0), -np.sin(theta * np.pi / 180.0)],
-            [np.sin(theta * np.pi / 180.0), np.cos(theta * np.pi / 180.0)],
-        ]
-    )
-    oldXYZ = unit[[2, 3]].copy()
-    XYZcollect = []
-    for eachatom in np.arange(oldXYZ.values.shape[0]):
-        rotate_each = oldXYZ.iloc[eachatom].values.dot(R_z)
-        XYZcollect.append(rotate_each)
-    newXYZ = pd.DataFrame(XYZcollect)
-    unit[[2, 3]] = newXYZ[[0, 1]]
-    return unit
-
-
-# Rotate on XZ plane
-# INPUT: XYZ-coordinates and angle in Degree
-# OUTPUT: A new sets of XYZ-coordinates
-def rotateXZ(unit, theta):  # XYZ coordinates and angle
-    R_z = np.array(
-        [
-            [np.cos(theta * np.pi / 180.0), -np.sin(theta * np.pi / 180.0)],
-            [np.sin(theta * np.pi / 180.0), np.cos(theta * np.pi / 180.0)],
-        ]
-    )
-    oldXYZ = unit[[1, 3]].copy()
-    XYZcollect = []
-    for eachatom in np.arange(oldXYZ.values.shape[0]):
-        rotate_each = oldXYZ.iloc[eachatom].values.dot(R_z)
-        XYZcollect.append(rotate_each)
-    newXYZ = pd.DataFrame(XYZcollect)
-    unit[[1, 3]] = newXYZ[[0, 1]]
-    return unit
-
-
-# Translation to origin
-# INPUT: XYZ-coordinates and row number of an atom which will be moved to the origin.
-# OUTPUT: A new sets of XYZ-coordinates
-def trans_origin(unit, atom1):  # XYZ coordinates and angle
-    unit[1] = unit[1] - (unit.iloc[atom1][1])
-    unit[2] = unit[2] - (unit.iloc[atom1][2])
-    unit[3] = unit[3] - (unit.iloc[atom1][3])
-    return unit
-
-
 # complex function
 def Init_info(unit_name, smiles_each_ori, length, out_dir = './'):
     # Get index of dummy atoms and bond type associated with it
@@ -368,7 +278,7 @@ def Init_info(unit_name, smiles_each_ori, length, out_dir = './'):
         )
         return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
-    return (unit_name, dum1, dum2, atom1, atom2, m1, neigh_atoms_info, oligo_list, dum, unit_dis, '',)
+    return (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, '',)
 
 
 def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, length, smiles_LCap_, LCap_, smiles_RCap_, RCap_,):
@@ -649,24 +559,6 @@ def get_gaff2(unit_name, length, out_dir, mol, atom_typing='pysimm'):
         print('problem reading {} for Pysimm.'.format(file_base + '.cml'))
 
 
-def disorder_struc(filename, dir_path, NCores_opt):
-
-    # pdb to cml
-    obConversion.SetInAndOutFormats("pdb", "cml")
-    obConversion.ReadFile(mol, os.path.join(dir_path, filename + '.pdb'))
-    obConversion.WriteFile(mol, os.path.join(dir_path, filename + '.cml'))
-
-    # MD simulation followed by opt
-    scml = system.read_cml(os.path.join(dir_path, filename + '.cml'))
-    scml.apply_forcefield(forcefield.Gaff2())
-    lmps.quick_min(scml, np=NCores_opt, etol=1.0e-5, ftol=1.0e-5)
-    lmps.quick_md(scml, np=NCores_opt, ensemble='nvt', timestep=0.5, run=100000)
-
-    # Write files
-    scml.write_xyz(os.path.join(dir_path, filename + '.xyz'))
-    scml.write_pdb(os.path.join(dir_path, filename + '.pdb'))
-
-
 def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
     input_mol = Chem.MolFromSmiles(input_smiles)
     edit_m1 = Chem.EditableMol(input_mol)
@@ -693,73 +585,6 @@ def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
     edcombo.AddBond(first_atom, second_atom, order=Chem.rdchem.BondType.SINGLE)
     combo_mol = edcombo.GetMol()
     return Chem.MolToSmiles(combo_mol)
-
-
-def find_best_conf(unit_name, m1, dum1, dum2, atom1, atom2, xyz_in_dir):
-    m2 = Chem.AddHs(m1)
-    cids = AllChem.EmbedMultipleConfs(m2, numConfs=100)
-    cid_list = []
-    for cid in cids:
-        AllChem.UFFOptimizeMolecule(m2, confId=cid)
-        conf = m2.GetConformer(cid)
-        ffu = AllChem.UFFGetMoleculeForceField(m2, confId=cid)
-        cid_list.append(
-            [
-                cid,
-                abs(
-                    Chem.rdMolTransforms.GetDihedralDeg(
-                        conf, int(dum1), int(atom1), int(atom2), int(dum2)
-                    )
-                ),
-                ffu.CalcEnergy(),
-            ]
-        )
-    cid_list = pd.DataFrame(cid_list, columns=['cid', 'Dang', 'Energy'])
-    cid_list = cid_list.sort_values(by=['Dang'], ascending=False)
-    cid_list = cid_list[
-        cid_list['Dang'] > int(cid_list.head(1)['Dang'].values[0]) - 8.0
-    ]
-    cid_list = cid_list.sort_values(by=['Energy'], ascending=True)
-
-    rdkitmol2xyz(unit_name, m2, xyz_in_dir, int(cid_list.head(1)['cid'].values[0]))
-
-
-# This function minimize molecule using UFF forcefield and Steepest Descent method
-# INPUT: ID, path and name of XYZ file, row indices of dummy and connecting atoms, name of working directory
-# OUTPUT: XYZ coordinates of the optimized molecule
-def localopt(unit_name, file_name, dum1, dum2, atom1, atom2, xyz_tmp_dir):
-    constraints = ob.OBFFConstraints()
-    obConversion.SetInAndOutFormats("xyz", "xyz")
-    obConversion.ReadFile(mol, file_name)
-    for atom_id in [dum1 + 1, dum2 + 1, atom1 + 1, atom2 + 1]:
-        constraints.AddAtomConstraint(atom_id)
-
-    # Set the constraints
-    ff.Setup(mol, constraints)
-    ff.SteepestDescent(5000)
-    ff.UpdateCoordinates(mol)
-    obConversion.WriteFile(mol, xyz_tmp_dir + unit_name + '_opt.xyz')
-
-    # Check Connectivity
-    neigh_atoms_info_old = connec_info(file_name)
-    neigh_atoms_info_new = connec_info(xyz_tmp_dir + unit_name + '_opt.xyz')
-    for row in neigh_atoms_info_old.index.tolist():
-        if sorted(neigh_atoms_info_old.loc[row]['NeiAtom']) != sorted(
-            neigh_atoms_info_new.loc[row]['NeiAtom']
-        ):
-            unit_opt = pd.read_csv(
-                file_name, header=None, skiprows=2, delim_whitespace=True
-            )
-            return unit_opt
-        else:
-            # read XYZ file: skip the first two rows
-            unit_opt = pd.read_csv(
-                xyz_tmp_dir + unit_name + '_opt.xyz',
-                header=None,
-                skiprows=2,
-                delim_whitespace=True,
-            )
-            return unit_opt
 
 
 def relax_polymer_lmp(unit_name, length, out_dir):
@@ -818,7 +643,17 @@ def relax_polymer_lmp(unit_name, length, out_dir):
     #         time.sleep(60)  # 等待60秒后再次检查
 
 
+def mol_to_nx(mol):
+    G = nx.Graph()
+    for atom in mol.GetAtoms():
+        G.add_node(atom.GetIdx(), element=atom.GetSymbol())
+    for bond in mol.GetBonds():
+        G.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
+    return G
 
+def is_isomorphic(G1, G2):
+    GM = isomorphism.GraphMatcher(G1, G2, node_match=lambda x, y: x['element'] == y['element'])
+    return GM.is_isomorphic()
 
 
 
