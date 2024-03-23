@@ -7,6 +7,7 @@ Date: 2024.03.15
 
 
 import os
+import time
 import shutil
 import subprocess
 import numpy as np
@@ -36,6 +37,15 @@ def build_dir(path):
     except OSError:
         pass
 
+def count_atoms(mol, atom_type, length):
+    # Initialize the counter for the specified atom type
+    atom_count = 0
+    # Iterate through all atoms in the molecule
+    for atom in mol.GetAtoms():
+        # Check if the atom is of the specified type
+        if atom.GetSymbol() == atom_type:
+            atom_count += 1
+    return round(atom_count / length)
 
 def is_nan(x):
     return x != x
@@ -282,6 +292,7 @@ def Init_info(unit_name, smiles_each_ori, length, out_dir = './'):
 
 
 def gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_each, length, smiles_LCap_, LCap_, smiles_RCap_, RCap_,):
+
     input_mol = Chem.MolFromSmiles(smiles_each)
     edit_m1 = Chem.EditableMol(input_mol)
 
@@ -587,7 +598,7 @@ def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
     return Chem.MolToSmiles(combo_mol)
 
 
-def relax_polymer_lmp(unit_name, length, out_dir):
+def relax_polymer_lmp(unit_name, length, out_dir, core):
     origin_dir = os.getcwd()
     os.chdir(out_dir)
     # 创建LAMMPS输入文件字符串
@@ -611,10 +622,10 @@ def relax_polymer_lmp(unit_name, length, out_dir):
     velocity all create 300 3243242
     minimize 1e-8 1e-8 10000 10000
     dump 1 all custom 500 soft.lammpstrj id type mass mol x y z
-    dump dump_xyz all xyz 1000 {0}_lmp.xyz
     fix 1 all nvt temp 800 800 100 drag 2
     run 5000000
     write_data {0}_gaff2.data
+    write_dump all xyz {0}_lmp.xyz
     """.format(file_base)
 
     # 将LAMMPS输入命令写入临时文件
@@ -623,24 +634,23 @@ def relax_polymer_lmp(unit_name, length, out_dir):
 
     slurm = Slurm(J='lammps',
                   N=1,
-                  n=32,
+                  n=f'{core}',
                   output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
     slurm.add_cmd('module load LAMMPS')
     job_id = slurm.sbatch('mpirun lmp < lammps_input.in >out.lmp 2>lmp.err')
-    os.chdir(origin_dir)
-
-    # while True:
-    #     status = get_slurm_job_status(job_id)
-    #     if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
-    #         print("lammps finish, executing the other task...")
-    #         # 保存能量最低的n个结构为列表，并生成gaussian输入文件
-    #
-    #         break  # 任务执行完毕后跳出循环
-    #     else:
-    #         print("crest conformer search not finish, waiting...")
-    #         time.sleep(60)  # 等待60秒后再次检查
+    while True:
+        status = get_slurm_job_status(job_id)
+        if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
+            print("\n", unit_name, ": MD simulation normally terminated.\n")
+            file_base = '{}_N{}'.format(unit_name, length)
+            toxyz_lammps(f'{file_base}_lmp.xyz', f'{file_base}_gmx.xyz', f'{file_base}_gaff2.lmp')
+            os.chdir(origin_dir)
+            break
+        else:
+            print("polymer relax not finish, waiting...")
+            time.sleep(30)
 
 
 def mol_to_nx(mol):
@@ -651,11 +661,65 @@ def mol_to_nx(mol):
         G.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
     return G
 
+
 def is_isomorphic(G1, G2):
     GM = isomorphism.GraphMatcher(G1, G2, node_match=lambda x, y: x['element'] == y['element'])
     return GM.is_isomorphic()
 
 
+def get_closest_element_by_mass(target_mass):
+    # 手动定义一个包含元素质量的映射
+    element_masses = {
+        'H': 1.008,
+        'C': 12.01,
+        'N': 14.007,
+        'O': 15.999,
+        'P': 30.974,
+        'S': 32.06,
+        # 可以根据需要添加更多元素
+    }
+    min_diff = np.inf
+    closest_element = None
+
+    for element, mass in element_masses.items():
+        diff = abs(mass - target_mass)
+        if diff < min_diff:
+            min_diff = diff
+            closest_element = element
+
+    return closest_element
+
+
+def parse_masses_from_lammps(data_filename):
+    atom_map = {}
+    with open(data_filename, 'r') as f:
+        lines = f.readlines()
+
+    start = lines.index("Masses\n") + 2
+    end = start + lines[start:].index("\n")
+
+    for line in lines[start:end]:
+        parts = line.split()
+        atom_id = int(parts[0])
+        mass = float(parts[1])
+        atom_symbol = get_closest_element_by_mass(mass)
+        atom_map[atom_id] = atom_symbol
+
+    return atom_map
+
+
+def toxyz_lammps(input_filename, output_filename, data_filename):
+    atom_map = parse_masses_from_lammps(data_filename)
+
+    with open(input_filename, 'r') as fin, open(output_filename, 'w') as fout:
+        for i, line in enumerate(fin):
+            if i < 2:
+                fout.write(line)
+            else:
+                parts = line.split()
+                if parts[0].isdigit() and int(parts[0]) in atom_map:
+                    parts[0] = atom_map[int(parts[0])]
+                fout.write(' '.join(parts) + '\n')
 
 
 

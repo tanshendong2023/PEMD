@@ -48,15 +48,15 @@ def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, m
     Chem.MolToPDBFile(mol2, pdb_file, confId=cid)
     Chem.MolToXYZFile(mol2, xyz_file, confId=cid)
 
-    crest_dir = os.path.join(file_base, 'crest_work')
+    crest_dir = os.path.join(out_dir, 'crest_work')
     os.makedirs(crest_dir, exist_ok=True)
     origin_dir = os.getcwd()
     os.chdir(crest_dir)
 
     xyz_file_path = os.path.join(origin_dir, xyz_file)
 
-    slurm = Slurm(J='crest', N=1, n=32, output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out')
-    job_id = slurm.sbatch(f'crest {xyz_file_path} --gfn2 --T 32 --niceprint')
+    slurm = Slurm(J='crest', N=1, n=f'{core}', output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out')
+    job_id = slurm.sbatch(f'crest {xyz_file_path} --gfn2 --T {core} --niceprint')
 
     while True:
         status = PEMD_lib.get_slurm_job_status(job_id)
@@ -64,20 +64,20 @@ def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, m
             print("crest finish, executing the gaussian task...")
             order_structures = PEMD_lib.crest_lowest_energy_str('crest_conformers.xyz', numconf)
             os.chdir(origin_dir)
-            save_structures(order_structures, unit_name, length, charge, multiplicity, memory, core, chk, opt_method,
-                            opt_basis, dispersion_corr, freq, solv_model, custom_solv)
+            save_structures(out_dir, order_structures, unit_name, length, charge, multiplicity, memory, core, chk,
+                            opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv)
             break
         else:
             print("crest conformer search not finish, waiting...")
             time.sleep(30)
 
 
-def save_structures(structures, unit_name, length, charge, multiplicity, memory, core, chk,
+def save_structures(out_dir, structures, unit_name, length, charge, multiplicity, memory, core, chk,
                     opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv):
     # 获取当前工作目录的路径
     current_directory = os.getcwd()
     job_ids = []
-    structure_directory = current_directory + '/' + f'{unit_name}_N{length}' + '/' + f'{unit_name}_conf_g16'
+    structure_directory = current_directory + '/' + out_dir + '/' + f'{unit_name}_conf_g16'
     os.makedirs(structure_directory, exist_ok=True)
 
     for i, structure in enumerate(structures):

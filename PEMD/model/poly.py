@@ -59,7 +59,8 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
         # smiles_each = copy.copy(smiles_each_copy)
         (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
             = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
-
+        print('smiles_each:'+ smiles_each)
+        print('smiles_mid:' + smiles_mid)
         smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
                                                    length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
 
@@ -75,7 +76,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     return smiles_poly, mol
 
 
-def build_polymer(unit_name, smiles_poly, out_dir, length, opls, atom_typing_ = 'pysimm'):
+def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', atom_typing_ = 'pysimm', ):
 
     # get origin dir
     # origin_dir = os.getcwd()
@@ -136,11 +137,20 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, atom_typing_ = 
     PEMD_lib.get_gaff2(unit_name, length, out_dir, mol, atom_typing=atom_typing_)
     # input_file = file_base + '_gaff2.lmp'
     # output_file = file_base + '_gaff2.data'
-    PEMD_lib.relax_polymer_lmp(unit_name, length, out_dir)
-    print("\n", unit_name, ": MD simulation normally terminated.\n")
+    PEMD_lib.relax_polymer_lmp(unit_name, length, out_dir, core)
 
 
-def F_poly_gen(unit_name, smiles_mid,length,):
+def F_poly_gen(unit_name, smiles_mid, leftcap, rightcap, length, ):
+    input_data = [[unit_name, leftcap, rightcap]]
+    df_smiles = pd.DataFrame(input_data, columns=['ID', 'LeftCap', 'RightCap'])
+
+    # Extract cap SMILES if available
+    smiles_LCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'LeftCap'].values[0]
+    LCap_ = not pd.isna(smiles_LCap_)
+
+    smiles_RCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'RightCap'].values[0]
+    RCap_ = not pd.isna(smiles_RCap_)
+
     (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
         = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
 
@@ -152,9 +162,10 @@ def F_poly_gen(unit_name, smiles_mid,length,):
     hydrogen_atoms = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetSymbol() == 'H']
 
     # 存储所有生成的分子及其图表示
-    mol_list = []
-    smiles_list = []
     graphs = []
+    mol_poly_list = []
+    smiles_poly_list = []
+    smiles_poly = None
 
     # 逐步替换氢原子为氟原子
     for num_replacements in range(1, len(hydrogen_atoms) + 1):
@@ -171,10 +182,35 @@ def F_poly_gen(unit_name, smiles_mid,length,):
                 graphs.append(modified_mol_graph)
                 # remove the H atoms
                 mol_noHs = Chem.RemoveHs(modified_mol)
-                mol_list.append(mol_noHs)
                 smiles_noHs = Chem.MolToSmiles(mol_noHs)
-                smiles_list.append(smiles_noHs)
-    return mol_list, smiles_list
+                # replace Cl with [*]
+                smiles_noHs_ = smiles_noHs.replace('Cl', '[*]')
+
+                print('smiles_noHs_:' + smiles_noHs_)
+
+                (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
+                    = PEMD_lib.Init_info(unit_name, smiles_noHs_, length, )
+                print('smiles_each:' + smiles_each)
+
+                if length == 1:
+                    # Join end caps
+                    smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_noHs_,
+                                                     smiles_LCap_, smiles_RCap_, LCap_, RCap_, )
+
+                elif length > 1:
+                    smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_noHs_,
+                                                           length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
+
+                smiles_poly_list.append(smiles_poly)
+                mol2 = Chem.MolFromSmiles(smiles_poly)
+                mol_poly_list.append(mol2)
+
+    # Delete intermediate XYZ file if exists
+    xyz_file_path = unit_name + '.xyz'
+    if os.path.exists(xyz_file_path):
+        os.remove(xyz_file_path)
+
+    return smiles_poly_list, mol_poly_list
 
 
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
