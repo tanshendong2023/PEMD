@@ -159,7 +159,7 @@ def rdkitmol2xyz(unit_name, m, out_dir, IDNum):
 # This function create XYZ files from SMILES
 # INPUT: ID, SMILES, directory name
 # OUTPUT: xyz files in 'work_dir', result = DONE/NOT DONE, mol without Hydrogen atom
-def smiles_xyz(unit_name, SMILES, out_dir):
+def smiles_xyz(unit_name, SMILES, ):
     try:
         m1 = Chem.MolFromSmiles(SMILES)    # Get mol(m1) from smiles
         m2 = Chem.AddHs(m1)   # Add H
@@ -167,7 +167,7 @@ def smiles_xyz(unit_name, SMILES, out_dir):
         AllChem.EmbedMolecule(m2)    # Make 3D mol
         m2.SetProp("_Name", unit_name + '   ' + SMILES)    # Change title
         AllChem.UFFOptimizeMolecule(m2, maxIters=200)    # Optimize 3D str
-        rdkitmol2xyz(unit_name, m2, out_dir, -1)
+        rdkitmol2xyz(unit_name, m2, '.', -1)
         result = 'DONE'
     except Exception:
         result, m1 = 'NOT_DONE', ''
@@ -215,29 +215,15 @@ def connec_info(unit_name):
     return neigh_atoms_info
 
 
-# complex function
-def Init_info(unit_name, smiles_each_ori, length, out_dir = './'):
+def Init_info(unit_name, smiles_mid, length, ):
     # Get index of dummy atoms and bond type associated with it
-    try:
-        dum_index, bond_type = FetchDum(smiles_each_ori)
-        if len(dum_index) == 2:
-            dum1 = dum_index[0]
-            dum2 = dum_index[1]
-        else:
-            print(
-                unit_name,
-                ": There are more or less than two dummy atoms in the SMILES string; "
-                "Hint: PEMD works only for one-dimensional polymers.",
-            )
-            return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
-    except Exception:
-        print(
-            unit_name,
-            ": Couldn't fetch the position of dummy atoms. Hints: (1) In SMILES strings, use '*' for a dummy atom,"
-            "(2) Check RDKit installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+    dum_index, bond_type = FetchDum(smiles_mid)
+    dum1 = dum_index[0]
+    dum2 = dum_index[1]
 
+    dum = None
+    oligo_list = []
+    unit_dis = None
     # Assign dummy atom according to bond type
     if bond_type == 'SINGLE':
         dum, unit_dis = 'Cl', -0.17
@@ -247,46 +233,20 @@ def Init_info(unit_name, smiles_each_ori, length, out_dir = './'):
         dum, unit_dis = 'O', 0.25
         # List of oligomers
         oligo_list = []
-    else:
-        print(
-            unit_name,
-            ": Unusal bond type (Only single or double bonds are acceptable)."
-            "Hints: (1) Check bonds between the dummy and connecting atoms in SMILES string"
-            "       (2) Check RDKit installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
 
     # Replace '*' with dummy atom
-    smiles_each = smiles_each_ori.replace(r'*', dum)
+    smiles_each = smiles_mid.replace(r'*', dum)
 
     # Convert SMILES to XYZ coordinates
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, out_dir)
-
-    # if fails to get XYZ coordinates; STOP
-    if convert_smiles2xyz == 'NOT_DONE':
-        print(
-            unit_name,
-            ": Couldn't get XYZ coordinates from SMILES string. Hints: (1) Check SMILES string,"
-            "(2) Check RDKit installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, )
 
     # Collect valency and connecting information for each atom
-    neigh_atoms_info = connec_info(out_dir + '/' + unit_name + '.xyz')
+    neigh_atoms_info = connec_info(unit_name + '.xyz')
 
-    try:
-        # Find connecting atoms associated with dummy atoms.
-        # dum1 and dum2 are connected to atom1 and atom2, respectively.
-        atom1 = neigh_atoms_info['NeiAtom'][dum1].copy()[0]
-        atom2 = neigh_atoms_info['NeiAtom'][dum2].copy()[0]
-
-    except Exception:
-        print(
-            unit_name,
-            ": Couldn't get the position of connecting atoms. Hints: (1) XYZ coordinates are not acceptable,"
-            "(2) Check Open Babel installation.",
-        )
-        return unit_name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'REJECT'
+    # Find connecting atoms associated with dummy atoms.
+    # dum1 and dum2 are connected to atom1 and atom2, respectively.
+    atom1 = neigh_atoms_info['NeiAtom'][dum1].copy()[0]
+    atom2 = neigh_atoms_info['NeiAtom'][dum2].copy()[0]
 
     return (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, '',)
 
@@ -481,7 +441,7 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     smiles_each = smiles_each_ori.replace(r'*', 'Cl')
 
     # Convert SMILES to XYZ coordinates
-    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each, './')
+    convert_smiles2xyz, m1 = smiles_xyz(unit_name, smiles_each,)
 
     # if fails to get XYZ coordinates; STOP
     if convert_smiles2xyz == 'NOT_DONE':

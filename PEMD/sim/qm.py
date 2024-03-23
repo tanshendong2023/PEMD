@@ -15,9 +15,11 @@ from PEMD.model import PEMD_lib
 from PEMD.sim_API import gaussian
 
 
-def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, multiplicity=1, memory='64GB', core = '32', chk = True,
-                    opt_method='B3LYP', opt_basis='6-311+g(d,p)', dispersion_corr = 'em=GD3BJ', freq = 'freq',
-                    solv_model = 'scrf=(pcm,solvent=generic,read)', custom_solv='eps=5.0 \nepsinf=2.1'):
+def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, multiplicity=1, memory='64GB',
+                        core='32', chk = True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
+                        dispersion_corr = 'em=GD3BJ', freq = 'freq',
+                        solv_model = 'scrf=(pcm,solvent=generic,read)',
+                        custom_solv='eps=5.0 \nepsinf=2.1'):
 
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
@@ -77,7 +79,8 @@ def save_structures(out_dir, structures, unit_name, length, charge, multiplicity
     # 获取当前工作目录的路径
     current_directory = os.getcwd()
     job_ids = []
-    structure_directory = current_directory + '/' + out_dir + '/' + f'{unit_name}_conf_g16'
+    structure_directory = current_directory + '/' + out_dir + f'{unit_name}_conf_g16'
+    print(structure_directory)
     os.makedirs(structure_directory, exist_ok=True)
 
     for i, structure in enumerate(structures):
@@ -106,7 +109,7 @@ def save_structures(out_dir, structures, unit_name, length, charge, multiplicity
 
         slurm = Slurm(J='g16',
                       N=1,
-                      n=32,
+                      n=f'{core}',
                       output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                       )
 
@@ -127,7 +130,7 @@ def save_structures(out_dir, structures, unit_name, length, charge, multiplicity
         if all_completed:
             print("All gaussian tasks finished, find the lowest energy structure...")
             # 执行下一个任务的代码...
-            PEMD_lib.g16_lowest_energy_str(structure_directory, unit_name,length)
+            PEMD_lib.g16_lowest_energy_str(structure_directory, unit_name, length)
             break
         else:
             print("g16 conformer search not finish, waiting...")

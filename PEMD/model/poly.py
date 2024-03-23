@@ -140,22 +140,21 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', at
     PEMD_lib.relax_polymer_lmp(unit_name, length, out_dir, core)
 
 
-def F_poly_gen(unit_name, smiles_mid, leftcap, rightcap, length, ):
-    input_data = [[unit_name, leftcap, rightcap]]
-    df_smiles = pd.DataFrame(input_data, columns=['ID', 'LeftCap', 'RightCap'])
+def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
+
+    input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
+    df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
+    smiles_mid = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
 
     # Extract cap SMILES if available
-    smiles_LCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'LeftCap'].values[0]
+    smiles_LCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'RightCap'].values[0]
     LCap_ = not pd.isna(smiles_LCap_)
 
-    smiles_RCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'RightCap'].values[0]
+    smiles_RCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'LeftCap'].values[0]
     RCap_ = not pd.isna(smiles_RCap_)
 
-    (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-        = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
-
     # 初始分子定义
-    mol = Chem.MolFromSmiles(smiles_each)
+    mol = Chem.MolFromSmiles(smiles_mid)
     mol = Chem.AddHs(mol)
 
     # 获取所有氢原子的索引
@@ -173,7 +172,7 @@ def F_poly_gen(unit_name, smiles_mid, leftcap, rightcap, length, ):
             modified_mol = Chem.RWMol(mol)
             for idx in hydrogen_idxs:
                 modified_mol.ReplaceAtom(idx, Chem.Atom('F'))
-            Chem.SanitizeMol(modified_mol)
+            # Chem.SanitizeMol(modified_mol)
 
             # 检查是否有同构的分子已经存在
             modified_mol_graph = PEMD_lib.mol_to_nx(modified_mol)
@@ -181,26 +180,28 @@ def F_poly_gen(unit_name, smiles_mid, leftcap, rightcap, length, ):
                 # molecules.append(modified_mol)
                 graphs.append(modified_mol_graph)
                 # remove the H atoms
-                mol_noHs = Chem.RemoveHs(modified_mol)
-                smiles_noHs = Chem.MolToSmiles(mol_noHs)
-                # replace Cl with [*]
-                smiles_noHs_ = smiles_noHs.replace('Cl', '[*]')
+                # mol_noHs = Chem.RemoveHs(modified_mol)
 
-                print('smiles_noHs_:' + smiles_noHs_)
+                smiles = Chem.MolToSmiles(modified_mol)
+                smiles_noH = smiles.replace('([H])', '')
+
+                # replace Cl with [*]
+                # smiles_noCl = smiles_noH.replace('Cl', '[*]')
 
                 (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_noHs_, length, )
-                print('smiles_each:' + smiles_each)
+                    = PEMD_lib.Init_info(unit_name, smiles_noH, length, )
+                # print(dum1, dum2, atom1, atom2, dum)
 
                 if length == 1:
                     # Join end caps
-                    smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_noHs_,
+                    smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_noH,
                                                      smiles_LCap_, smiles_RCap_, LCap_, RCap_, )
 
                 elif length > 1:
-                    smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_noHs_,
+                    smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_noH,
                                                            length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
 
+                # print(smiles_poly)
                 smiles_poly_list.append(smiles_poly)
                 mol2 = Chem.MolFromSmiles(smiles_poly)
                 mol_poly_list.append(mol2)
