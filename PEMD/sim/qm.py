@@ -16,7 +16,7 @@ from PEMD.sim_API import gaussian
 
 
 def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, multiplicity=1, memory='64GB',
-                        core='32', chk = True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
+                        core= 32, chk = True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
                         dispersion_corr = 'em=GD3BJ', freq = 'freq',
                         solv_model = 'scrf=(pcm,solvent=generic,read)',
                         custom_solv='eps=5.0 \nepsinf=2.1'):
@@ -58,7 +58,8 @@ def conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, m
     xyz_file_path = os.path.join(origin_dir, xyz_file)
 
     slurm = Slurm(J='crest', N=1, n=f'{core}', output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out')
-    job_id = slurm.sbatch(f'crest {xyz_file_path} --gfn2 --T {core} --niceprint')
+    job_id = slurm.sbatch(f'crest {xyz_file_path} --gfn2 --T 32 --niceprint')
+    time.sleep(10)
 
     while True:
         status = PEMD_lib.get_slurm_job_status(job_id)
@@ -80,7 +81,6 @@ def save_structures(out_dir, structures, unit_name, length, charge, multiplicity
     current_directory = os.getcwd()
     job_ids = []
     structure_directory = current_directory + '/' + out_dir + f'{unit_name}_conf_g16'
-    print(structure_directory)
     os.makedirs(structure_directory, exist_ok=True)
 
     for i, structure in enumerate(structures):
@@ -116,6 +116,7 @@ def save_structures(out_dir, structures, unit_name, length, charge, multiplicity
         # com_file = os.path.join(structure_directory, f"{base_filename}_{i + 1}_conf_1.com")
         #         print(f'g16 {structure_directory}/{base_filename}_{i+1}_conf_1.com')
         job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_{i + 1}_conf_1.com')
+        time.sleep(10)
         job_ids.append(job_id)
 
     # 检查所有任务的状态

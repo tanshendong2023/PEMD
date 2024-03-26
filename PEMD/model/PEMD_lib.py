@@ -94,7 +94,6 @@ def parse_xyz_with_energies(file_path):
     return structures, energies
 
 
-
 def crest_lowest_energy_str(file_path, numconf):
     # Parse XYZ file to obtain structures and their corresponding energies
     structures, energies = parse_xyz_with_energies(file_path)
@@ -137,6 +136,7 @@ def g16_lowest_energy_str(dir_path, unit_name,length):
 
 
 def read_log_file(log_file_path):
+    energy = None
     with open(log_file_path, 'r') as file:
         for line in file:
             if "Sum of electronic and thermal Free Energies=" in line:
@@ -482,7 +482,7 @@ def get_gaff2(unit_name, length, out_dir, mol, atom_typing='pysimm'):
     # r = MDlib.get_coord_from_pdb(outfile_name + ".pdb")
     # from pysimm import system, forcefield
 
-    file_base = out_dir + "/" + '{}_N{}'.format(unit_name, length)
+    file_base = out_dir + '{}_N{}'.format(unit_name, length)
 
     obConversion.SetInAndOutFormats("pdb", "cml")
     if os.path.exists(file_base + '.pdb'):
