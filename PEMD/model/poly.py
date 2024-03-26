@@ -214,6 +214,10 @@ def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
     return smiles_poly_list, mol_poly_list
 
 
+
+
+
+
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
     full_sequence = repeating_cleaned * length

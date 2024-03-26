@@ -18,6 +18,7 @@ from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
 from simple_slurm import Slurm
 import PEMD.model.MD_lib as MDlib
+from openbabel import openbabel
 from networkx.algorithms import isomorphism
 from pysimm import system, lmps, forcefield
 
@@ -530,6 +531,7 @@ def get_gaff2(unit_name, length, out_dir, mol, atom_typing='pysimm'):
         print('problem reading {} for Pysimm.'.format(file_base + '.cml'))
 
 
+
 def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
     input_mol = Chem.MolFromSmiles(input_smiles)
     edit_m1 = Chem.EditableMol(input_mol)
@@ -680,6 +682,62 @@ def toxyz_lammps(input_filename, output_filename, data_filename):
                 if parts[0].isdigit() and int(parts[0]) in atom_map:
                     parts[0] = atom_map[int(parts[0])]
                 fout.write(' '.join(parts) + '\n')
+
+
+def convert_xyz_to_pdb(xyz_filename, pdb_filename, molecule_name, resname):
+    obConversion = openbabel.OBConversion()
+    # 设置输入和输出格式
+    obConversion.SetInAndOutFormats("xyz", "pdb")
+
+    mol = openbabel.OBMol()
+    # 读取 XYZ 文件
+    obConversion.ReadFile(mol, xyz_filename)
+
+    # 设置分子名称
+    mol.SetTitle(molecule_name)
+
+    # 遍历所有原子并设置自定义残基名称
+    for atom in openbabel.OBMolAtomIter(mol):
+        res = atom.GetResidue()
+        res.SetName(resname)
+
+    # 写入 PDB 文件，Open Babel 会尝试推断键的信息
+    obConversion.WriteFile(mol, pdb_filename)
+
+
+def extract_from_top(top_file, out_itp_file, nonbonded=False, bonded=False):
+    sections_to_extract = []
+    if nonbonded:
+        sections_to_extract = ["[ atomtypes ]"]
+    elif bonded:
+        sections_to_extract = ["[ moleculetype ]", "[ atoms ]", "[ bonds ]", "[ pairs ]", "[ angles ]", "[ dihedrals ]"]
+
+        # 打开 .top 文件进行读取
+    with open(top_file, 'r') as file:
+        lines = file.readlines()
+
+    # 初始化变量以存储提取的信息
+    extracted_lines = []
+    current_section = None
+
+    # 遍历所有行，提取相关部分
+    for line in lines:
+        if line.strip() in sections_to_extract:
+            current_section = line.strip()
+            extracted_lines.append(line)  # 添加部分标题
+        elif current_section and line.strip().startswith(";"):
+            extracted_lines.append(line)  # 添加注释行
+        elif current_section and line.strip():
+            extracted_lines.append(line)  # 添加数据行
+        elif line.strip() == "" and current_section:
+            extracted_lines.append("\n")  # 添加部分之间的空行
+            current_section = None  # 重置当前部分
+
+    # 写入提取的内容到 bonded.itp 文件
+    with open(out_itp_file, 'w') as file:
+        file.writelines(extracted_lines)
+
+
 
 
 
