@@ -10,6 +10,7 @@ import os
 from foyer import Forcefield
 import parmed as pmd
 from PEMD.model import PEMD_lib
+import importlib.resources as pkg_resources
 
 
 def gen_gmx_oplsaa(unit_name, out_dir, length):
@@ -30,7 +31,9 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
             PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, f'{unit_name}', f'{unit_name}')
 
     untyped_str = pmd.load_file(pdb_filename, structure=True)
-    oplsaa = Forcefield(forcefield_files='oplsaa.xml')
+
+    with pkg_resources.path("PEMD.sim", "oplsaa.xml") as oplsaa_path:
+        oplsaa = Forcefield(forcefield_files=str(oplsaa_path))
     typed_str = oplsaa.apply(untyped_str)
 
     # Save to any format supported by ParmEd
