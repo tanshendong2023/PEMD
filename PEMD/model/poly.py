@@ -59,8 +59,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
         # smiles_each = copy.copy(smiles_each_copy)
         (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
             = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
-        print('smiles_each:'+ smiles_each)
-        print('smiles_mid:' + smiles_mid)
+
         smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
                                                    length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
 
