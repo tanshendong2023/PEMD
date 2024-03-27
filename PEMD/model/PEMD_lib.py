@@ -38,6 +38,7 @@ def build_dir(path):
     except OSError:
         pass
 
+
 def count_atoms(mol, atom_type, length):
     # Initialize the counter for the specified atom type
     atom_count = 0
@@ -47,6 +48,7 @@ def count_atoms(mol, atom_type, length):
         if atom.GetSymbol() == atom_type:
             atom_count += 1
     return round(atom_count / length)
+
 
 def is_nan(x):
     return x != x
@@ -68,7 +70,7 @@ def get_slurm_job_status(job_id):
         return 'RUNNING'
 
 
-def parse_xyz_with_energies(file_path):
+def crest_orderxyz_energy(file_path, numconf):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
@@ -91,13 +93,6 @@ def parse_xyz_with_energies(file_path):
         energy = float(energy_line.split()[-1])
         energies.append(energy)
         structures.append(current_structure)
-
-    return structures, energies
-
-
-def crest_lowest_energy_str(file_path, numconf):
-    # Parse XYZ file to obtain structures and their corresponding energies
-    structures, energies = parse_xyz_with_energies(file_path)
 
     # Get indices of the NumConf lowest energy structures
     lowest_indices = sorted(range(len(energies)), key=lambda i: energies[i])[:numconf]
@@ -737,9 +732,45 @@ def extract_from_top(top_file, out_itp_file, nonbonded=False, bonded=False):
     with open(out_itp_file, 'w') as file:
         file.writelines(extracted_lines)
 
+def mol_to_xyz(mol, conf_id, filename):
+    """将RDKit分子对象的构象保存为XYZ格式文件"""
+    xyz = Chem.MolToXYZBlock(mol, confId=conf_id)
+    with open(filename, 'w') as f:
+        f.write(xyz)
 
+def read_energy_from_xtb(filename):
+    """从xtb的输出文件中读取能量值"""
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    # 假设能量在输出文件的第二行
+    energy_line = lines[1]
+    energy = float(energy_line.split()[1])
+    return energy
 
+def std_xyzfile(file_path):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
 
+    modified_lines = []
+    structure_count = int(lines[0].strip())  # Assuming the first line contains the number of atoms
+
+    # Process each structure in the file
+    for i in range(0, len(lines), structure_count + 2):  # +2 for the atom count and energy lines
+        # Copy the atom count line
+        modified_lines.append(lines[i])
+
+        # Extract and process the energy value line
+        energy_line = lines[i + 1].strip()
+        energy_value = energy_line.split()[1]  # Extract the energy value
+        modified_lines.append(f" {energy_value}\n")  # Reconstruct the energy line with only the energy value
+
+        # Copy the atom coordinate lines
+        for j in range(i + 2, i + structure_count + 2):
+            modified_lines.append(lines[j])
+
+    # Overwrite the original file with modified lines
+    with open(file_path, 'w') as file:
+        file.writelines(modified_lines)
 
 
 

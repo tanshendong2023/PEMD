@@ -56,3 +56,6 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
         os.remove(gro_filename)
     except Exception:
         pass  # 忽略任何异常
+
+
+
