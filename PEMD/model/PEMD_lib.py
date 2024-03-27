@@ -773,6 +773,20 @@ def std_xyzfile(file_path):
         file.writelines(modified_lines)
 
 
+def log_to_xyz(log_file_path, xyz_file_path):
+    obConversion = openbabel.OBConversion()
+    obConversion.SetInAndOutFormats("g09", "xyz")
+    mol = openbabel.OBMol()
+
+    try:
+        obConversion.ReadFile(mol, log_file_path)
+        obConversion.WriteFile(mol, xyz_file_path)
+    except Exception as e:
+        print(f"An error occurred during conversion: {e}")
+
+
+
+
 
 
 

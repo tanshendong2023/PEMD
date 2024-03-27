@@ -203,4 +203,84 @@ def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, 
                       core, chk, opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv,)
 
 
+def calc_resp2(out_dir, unit_name, log_filename, charge, multiplicity, memory, core, eps, epsinf,):
+
+    xyz_filename = log_filename.replace('.log', '.xyz')
+
+    log_filepath = out_dir + f'{unit_name}_conf_g16' + '/' + log_filename
+    xyz_filepath = out_dir + f'{unit_name}_conf_g16' + '/' + xyz_filename
+    PEMD_lib.log_to_xyz(log_filepath, xyz_filepath)
+
+    # 从XYZ文件中读取内容
+    with open(xyz_filepath, 'r') as file:
+        xyz_content = file.read()
+
+    formatted_coordinates = ""
+    lines = xyz_content.split('\n')
+    for line in lines[2:]:  # Skip the first two lines (atom count and comment)
+        elements = line.split()
+        if len(elements) >= 4:
+            atom_type, x, y, z = elements[0], elements[1], elements[2], elements[3]
+            formatted_coordinates += f"  {atom_type}  {x:>12}{y:>12}{z:>12}\n"
+
+    # RESP template
+    template = f"""%nprocshared={core}
+    %mem={memory}
+    %chk=opt.chk
+    # B3LYP/TZVP em=GD3BJ opt
+
+    opt
+
+    {charge} {multiplicity}
+    [GEOMETRY]    
+    --link1--
+    %nprocshared={core}
+    %mem={memory}
+    %oldchk=opt.chk
+    %chk=SP_gas.chk
+    # B3LYP/def2TZVP em=GD3BJ geom=allcheck
+
+    --link1--
+    %nprocshared={core}
+    %mem={memory}
+    %oldchk=opt.chk
+    %chk=SP_solv.chk
+    # B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck
+
+    eps={eps}
+    epsinf={epsinf}\n\n"""
+    gaussian_input = template.replace("[GEOMETRY]", formatted_coordinates)
+
+    out_file = out_dir + f'{unit_name}_conf_g16' + f'{log_filename.replace(".log", "_resp2.com")}'
+    with open(out_file, 'w') as file:
+        file.write(gaussian_input)
+
+    structure_directory = os.getcwd() + '/' + out_dir + f'{unit_name}_conf_g16'
+
+    slurm = Slurm(J='g16',
+                  N=1,
+                  n=f'{core}',
+                  output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                  )
+
+    # com_file = os.path.join(structure_directory, f"{base_filename}_{i + 1}_conf_1.com")
+    #         print(f'g16 {structure_directory}/{base_filename}_{i+1}_conf_1.com')
+    job_id = slurm.sbatch(f'g16 {structure_directory}/{log_filename.replace(".log", "_resp2.com")}')
+    time.sleep(10)
+
+    while True:
+        status = PEMD_lib.get_slurm_job_status(job_id)
+        if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
+            print("RESP calculation finish, executing the gaussian task...")
+            break
+        else:
+            print("RESP calculation not finish, waiting...")
+            time.sleep(30)
+
+
+
+
+
+
+
 

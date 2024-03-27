@@ -11,6 +11,7 @@ Date: 2024.02.23
 
 import py3Dmol
 import subprocess
+
 def vis_3D(input_file, supercell=[1,1,1]):
   if input_file.split(".")[-1] == 'vasp':
     subprocess.run(['obabel', '-iposcar', input_file, '-ocif', '-Omodel_wCell.cif'])
@@ -25,3 +26,4 @@ def vis_3D(input_file, supercell=[1,1,1]):
   view.replicateUnitCell(supercell[0],supercell[1],supercell[2])
   view.zoomTo()
   view.show()
+

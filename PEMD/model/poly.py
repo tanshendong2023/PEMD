@@ -8,15 +8,12 @@ Date: 2024.01.18
 
 import os
 import random
-import subprocess
 import threading
 import itertools
-import py3Dmol
 import pandas as pd
 import datamol as dm
 from openbabel import pybel
 from rdkit import Chem
-from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from IPython.display import display
 from PEMD.model import PEMD_lib
@@ -213,10 +210,6 @@ def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
     return smiles_poly_list, mol_poly_list
 
 
-
-
-
-
 def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
     repeating_cleaned = repeating_unit.replace('[*]', '')
     full_sequence = repeating_cleaned * length
@@ -310,141 +303,6 @@ ligand.gesp
         file.write(gaussian_input)
 
 
-def to_resp2_gjf(xyz_content, out_file, charge=0, multiplicity=1):
-    formatted_coordinates = ""
-    lines = xyz_content.split('\n')
-    for line in lines[2:]:  # Skip the first two lines (atom count and comment)
-        elements = line.split()
-        if len(elements) >= 4:
-            atom_type, x, y, z = elements[0], elements[1], elements[2], elements[3]
-            formatted_coordinates += f"  {atom_type}  {x:>12}{y:>12}{z:>12}\n"
-
-    # RESP template
-    template = f"""%nprocshared=32
-%mem=64GB
-%chk=opt.chk
-# B3LYP/TZVP em=GD3BJ opt
-
-opt
-
-{charge} {multiplicity}
-[GEOMETRY]    
---link1--
-%nprocshared=32
-%mem=64GB
-%oldchk=opt.chk
-%chk=SP_gas.chk
-# B3LYP/def2TZVP em=GD3BJ geom=allcheck
-
---link1--
-%nprocshared=32
-%mem=64GB
-%oldchk=opt.chk
-%chk=SP_solv.chk
-# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck
-
-eps=5.0
-epsinf=2.1\n\n"""
-    gaussian_input = template.replace("[GEOMETRY]", formatted_coordinates)
-
-    with open(out_file, 'w') as file:
-        file.write(gaussian_input)
-
-
-def Conformers_search(smiles, Num, charge=0, multiplicity=1):
-    mol = Chem.MolFromSmiles(smiles)
-    mol = Chem.AddHs(mol)
-
-    # 使用 RDKit 生成构象
-    AllChem.EmbedMultipleConfs(mol, numConfs=Num, useExpTorsionAnglePrefs=True, useBasicKnowledge=True)
-
-    for conf_id in range(Num):
-        # Generate xyz file content
-        xyz_content = f"{mol.GetNumAtoms()}\n\n"
-        conf = mol.GetConformer(conf_id)
-        for atom in mol.GetAtoms():
-            pos = conf.GetAtomPosition(atom.GetIdx())
-            xyz_content += f"{atom.GetSymbol()} {pos.x:.4f} {pos.y:.4f} {pos.z:.4f}\n"
-
-        # Create a directory for each conformer
-        dir_name = f"RESP_{conf_id + 1}"
-        if not os.path.exists(dir_name):
-            os.mkdir(dir_name)
-
-        # Generate RESP file
-        resp_file = os.path.join(dir_name, f"RESP_{conf_id + 1}.gjf")
-        to_resp_gjf(xyz_content, resp_file, charge, multiplicity)
-
-
-def write_subscript(partition=None, node=1, core=32, task_type='g16'):
-    for folder in os.listdir('..'):
-        if os.path.isdir(folder) and folder.startswith('RESP'):
-            # Start building the script content with common headers
-            script_content = f"""#!/bin/bash
-#SBATCH -J {task_type}
-"""
-            # Add the partition line only if the partition parameter is provided
-            if partition:
-                script_content += f"#SBATCH -p {partition}\n"
-
-            # Continue adding the rest of the script content
-            script_content += f"""#SBATCH -N {node}
-#SBATCH -n {core}           
-#SBATCH -o stdout.%j
-#SBATCH -e stderr.%j\n
-"""
-
-            # Add Gaussian module loading and execution command only for 'g16' tasks
-            if task_type == 'g16':
-                script_content += """module load Gaussian
-g16 $1
-"""
-            script_path = os.path.join(folder, f'sub_{task_type}.sh')
-            with open(script_path, 'w') as script_file:
-                script_file.write(script_content)
-            # Use octal literal for setting permissions (755)
-            os.chmod(script_path, 0o755)
-
-def submit_gjf_files():
-    current_dir = os.getcwd()  # 保存当前工作目录
-    for folder in os.listdir('..'):
-        if os.path.isdir(folder) and folder.startswith('RESP'):
-            gjf_file = f'{folder}.gjf'
-            script_file = 'sub_g16.sh'
-            os.chdir(folder)  # 切换到子目录
-            if os.path.exists(gjf_file) and os.path.exists(script_file):
-                command = f'sbatch {script_file} {gjf_file}'
-                try:
-                    subprocess.run(command, shell=True, check=True)
-                    print(f'Successfully submitted: {gjf_file}')
-                except subprocess.CalledProcessError as e:
-                    print(f'Error submitting {gjf_file}: {e}')
-            else:
-                print(f'Missing file in {folder}: {gjf_file} or {script_file}')
-            os.chdir(current_dir)  # 切换回原始工作目录
-    os.chdir(current_dir)  # 确保函数结束时回到原始目录
-
-
-# 计算RESP电荷拟合
-def run_calcRESP_command():
-    current_directory = os.getcwd()
-    for item in os.listdir(current_directory):
-        if os.path.isdir(item) and item.startswith("RESP"):
-            dir_path = os.path.join(current_directory, item)
-            # 输出开始信息
-            print(f"开始执行 {item} 目录的RESP电荷拟合")
-            command = "calcRESP.sh SP_gas.chk SP_solv.chk"
-            os.chdir(dir_path)
-            try:
-                subprocess.run(command, shell=True, check=True)
-                # 输出结束信息
-                print(f"{item} 目录的RESP电荷拟合完毕")
-            except subprocess.CalledProcessError as e:
-                print(f"命令在目录 {dir_path} 中执行失败: {e}")
-            # 返回到原始目录
-            os.chdir(current_directory)
-
-
 def run_function_in_background(func):
     def wrapper():
         # 封装的函数，用于在后台执行
@@ -454,18 +312,6 @@ def run_function_in_background(func):
     thread = threading.Thread(target=wrapper)
     # 启动线程
     thread.start()
-
-
-# 可视化xyz结构
-def vis_3Dxyz(xyz_file, width=400, height=400):
-    with open(xyz_file, 'r') as file:
-        xyz_data = file.read()
-
-    view = py3Dmol.view(width=width, height=height)
-    view.addModel(xyz_data, "xyz")
-    view.setStyle({'stick': {}})
-    view.zoomTo()
-    return view
 
 
 def read_and_merge_data(topology_path, directory='./', charge_file='RESP2.chg'):
