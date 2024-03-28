@@ -195,7 +195,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
     return sorted_df
 
 
-def calc_resp_gaussian(out_dir, sorted_df, core, memory, eps, epsinf, unit_name,):
+def calc_resp_gaussian(unit_name, out_dir, sorted_df, core, memory, eps, epsinf, ):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
