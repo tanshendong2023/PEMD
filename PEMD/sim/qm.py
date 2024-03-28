@@ -192,7 +192,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
             break
         else:
             print("g16 conformer search not finish, waiting...")
-            time.sleep(30)  # 等待30秒后再次检查
+            time.sleep(10)  # 等待30秒后再次检查
     return sorted_df
 
 
@@ -244,7 +244,7 @@ epsinf={epsinf}\n\n"""
             break
         else:
             print("RESP calculation not finish, waiting...")
-            time.sleep(30)
+            time.sleep(10)
 
 
 

@@ -57,9 +57,9 @@ def RESP_fit_Multiwfn(resp_dir, method='resp',):
     # 使用importlib.resources获取脚本路径
     with resources.path("PEMD.analysis", "calcRESP.sh") as script_path:
         if method == 'resp':
-            command = ["bash", str(script_path), "SP_solv.chk"]
+            command = ["bash", str(script_path), "SP_solv.fchk"]
         elif method == 'resp2':
-            command = ["bash", str(script_path), "SP_gas.chk", "SP_solv.chk"]
+            command = ["bash", str(script_path), "SP_gas.fchk", "SP_solv.fchk"]
         else:
             raise ValueError("Unsupported method. Please choose 'resp' or 'resp2'.")
 
