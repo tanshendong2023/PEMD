@@ -33,7 +33,7 @@ def extract_homo_lumo(unit_name, out_dir, length):
     return homo_energy, lumo_energy
 
 
-def run_calcRESP_command():
+def RESPchg_fit_Multiwfn():
     current_directory = os.getcwd()
     for item in os.listdir(current_directory):
         if os.path.isdir(item) and item.startswith("RESP"):

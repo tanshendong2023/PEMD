@@ -68,9 +68,9 @@ def unit_conformation_search(mol, unit_name, out_dir, length, numconf=10,charge 
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
 
-            order_structures = PEMD_lib.crest_orderxyz_energy('crest_conformers.xyz', numconf)
+            order_structures = PEMD_lib.orderxyz_energy_crest('crest_conformers.xyz', numconf)
             os.chdir(origin_dir)
-            orderstr_gaussian(out_dir, order_structures, unit_name, length, charge, multiplicity, memory, core, chk,
+            conformer_search_gaussian(out_dir, order_structures, unit_name, length, charge, multiplicity, memory, core, chk,
                             opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv)
             break
         else:
@@ -78,7 +78,7 @@ def unit_conformation_search(mol, unit_name, out_dir, length, numconf=10,charge 
             time.sleep(30)
 
 
-def orderstr_gaussian(out_dir, structures, unit_name, length, charge, multiplicity, memory, core, chk,
+def conformer_search_gaussian(out_dir, structures, unit_name, length, charge, multiplicity, memory, core, chk,
                     opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv):
     # 获取当前工作目录的路径
     current_directory = os.getcwd()
@@ -134,7 +134,7 @@ def orderstr_gaussian(out_dir, structures, unit_name, length, charge, multiplici
         if all_completed:
             print("All gaussian tasks finished, find the lowest energy structure...")
             # 执行下一个任务的代码...
-            PEMD_lib.g16_lowest_energy_str(structure_directory, unit_name, length)
+            PEMD_lib.orderlog_energy_gaussian(structure_directory, unit_name, length)
             break
         else:
             print("g16 conformer search not finish, waiting...")
@@ -197,13 +197,19 @@ def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, 
             with open(fname) as infile:
                 # 读取并写入文件内容
                 outfile.write(infile.read())
-    order_structures = PEMD_lib.crest_orderxyz_energy(output_filename, top_n_xtb)
+    order_structures = PEMD_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
     os.chdir(origin_dir)
-    orderstr_gaussian(out_dir, order_structures, unit_name, length, charge, multiplicity, memory,
+    conformer_search_gaussian(out_dir, order_structures, unit_name, length, charge, multiplicity, memory,
                       core, chk, opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv,)
 
 
-def calc_resp2(out_dir, unit_name, log_filename, charge, multiplicity, memory, core, eps, epsinf,):
+def calc_resp_gaussian(out_dir, unit_name, log_filename, charge, multiplicity, memory, core, eps, epsinf,):
+
+    resp_dir = os.path.join(out_dir, 'resp_work')
+    os.makedirs(resp_dir, exist_ok=True)
+    origin_dir = os.getcwd()
+    os.chdir(resp_dir)
+
 
     xyz_filename = log_filename.replace('.log', '.xyz')
 

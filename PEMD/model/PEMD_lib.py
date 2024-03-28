@@ -70,7 +70,7 @@ def get_slurm_job_status(job_id):
         return 'RUNNING'
 
 
-def crest_orderxyz_energy(file_path, numconf):
+def orderxyz_energy_crest(file_path, numconf):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
@@ -103,13 +103,13 @@ def crest_orderxyz_energy(file_path, numconf):
     return lowest_energy_structures
 
 
-def g16_lowest_energy_str(dir_path, unit_name,length):
+def orderlog_energy_gaussian(dir_path, unit_name,length):
     data = []
     # 遍历指定文件夹中的所有文件
     for file in os.listdir(dir_path):
         if file.endswith(".log"):
             log_file_path = os.path.join(dir_path, file)
-            energy = read_log_file(log_file_path)
+            energy = read_G_from_gaussian(log_file_path)
             if energy is not None:
                 # 将文件路径、文件名和能量值添加到数据列表中
                 data.append({"File_Path": log_file_path, "Energy": float(energy)})
@@ -131,7 +131,7 @@ def g16_lowest_energy_str(dir_path, unit_name,length):
         shutil.copy(lowest_energy_file_path, os.path.join(dir_path, new_file_name))
 
 
-def read_log_file(log_file_path):
+def read_G_from_gaussian(log_file_path):
     energy = None
     with open(log_file_path, 'r') as file:
         for line in file:
