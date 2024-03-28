@@ -57,5 +57,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
     except Exception:
         pass  # 忽略任何异常
 
+def assign_chg_to_gmx():
+    pass
 
 

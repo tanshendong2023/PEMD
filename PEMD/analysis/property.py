@@ -72,7 +72,26 @@ def RESP_fit_Multiwfn(resp_dir, method='resp',):
         else:
             print(f"Error during RESP fitting: {process.stderr}")
 
+    if method == 'resp':
+        with open('SP_solv.chg', 'r') as file:
+            lines = file.readlines()
+    elif method == 'resp2':
+        with open('RESP2.chg', 'r') as file:
+            lines = file.readlines()
+    # Extract atom names and charges
+    data = []
+    for line in lines:
+        parts = line.split()
+        if len(parts) == 5:  # Atom X Y Z Charge
+            atom_name = parts[0]
+            charge = float(parts[-1])
+            data.append((atom_name, charge))
+
+    # Create a DataFrame
+    df = pd.DataFrame(data, columns=['Atom', 'Charge'])
     os.chdir(origin_dir)
+
+    return df
 
 
 

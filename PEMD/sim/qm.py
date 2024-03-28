@@ -240,11 +240,13 @@ epsinf={epsinf}\n\n"""
         status = PEMD_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
-            property.RESP_fit_Multiwfn(resp_dir, method='resp')
+            df = property.RESP_fit_Multiwfn(resp_dir, method='resp')
             break
         else:
             print("RESP calculation not finish, waiting...")
             time.sleep(10)
+    return df
+
 
 
 
