@@ -139,7 +139,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
 
     current_directory = os.getcwd()
     job_ids = []
-    structure_directory = current_directory + '/' + out_dir + f'{unit_name}_conf_g16'
+    structure_directory = current_directory + '/' + out_dir + '/' + f'{unit_name}_conf_g16'
     os.makedirs(structure_directory, exist_ok=True)
 
     for i, structure in enumerate(structures):
@@ -220,11 +220,11 @@ def calc_resp_gaussian(unit_name, out_dir, sorted_df, core, memory, eps, epsinf,
     eps={eps}
     epsinf={epsinf}\n\n"""
 
-    out_file = out_dir + resp_dir + '/' + f'{unit_name}_resp.gjf'
+    out_file = out_dir + '/' + resp_dir + '/' + f'{unit_name}_resp.gjf'
     with open(out_file, 'w') as file:
         file.write(template)
 
-    structure_directory = os.getcwd() + '/' + out_dir + resp_dir
+    structure_directory = os.getcwd() + '/' + out_dir + '/' + resp_dir
 
     slurm = Slurm(J='g16',
                   N=1,
