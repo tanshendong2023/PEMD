@@ -43,7 +43,9 @@ def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
     return result_df
 
 
-def RESPchg_fit_Multiwfn():
+def RESP_fit_Multiwfn(method='resp'):
+
+
     current_directory = os.getcwd()
     for item in os.listdir(current_directory):
         if os.path.isdir(item) and item.startswith("RESP"):

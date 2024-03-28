@@ -17,11 +17,7 @@ from PEMD.model import PEMD_lib
 from PEMD.sim_API import gaussian
 
 
-def unit_conformation_search(mol, unit_name, out_dir, length, numconf=10,charge =0, multiplicity=1, memory='64GB',
-                        core= 32, chk = True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
-                        dispersion_corr = 'em=GD3BJ', freq = 'freq',
-                        solv_model = 'scrf=(pcm,solvent=generic,read)',
-                        custom_solv='eps=5.0 \nepsinf=2.1'):
+def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf=10, core= 32, ):
 
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
@@ -67,20 +63,80 @@ def unit_conformation_search(mol, unit_name, out_dir, length, numconf=10,charge 
         status = PEMD_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
-
             order_structures = PEMD_lib.orderxyz_energy_crest('crest_conformers.xyz', numconf)
-            os.chdir(origin_dir)
-            conformer_search_gaussian(out_dir, order_structures, unit_name, length, charge, multiplicity, memory, core, chk,
-                            opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv)
             break
         else:
             print("crest conformer search not finish, waiting...")
             time.sleep(30)
 
+    os.chdir(origin_dir)
+    return order_structures
 
-def conformer_search_gaussian(out_dir, structures, unit_name, length, charge, multiplicity, memory, core, chk,
-                    opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv):
-    # 获取当前工作目录的路径
+
+def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10,
+                          epsilon=30, ):
+
+    out_dir = out_dir + '/'
+    PEMD_lib.build_dir(out_dir)
+
+    """从分子构象中搜索能量最低的构象"""
+    mol = Chem.AddHs(mol)
+    # 生成多个构象
+    ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
+    props = AllChem.MMFFGetMoleculeProperties(mol)
+
+    # 对每个构象进行能量最小化，并收集能量值
+    minimized_conformers = []
+    for conf_id in ids:
+        ff = AllChem.MMFFGetMoleculeForceField(mol, props, confId=conf_id)
+        energy = ff.Minimize()
+        minimized_conformers.append((conf_id, energy))
+
+    # 按能量排序并选择前 top_n_MMFF 个构象
+    minimized_conformers.sort(key=lambda x: x[1])
+    top_conformers = minimized_conformers[:top_n_MMFF]
+
+    xtb_dir = os.path.join(out_dir, 'xtb_work')
+    os.makedirs(xtb_dir, exist_ok=True)
+    origin_dir = os.getcwd()
+    os.chdir(xtb_dir)
+
+    for conf_id, _ in top_conformers:
+        xyz_filename = f'conf_{conf_id}.xyz'
+        output_filename = f'conf_{conf_id}_xtb.xyz'
+        PEMD_lib.mol_to_xyz(mol, conf_id, xyz_filename)
+
+        try:
+            # 使用xtb进行进一步优化
+            # xyz_file_path = os.path.join(origin_dir, xyz_filename)
+            subprocess.run(['xtb', xyz_filename, '--opt', f'--gbsa={epsilon}', '--ceasefiles'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            os.rename('xtbopt.xyz', output_filename)
+            PEMD_lib.std_xyzfile(output_filename)
+
+        except subprocess.CalledProcessError as e:
+            print(f'Error during optimization with xtb: {e}')
+
+    # 匹配当前目录下所有后缀为xtb.xyz的文件
+    filenames = glob.glob('*_xtb.xyz')
+    # 输出文件名
+    output_filename = 'merged_xtb.xyz'
+    # 合并文件
+    with open(output_filename, 'w') as outfile:
+        for fname in filenames:
+            with open(fname) as infile:
+                # 读取并写入文件内容
+                outfile.write(infile.read())
+    order_structures = PEMD_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
+
+    os.chdir(origin_dir)
+    return order_structures
+
+
+def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multiplicity=1, core = 32, memory= '64GB',
+                              chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',dispersion_corr='em=GD3BJ',
+                              freq='freq', solv_model='scrf=(pcm,solvent=generic,read)', custom_solv='eps=5.0 \nepsinf=2.1', ):
+
     current_directory = os.getcwd()
     job_ids = []
     structure_directory = current_directory + '/' + out_dir + f'{unit_name}_conf_g16'
@@ -139,108 +195,18 @@ def conformer_search_gaussian(out_dir, structures, unit_name, length, charge, mu
     return sorted_df
 
 
-def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10,
-                          epsilon=30,charge =0, multiplicity=1, memory='64GB', core= 32, chk = True,
-                          opt_method='B3LYP', opt_basis='6-311+g(d,p)', dispersion_corr = 'em=GD3BJ', freq = 'freq',
-                          solv_model = 'scrf=(pcm,solvent=generic,read)', custom_solv='eps=5.0 \nepsinf=2.1'):
-
-    out_dir = out_dir + '/'
-    PEMD_lib.build_dir(out_dir)
-
-    """从分子构象中搜索能量最低的构象"""
-    mol = Chem.AddHs(mol)
-    # 生成多个构象
-    ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
-    props = AllChem.MMFFGetMoleculeProperties(mol)
-
-    # 对每个构象进行能量最小化，并收集能量值
-    minimized_conformers = []
-    for conf_id in ids:
-        ff = AllChem.MMFFGetMoleculeForceField(mol, props, confId=conf_id)
-        energy = ff.Minimize()
-        minimized_conformers.append((conf_id, energy))
-
-    # 按能量排序并选择前 top_n_MMFF 个构象
-    minimized_conformers.sort(key=lambda x: x[1])
-    top_conformers = minimized_conformers[:top_n_MMFF]
-
-    xtb_dir = os.path.join(out_dir, 'xtb_work')
-    os.makedirs(xtb_dir, exist_ok=True)
-    origin_dir = os.getcwd()
-    os.chdir(xtb_dir)
-
-    for conf_id, _ in top_conformers:
-        xyz_filename = f'conf_{conf_id}.xyz'
-        output_filename = f'conf_{conf_id}_xtb.xyz'
-        PEMD_lib.mol_to_xyz(mol, conf_id, xyz_filename)
-
-        try:
-            # 使用xtb进行进一步优化
-            # xyz_file_path = os.path.join(origin_dir, xyz_filename)
-            subprocess.run(['xtb', xyz_filename, '--opt', f'--gbsa={epsilon}', '--ceasefiles'],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            os.rename('xtbopt.xyz', output_filename)
-            PEMD_lib.std_xyzfile(output_filename)
-
-        except subprocess.CalledProcessError as e:
-            print(f'Error during optimization with xtb: {e}')
-
-    # 匹配当前目录下所有后缀为xtb.xyz的文件
-    filenames = glob.glob('*_xtb.xyz')
-    # 输出文件名
-    output_filename = 'merged_xtb.xyz'
-    # 合并文件
-    with open(output_filename, 'w') as outfile:
-        for fname in filenames:
-            with open(fname) as infile:
-                # 读取并写入文件内容
-                outfile.write(infile.read())
-    order_structures = PEMD_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
-    os.chdir(origin_dir)
-    conformer_search_gaussian(out_dir, order_structures, unit_name, length, charge, multiplicity, memory,
-                      core, chk, opt_method, opt_basis, dispersion_corr, freq, solv_model, custom_solv,)
-
-
-def calc_resp_gaussian(out_dir, unit_name, log_filename, charge, multiplicity, memory, core, eps, epsinf,):
+def calc_resp_gaussian(out_dir, sorted_df, core, memory, eps, epsinf, unit_name,):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
-    origin_dir = os.getcwd()
-    os.chdir(resp_dir)
 
-
-    xyz_filename = log_filename.replace('.log', '.xyz')
-
-    log_filepath = out_dir + f'{unit_name}_conf_g16' + '/' + log_filename
-    xyz_filepath = out_dir + f'{unit_name}_conf_g16' + '/' + xyz_filename
-    PEMD_lib.log_to_xyz(log_filepath, xyz_filepath)
-
-    # 从XYZ文件中读取内容
-    with open(xyz_filepath, 'r') as file:
-        xyz_content = file.read()
-
-    formatted_coordinates = ""
-    lines = xyz_content.split('\n')
-    for line in lines[2:]:  # Skip the first two lines (atom count and comment)
-        elements = line.split()
-        if len(elements) >= 4:
-            atom_type, x, y, z = elements[0], elements[1], elements[2], elements[3]
-            formatted_coordinates += f"  {atom_type}  {x:>12}{y:>12}{z:>12}\n"
+    log_file_path = sorted_df.iloc[0]['File_Path']
+    chk_name = log_file_path.replace('.log', '.chk')
 
     # RESP template
     template = f"""%nprocshared={core}
     %mem={memory}
-    %chk=opt.chk
-    # B3LYP/TZVP em=GD3BJ opt
-
-    opt
-
-    {charge} {multiplicity}
-    [GEOMETRY]    
-    --link1--
-    %nprocshared={core}
-    %mem={memory}
-    %oldchk=opt.chk
+    %oldchk={chk_name}
     %chk=SP_gas.chk
     # B3LYP/def2TZVP em=GD3BJ geom=allcheck
 
@@ -253,13 +219,12 @@ def calc_resp_gaussian(out_dir, unit_name, log_filename, charge, multiplicity, m
 
     eps={eps}
     epsinf={epsinf}\n\n"""
-    gaussian_input = template.replace("[GEOMETRY]", formatted_coordinates)
 
-    out_file = out_dir + f'{unit_name}_conf_g16' + f'{log_filename.replace(".log", "_resp2.com")}'
+    out_file = out_dir + resp_dir + '/' + f'{unit_name}_resp.gjf'
     with open(out_file, 'w') as file:
-        file.write(gaussian_input)
+        file.write(template)
 
-    structure_directory = os.getcwd() + '/' + out_dir + f'{unit_name}_conf_g16'
+    structure_directory = os.getcwd() + '/' + out_dir + resp_dir
 
     slurm = Slurm(J='g16',
                   N=1,
@@ -267,9 +232,7 @@ def calc_resp_gaussian(out_dir, unit_name, log_filename, charge, multiplicity, m
                   output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
-    # com_file = os.path.join(structure_directory, f"{base_filename}_{i + 1}_conf_1.com")
-    #         print(f'g16 {structure_directory}/{base_filename}_{i+1}_conf_1.com')
-    job_id = slurm.sbatch(f'g16 {structure_directory}/{log_filename.replace(".log", "_resp2.com")}')
+    job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_resp.gjf')
     time.sleep(10)
 
     while True:
