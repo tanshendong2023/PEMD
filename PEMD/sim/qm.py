@@ -116,9 +116,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, length, charge, mu
                       output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                       )
 
-        # com_file = os.path.join(structure_directory, f"{base_filename}_{i + 1}_conf_1.com")
-        #         print(f'g16 {structure_directory}/{base_filename}_{i+1}_conf_1.com')
-        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_{i + 1}_conf_1.com')
+        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_{i + 1}.gjf')
         time.sleep(10)
         job_ids.append(job_id)
 
@@ -130,15 +128,15 @@ def conformer_search_gaussian(out_dir, structures, unit_name, length, charge, mu
             if status not in ['COMPLETED', 'FAILED', 'CANCELLED']:
                 all_completed = False
                 break
-
         if all_completed:
-            print("All gaussian tasks finished, find the lowest energy structure...")
+            print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             # 执行下一个任务的代码...
-            PEMD_lib.orderlog_energy_gaussian(structure_directory, unit_name, length)
+            sorted_df = PEMD_lib.orderlog_energy_gaussian(structure_directory)
             break
         else:
             print("g16 conformer search not finish, waiting...")
             time.sleep(30)  # 等待30秒后再次检查
+    return sorted_df
 
 
 def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10,

@@ -4,14 +4,18 @@ PEMD code library.
 Developed by: Tan Shendong
 Date: 2024.03.17
 """
+
+
 import os
+import pandas as pd
 import subprocess
 
 
-def extract_homo_lumo(unit_name, out_dir, length):
+def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
     homo_energy, lumo_energy = None, None
     found_homo = False
-    log_file_path = f'{out_dir}' + '/' + f'{unit_name}_conf_g16' + '/' + f'{unit_name}_N{length}_lowest.log'
+    log_file_path = sorted_df.iloc[0]['File_Path']
+
     with open(log_file_path, 'r') as f:
         for line in f:
             if "Alpha  occ. eigenvalues" in line:
@@ -24,13 +28,19 @@ def extract_homo_lumo(unit_name, out_dir, length):
                 # No need to break here, as we want the last occurrence
                 found_homo = False
 
-    # HOMO and LUMO energy write to file
-    output_file = f'{out_dir}' + '/' + f'{unit_name}_N{length}_HOMO_LUMO.txt'
-    with open(output_file, 'w') as f:
-        f.write(f'HOMO Energy: {homo_energy} eV\n')
-        f.write(f'LUMO Energy: {lumo_energy} eV\n')
+    result_df = pd.DataFrame({
+        'out_dir': [out_dir],
+        'HOMO_Energy_eV': [homo_energy],
+        'LUMO_Energy_eV': [lumo_energy]
+    })
 
-    return homo_energy, lumo_energy
+    # to csv file
+    csv_filepath = f'{out_dir}/{unit_name}_N{length}_HOMO_LUMO.csv'
+
+    # 将DataFrame保存为CSV文件
+    result_df.to_csv(csv_filepath, index=False)
+
+    return result_df
 
 
 def RESPchg_fit_Multiwfn():

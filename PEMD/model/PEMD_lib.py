@@ -103,7 +103,7 @@ def orderxyz_energy_crest(file_path, numconf):
     return lowest_energy_structures
 
 
-def orderlog_energy_gaussian(dir_path, unit_name,length):
+def orderlog_energy_gaussian(dir_path):
     data = []
     # 遍历指定文件夹中的所有文件
     for file in os.listdir(dir_path):
@@ -119,16 +119,11 @@ def orderlog_energy_gaussian(dir_path, unit_name,length):
 
     # 找到能量最低的结构对应的行
     if not df.empty:
-        min_energy_row = df.loc[df['Energy'].idxmin()]
-
-        # 获取最低能量结构的文件路径
-        lowest_energy_file_path = min_energy_row['File_Path']
-
-        # 构造新的文件名，带有 'lowest_energy_' 前缀
-        new_file_name = f"{unit_name}_N{length}_lowest.log"
-
-        # 复制文件到新的文件名
-        shutil.copy(lowest_energy_file_path, os.path.join(dir_path, new_file_name))
+        sorted_df = df.sort_values(by='Energy', ascending=True)
+        return sorted_df
+    else:
+        print(f"No sucessful log files found in {dir_path}")
+        return None
 
 
 def read_G_from_gaussian(log_file_path):
