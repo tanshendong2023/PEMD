@@ -7,9 +7,11 @@ Date: 2024.03.17
 
 
 import os
+import glob
 import pandas as pd
 import subprocess
 from importlib import resources
+from PEMD.model import PEMD_lib
 
 
 def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
@@ -44,9 +46,13 @@ def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
     return result_df
 
 
-def RESP_fit_Multiwfn(resp_dir, method='resp', ):
+def RESP_fit_Multiwfn(resp_dir, method='resp',):
     origin_dir = os.getcwd()
     os.chdir(resp_dir)
+
+    chk_files = glob.glob('*.chk')
+    for chk_file in chk_files:
+        PEMD_lib.convert_chk_to_fchk(chk_file)
 
     # 使用importlib.resources获取脚本路径
     with resources.path("PEMD.analysis", "calcRESP.sh") as script_path:

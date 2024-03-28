@@ -780,6 +780,16 @@ def log_to_xyz(log_file_path, xyz_file_path):
         print(f"An error occurred during conversion: {e}")
 
 
+def convert_chk_to_fchk(chk_file_path):
+
+    fchk_file_path = chk_file_path.replace('.chk', '.fchk')
+
+    try:
+        subprocess.run(['formchk', chk_file_path, fchk_file_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error convert chk to fchk: {e}")
+
+
 
 
 
