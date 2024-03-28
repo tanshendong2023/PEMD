@@ -205,20 +205,20 @@ def calc_resp_gaussian(unit_name, out_dir, sorted_df, core=16, memory='64GB', ep
 
     # RESP template
     template = f"""%nprocshared={core}
-    %mem={memory}
-    %oldchk={chk_name}
-    %chk=SP_gas.chk
-    # B3LYP/def2TZVP em=GD3BJ geom=allcheck
+%mem={memory}
+%oldchk={chk_name}
+%chk={resp_dir}/SP_gas.chk
+# B3LYP/def2TZVP em=GD3BJ geom=allcheck
 
-    --link1--
-    %nprocshared={core}
-    %mem={memory}
-    %oldchk=opt.chk
-    %chk=SP_solv.chk
-    # B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck
+--link1--
+%nprocshared={core}
+%mem={memory}
+%oldchk={chk_name}
+%chk={resp_dir}/SP_solv.chk
+# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck
 
-    eps={eps}
-    epsinf={epsinf}\n\n"""
+eps={eps}
+epsinf={epsinf}\n\n"""
 
     out_file = resp_dir + '/' + f'{unit_name}_resp.gjf'
     with open(out_file, 'w') as file:
