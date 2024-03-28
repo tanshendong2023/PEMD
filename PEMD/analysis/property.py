@@ -9,6 +9,7 @@ Date: 2024.03.17
 import os
 import pandas as pd
 import subprocess
+from importlib import resources
 
 
 def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
@@ -43,22 +44,29 @@ def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
     return result_df
 
 
-def RESP_fit_Multiwfn(method='resp'):
+def RESP_fit_Multiwfn(resp_dir, method='resp', ):
+    origin_dir = os.getcwd()
+    os.chdir(resp_dir)
+
+    # 使用importlib.resources获取脚本路径
+    with resources.path("PEMD.analysis", "calcRESP.sh") as script_path:
+        if method == 'resp':
+            command = ["bash", str(script_path), "SP_solv.chk"]
+        elif method == 'resp2':
+            command = ["bash", str(script_path), "SP_gas.chk", "SP_solv.chk"]
+        else:
+            raise ValueError("Unsupported method. Please choose 'resp' or 'resp2'.")
+
+        # 使用subprocess模块调用脚本
+        process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # 输出命令执行结果
+        if process.returncode == 0:
+            print("RESP fitting completed successfully.")
+        else:
+            print(f"Error during RESP fitting: {process.stderr}")
+
+    os.chdir(origin_dir)
 
 
-    current_directory = os.getcwd()
-    for item in os.listdir(current_directory):
-        if os.path.isdir(item) and item.startswith("RESP"):
-            dir_path = os.path.join(current_directory, item)
-            # 输出开始信息
-            print(f"开始执行 {item} 目录的RESP电荷拟合")
-            command = "calcRESP.sh SP_gas.chk SP_solv.chk"
-            os.chdir(dir_path)
-            try:
-                subprocess.run(command, shell=True, check=True)
-                # 输出结束信息
-                print(f"{item} 目录的RESP电荷拟合完毕")
-            except subprocess.CalledProcessError as e:
-                print(f"命令在目录 {dir_path} 中执行失败: {e}")
-            # 返回到原始目录
-            os.chdir(current_directory)
+
