@@ -195,7 +195,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
     return sorted_df
 
 
-def calc_resp_gaussian(unit_name, out_dir, sorted_df, core, memory, eps, epsinf, ):
+def calc_resp_gaussian(unit_name, out_dir, sorted_df, core=16, memory='64GB', eps=5.0, epsinf=2.1,):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -220,11 +220,11 @@ def calc_resp_gaussian(unit_name, out_dir, sorted_df, core, memory, eps, epsinf,
     eps={eps}
     epsinf={epsinf}\n\n"""
 
-    out_file = out_dir + '/' + resp_dir + '/' + f'{unit_name}_resp.gjf'
+    out_file = resp_dir + '/' + f'{unit_name}_resp.gjf'
     with open(out_file, 'w') as file:
         file.write(template)
 
-    structure_directory = os.getcwd() + '/' + out_dir + '/' + resp_dir
+    structure_directory = os.getcwd() + '/' + resp_dir
 
     slurm = Slurm(J='g16',
                   N=1,
