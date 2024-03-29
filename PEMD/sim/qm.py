@@ -10,7 +10,6 @@ import os
 import time
 import glob
 import subprocess
-import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from simple_slurm import Slurm
@@ -252,7 +251,7 @@ epsinf={epsinf}\n\n"""
 def ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating):
 
     # 处理非氢原子
-    nonH_df = resp_chg_df[resp_chg_df['Atom'] != 'H']
+    nonH_df = resp_chg_df[resp_chg_df['atom'] != 'H']
 
     cleaned_smiles = repeating_unit.replace('[*]', '')
     molecule = Chem.MolFromSmiles(cleaned_smiles)
@@ -264,7 +263,7 @@ def ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating):
     mid_ave_chg_noH_df = PEMD_lib.ave_mid_chg(mid_df_noH_df, atom_count)
 
     # 处理氢原子
-    H_df = resp_chg_df[resp_chg_df['Atom'] == 'H']
+    H_df = resp_chg_df[resp_chg_df['atom'] == 'H']
 
     molecule_with_h = Chem.AddHs(molecule)
     num_H_repeating = molecule_with_h.GetNumAtoms() - molecule.GetNumAtoms() - 2

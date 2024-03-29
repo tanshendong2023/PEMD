@@ -794,10 +794,10 @@ def ave_end_chg(df, N):
     # 处理端部原子的电荷平均值
     top_N_df = df.head(N)
     tail_N_df = df.tail(N).iloc[::-1].reset_index(drop=True)
-    average_charge = (top_N_df['Charge'].reset_index(drop=True) + tail_N_df['Charge']) / 2
+    average_charge = (top_N_df['charge'].reset_index(drop=True) + tail_N_df['charge']) / 2
     average_df = pd.DataFrame({
-        'Atom': top_N_df['Atom'].reset_index(drop=True),  # 保持原子名称
-        'Average Charge': average_charge
+        'atom': top_N_df['atom'].reset_index(drop=True),  # 保持原子名称
+        'charge': average_charge
     })
     return average_df
 
@@ -807,15 +807,15 @@ def ave_mid_chg(df, atom_count):
     average_charges = []
     for i in range(atom_count):
         same_atoms = df[df.index % atom_count == i]
-        avg_charge = same_atoms['Charge'].mean()
-        average_charges.append({'Atom': same_atoms['Atom'].iloc[0], 'Average Charge': avg_charge})
+        avg_charge = same_atoms['charge'].mean()
+        average_charges.append({'atom': same_atoms['atom'].iloc[0], 'charge': avg_charge})
     return pd.DataFrame(average_charges)
 
 
 def read_sec_from_gmxitp_to_df(unit_name, out_dir, sec_name):
 
     itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded.itp')
-                                
+
     with open(itp_filepath, 'r') as file:
         lines = file.readlines()
 
@@ -850,6 +850,27 @@ def read_sec_from_gmxitp_to_df(unit_name, out_dir, sec_name):
         df = pd.DataFrame(data, columns=columns)
     else:
         df = pd.DataFrame()
+
+    return df
+
+
+def xyz_to_df(xyz_file_path):
+    # 初始化空列表来存储原子类型
+    atoms = []
+
+    # 读取XYZ文件
+    with open(xyz_file_path, 'r') as file:
+        next(file)  # 跳过第一行（原子总数）
+        next(file)  # 跳过第二行（注释行）
+        for line in file:
+            atom_type = line.split()[0]  # 原子类型是每行的第一个元素
+            atoms.append(atom_type)
+
+    # 创建DataFrame
+    df = pd.DataFrame(atoms, columns=['atom'])
+
+    # 添加空的'charge'列
+    df['charge'] = None  # 初始化为空值
 
     return df
 

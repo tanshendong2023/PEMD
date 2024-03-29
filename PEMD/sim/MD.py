@@ -7,10 +7,13 @@ Date: 2024.03.26
 
 
 import os
+import re
 from foyer import Forcefield
 import parmed as pmd
 from PEMD.model import PEMD_lib
 from PEMD.sim import qm
+from rdkit import Chem
+import pandas as pd
 import importlib.resources as pkg_resources
 
 
@@ -59,55 +62,109 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
         pass  # 忽略任何异常
 
 
-def apply_chg_to_gmx(itp_file, resp_chg_df, repeating_unit, num_repeating):
+def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, num_repeating):
 
     (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
         = qm.ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating)
 
-    atoms_df = PEMD_lib.read_sec_from_gmxitp_to_df(itp_file, '[ atoms ]')
-    atoms_chg_df = atoms_df[['atom','charge']]
+    xyz_file_path = os.path.join(out_dir, f'{unit_name}_N{length}_gmx.xyz')
+    atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
 
-    # 更新非氢原子的电荷
-    for idx, row in end_ave_chg_noH_df.iterrows():
-        atom_name = row['Atom']
-        charge = row['Charge']
-        atoms_chg_df.loc[atoms_chg_df['atom'] == atom_name, 'charge'] = charge
+    # 处理末端非氢原子
+    top_noH_df = end_ave_chg_noH_df
+    tail_noH_df = top_noH_df.iloc[::-1].reset_index(drop=True)
+
+    # 处理mid非氢原子
+    atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] != 'H']
+
+    cleaned_smiles = repeating_unit.replace('[*]', '')
+    molecule = Chem.MolFromSmiles(cleaned_smiles)
+    atom_count = molecule.GetNumAtoms()
+    N = atom_count * num_repeating
+
+    mid_atoms_chg_noH_df = atoms_chg_noH_df.drop(
+        atoms_chg_noH_df.head(N).index.union(atoms_chg_noH_df.tail(N).index)).reset_index(drop=True)
+
+    # 遍历中间原子的 DataFrame
+    for idx, row in mid_atoms_chg_noH_df.iterrows():
+        # 计算当前原子在周期单元中的位置
+        position_in_cycle = idx % atom_count
+        # 找到对应位置原子的平均电荷值
+        ave_chg_noH = mid_ave_chg_noH_df.iloc[position_in_cycle]['charge']
+        # 更新电荷值
+        mid_atoms_chg_noH_df.at[idx, 'charge'] = ave_chg_noH
+
+    # 处理末端氢原子
+    top_H_df = end_ave_chg_H_df
+    tail_H_df = top_H_df.iloc[::-1].reset_index(drop=True)
+
+    # 处理mid氢原子
+    atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] == 'H']
+
+    molecule_with_h = Chem.AddHs(molecule)
+    num_H_repeating = molecule_with_h.GetNumAtoms() - molecule.GetNumAtoms() - 2
+    N_H = num_H_repeating * num_repeating + 1
+
+    mid_atoms_chg_H_df = atoms_chg_noH_df.drop(
+        atoms_chg_noH_df.head(N_H).index.union(atoms_chg_noH_df.tail(N_H).index)).reset_index(drop=True)
+
+    # 遍历中间原子的 DataFrame
+    for idx, row in mid_atoms_chg_H_df.iterrows():
+        # 计算当前原子在周期单元中的位置
+        position_in_cycle = idx % num_H_repeating
+        # 找到对应位置原子的平均电荷值
+        avg_chg_H = mid_atoms_chg_H_df.iloc[position_in_cycle]['charge']
+        # 更新电荷值
+        mid_atoms_chg_H_df.at[idx, 'charge'] = avg_chg_H
+
+    charge_update_df = pd.concat([top_noH_df, mid_atoms_chg_noH_df, tail_noH_df, top_H_df, mid_atoms_chg_H_df,
+                                tail_H_df], ignore_index=True)
+
+    itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded.itp')
+
+    # 读取.itp文件
+    with open(itp_filepath, 'r') as file:
+        lines = file.readlines()
+
+    # 找到[ atoms ]部分的开始和结束
+    in_section = False  # 标记是否处于指定部分
+    section_pattern = r'\[\s*.+\s*\]'  # 用于匹配部分标题的正则表达式
+    start_index = end_index = 0
+    for i, line in enumerate(lines):
+        if line.startswith('[ atoms ]'):
+            start_index = i + 2  # 跳过部分标题和列标题
+            in_section = True
+            continue
+        elif in_section and re.match(section_pattern, line.strip()):
+            end_index = i
+            break
+
+    # 更新电荷，这里假设charge_update_df中的电荷顺序与.itp文件中的原子顺序一致
+    charge_index = 0  # 用于跟踪DataFrame中当前的电荷索引
+    for i in range(start_index, end_index):
+        parts = lines[i].split()
+        if charge_index < len(charge_update_df):
+            # 从DataFrame中获取新电荷值
+            new_charge = charge_update_df.iloc[charge_index]['charge']
+            parts[6] = f'{new_charge:.8f}'  # 更新电荷值，假设电荷值在第7个字段
+            lines[i] = ' '.join(parts) + '\n'
+            charge_index += 1  # 移动到DataFrame中的下一个电荷
+
+    # 保存为新的.itp文件
+    new_itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded_updated.itp')
+    with open(new_itp_filepath, 'w') as file:
+        file.writelines(lines)
 
 
 
 
 
 
-    # # 读取力场原始文件
-    # bonditp_file = f'{unit_name}_bonded.itp'
-    # with open(bonditp_file, 'r') as f:
-    #     lines = f.readlines()
-    #
-    # with open(bonditp_file_update, 'w') as f:
-    #     atom_section = False
-    #     for line in lines:
-    #         # 检查是否到达了[ atoms ]部分
-    #         if line.startswith('[ atoms ]'):
-    #             atom_section = True
-    #             f.write(line)  # 写入[ atoms ]行
-    #             continue
-    #
-    #         # 如果在[ atoms ]部分，而且行不是空行或注释行
-    #         if atom_section and not line.startswith(';') and not line.strip() == '':
-    #             split_line = line.split()
-    #             # 根据原子序号找到对应的电荷值
-    #             atom_idx = int(split_line[0]) - 1  # DataFrame 索引从0开始，而GROMACS从1开始
-    #             charge = df.at[atom_idx, 'charge']
-    #             # 重写含有电荷值的行
-    #             new_line = f"{'  '.join(split_line[:6])}  {charge: .8f}  {'  '.join(split_line[7:])}\n"
-    #             file.write(new_line)
-    #         elif atom_section and (line.startswith(';') or line.strip() == ''):
-    #             # 如果到达了[ atoms ]部分的末尾（即遇到了注释行或空行）
-    #             atom_section = False
-    #             file.write(line)  # 写入注释行或空行
-    #         else:
-    #             # 对于其他所有行，直接写入文件
-    #             file.write(line)
+
+
+
+
+
 
 
 
