@@ -21,7 +21,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
     current_path = os.getcwd()
     relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
 
-    file_base = f"{unit_name}{length}"
+    file_base = f"{unit_name}_{length}"
     top_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.top")
     gro_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.gro")
 
@@ -29,8 +29,8 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
 
     for file in os.listdir(relax_polymer_lmp_dir):
         if file.endswith(".xyz"):
-            xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.xyz")
-            pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.pdb")
+            xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.xyz")
+            pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
 
             PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, f'{unit_name}', f'{unit_name}')
 
