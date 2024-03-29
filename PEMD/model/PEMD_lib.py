@@ -8,7 +8,7 @@ Date: 2024.03.15
 
 import os
 import time
-import shutil
+import re
 import subprocess
 import numpy as np
 import pandas as pd
@@ -790,6 +790,61 @@ def convert_chk_to_fchk(chk_file_path):
         print(f"Error convert chk to fchk: {e}")
 
 
+def ave_end_chg(df, N):
+    # 处理端部原子的电荷平均值
+    top_N_df = df.head(N)
+    tail_N_df = df.tail(N).iloc[::-1].reset_index(drop=True)
+    average_charge = (top_N_df['Charge'].reset_index(drop=True) + tail_N_df['Charge']) / 2
+    return average_charge.to_frame(name='Average Charge')
+
+
+def ave_mid_chg(df, atom_count):
+    # 处理中间原子的电荷平均值
+    average_charges = []
+    for i in range(atom_count):
+        same_atoms = df[df.index % atom_count == i]
+        avg_charge = same_atoms['Charge'].mean()
+        average_charges.append({'Atom': same_atoms['Atom'].iloc[0], 'Average Charge': avg_charge})
+    return pd.DataFrame(average_charges).set_index('Atom')
+
+
+def read_sec_from_gmxitp_to_df(itp_file, sec_name):
+    with open(itp_file, 'r') as file:
+        lines = file.readlines()
+
+    data = []  # 用于存储数据行
+    in_section = False  # 标记是否处于指定部分
+    section_pattern = r'\[\s*.+\s*\]'  # 用于匹配部分标题的正则表达式
+    columns = None  # 存储列名
+
+    for line in lines:
+        # 检测到指定部分的开始
+        if line.strip() == sec_name:
+            in_section = True
+            continue
+
+        # 使用正则表达式检测是否遇到了其他部分的标题行，标志着指定部分的结束
+        if in_section and re.match(section_pattern, line.strip()):
+            break
+
+        # 处理列名行
+        if in_section and not columns and line.startswith(';'):
+            # 通常列名行以 ';' 开头，我们需要去除 ';' 并分割剩余字符串
+            columns = re.sub(';', '', line).split()
+            continue
+
+        # 在指定部分内，且行不是注释或空行，则视为数据行
+        if in_section and not line.startswith(';') and line.strip():
+            # 分割数据行并添加到数据列表中
+            data.append(line.split())
+
+    # 如果有列名和数据，则创建 DataFrame
+    if columns and data:
+        df = pd.DataFrame(data, columns=columns)
+    else:
+        df = pd.DataFrame()
+
+    return df
 
 
 
