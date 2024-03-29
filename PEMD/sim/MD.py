@@ -152,7 +152,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
             charge_index += 1
 
     # 保存为新的.itp文件
-    new_itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded_updated.itp')
+    new_itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 
