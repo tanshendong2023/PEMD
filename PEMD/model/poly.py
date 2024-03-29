@@ -74,12 +74,12 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
 
 def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', atom_typing_ = 'pysimm', ):
 
-    # get origin dir
-    # origin_dir = os.getcwd()
-
     # build directory
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
+
+    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
+    os.makedirs(relax_polymer_lmp_dir, exist_ok=True)
 
     # print(smiles)
     mol = pybel.readstring("smi", smiles_poly)
@@ -100,9 +100,9 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', at
 
     # 写入文件
     # file_base = '{}_N{}'.format(unit_name, length)
-    pdb_file = out_dir + f"{unit_name}_N{length}.pdb"
-    xyz_file = out_dir + f"{unit_name}_N{length}.xyz"
-    mol_file = out_dir + f"{unit_name}_N{length}.mol2"
+    pdb_file = relax_polymer_lmp_dir + '/' + f"{unit_name}_N{length}.pdb"
+    xyz_file = relax_polymer_lmp_dir + '/'  + f"{unit_name}_N{length}.xyz"
+    mol_file = relax_polymer_lmp_dir + '/'  + f"{unit_name}_N{length}.mol2"
 
     mol.write("pdb", pdb_file, overwrite=True)
     mol.write("xyz", xyz_file, overwrite=True)
@@ -130,10 +130,10 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', at
 
     print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
 
-    PEMD_lib.get_gaff2(unit_name, length, out_dir, mol, atom_typing=atom_typing_)
+    PEMD_lib.get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing=atom_typing_)
     # input_file = file_base + '_gaff2.lmp'
     # output_file = file_base + '_gaff2.data'
-    PEMD_lib.relax_polymer_lmp(unit_name, length, out_dir, core)
+    PEMD_lib.relax_polymer_lmp(unit_name, length, relax_polymer_lmp_dir, core)
 
 
 def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):

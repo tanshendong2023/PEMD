@@ -468,12 +468,12 @@ def Init_info_Cap(unit_name, smiles_each_ori):
     )
 
 
-def get_gaff2(unit_name, length, out_dir, mol, atom_typing='pysimm'):
+def get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing='pysimm'):
     print("\nGenerating GAFF2 parameter file ...\n")
     # r = MDlib.get_coord_from_pdb(outfile_name + ".pdb")
     # from pysimm import system, forcefield
 
-    file_base = out_dir + '{}_N{}'.format(unit_name, length)
+    file_base = relax_polymer_lmp_dir + '/' + '{}_N{}'.format(unit_name, length)
 
     obConversion.SetInAndOutFormats("pdb", "cml")
     if os.path.exists(file_base + '.pdb'):
@@ -550,9 +550,9 @@ def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
     return Chem.MolToSmiles(combo_mol)
 
 
-def relax_polymer_lmp(unit_name, length, out_dir, core):
+def relax_polymer_lmp(unit_name, length, relax_polymer_lmp_dir, core):
     origin_dir = os.getcwd()
-    os.chdir(out_dir)
+    os.chdir(relax_polymer_lmp_dir)
     # 创建LAMMPS输入文件字符串
     file_base = '{}_N{}'.format(unit_name, length)
     lmp_commands = """
