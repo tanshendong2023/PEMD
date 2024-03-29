@@ -17,19 +17,20 @@ import importlib.resources as pkg_resources
 
 
 def gen_gmx_oplsaa(unit_name, out_dir, length):
-    current_path = os.getcwd()
-    filepath = current_path + '/' + out_dir
 
-    top_filename = filepath + '/' + f'{unit_name}{length}.top'
-    gro_filename = filepath + '/' + f'{unit_name}{length}.gro'
+    current_path = os.getcwd()
+    relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
+
+    file_base = f"{unit_name}{length}"
+    top_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.top")
+    gro_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.gro")
 
     pdb_filename = None
 
-    for file in os.listdir(filepath):
+    for file in os.listdir(relax_polymer_lmp_dir):
         if file.endswith(".xyz"):
-            file_base = '{}_N{}'.format(unit_name, length)
-            xyz_filename = out_dir + '/' + f'{file_base}_gmx.xyz'
-            pdb_filename = out_dir + '/' + f'{file_base}_gmx.pdb'
+            xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.xyz")
+            pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.pdb")
 
             PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, f'{unit_name}', f'{unit_name}')
 
