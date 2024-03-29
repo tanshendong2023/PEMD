@@ -795,7 +795,11 @@ def ave_end_chg(df, N):
     top_N_df = df.head(N)
     tail_N_df = df.tail(N).iloc[::-1].reset_index(drop=True)
     average_charge = (top_N_df['Charge'].reset_index(drop=True) + tail_N_df['Charge']) / 2
-    return average_charge.to_frame(name='Average Charge')
+    average_df = pd.DataFrame({
+        'Atom': top_N_df['Atom'].reset_index(drop=True),  # 保持原子名称
+        'Average Charge': average_charge
+    })
+    return average_df
 
 
 def ave_mid_chg(df, atom_count):
@@ -805,7 +809,7 @@ def ave_mid_chg(df, atom_count):
         same_atoms = df[df.index % atom_count == i]
         avg_charge = same_atoms['Charge'].mean()
         average_charges.append({'Atom': same_atoms['Atom'].iloc[0], 'Average Charge': avg_charge})
-    return pd.DataFrame(average_charges).set_index('Atom')
+    return pd.DataFrame(average_charges)
 
 
 def read_sec_from_gmxitp_to_df(itp_file, sec_name):
