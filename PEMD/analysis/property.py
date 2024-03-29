@@ -89,9 +89,7 @@ def RESP_fit_Multiwfn(resp_dir, method='resp',):
 
     # Create a DataFrame
     resp_chg_df = pd.DataFrame(data, columns=['Atom', 'Charge'])
-    print(resp_chg_df)
     os.chdir(origin_dir)
-    print(resp_chg_df)
     return resp_chg_df
 
 
