@@ -98,11 +98,13 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', at
             obmol.SetTorsion(obatom.GetIdx(), neighbor.GetIdx(), n1.GetIdx(), n2.GetIdx(), angle)
     mol.localopt()
 
-    # 写入文件
-    # file_base = '{}_N{}'.format(unit_name, length)
-    pdb_file = relax_polymer_lmp_dir + '/' + f"{unit_name}_N{length}.pdb"
-    xyz_file = relax_polymer_lmp_dir + '/'  + f"{unit_name}_N{length}.xyz"
-    mol_file = relax_polymer_lmp_dir + '/'  + f"{unit_name}_N{length}.mol2"
+    # 构建文件名基础，这样可以避免重复拼接字符串
+    file_base = f"{unit_name}_N{length}"
+
+    # 使用os.path.join构建完整的文件路径，确保路径在不同操作系统上的兼容性
+    pdb_file = os.path.join(relax_polymer_lmp_dir, f"{file_base}.pdb")
+    xyz_file = os.path.join(relax_polymer_lmp_dir, f"{file_base}.xyz")
+    mol_file = os.path.join(relax_polymer_lmp_dir, f"{file_base}.mol2")
 
     mol.write("pdb", pdb_file, overwrite=True)
     mol.write("xyz", xyz_file, overwrite=True)
@@ -126,13 +128,9 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', at
             except BaseException:
                 print('problem running LigParGen for {}.pdb.'.format(pdb_file))
 
-    # os.chdir(out_dir)
-
     print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
 
     PEMD_lib.get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing=atom_typing_)
-    # input_file = file_base + '_gaff2.lmp'
-    # output_file = file_base + '_gaff2.data'
     PEMD_lib.relax_polymer_lmp(unit_name, length, relax_polymer_lmp_dir, core)
 
 
@@ -208,43 +206,6 @@ def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
         os.remove(xyz_file_path)
 
     return smiles_poly_list, mol_poly_list
-
-
-def generate_polymer_smiles(leftcap, repeating_unit, rightcap, length):
-    repeating_cleaned = repeating_unit.replace('[*]', '')
-    full_sequence = repeating_cleaned * length
-    leftcap_cleaned = leftcap.replace('[*]', '')
-    rightcap_cleaned = rightcap.replace('[*]', '')
-    smiles = leftcap_cleaned + full_sequence + rightcap_cleaned
-    return smiles
-
-
-def smiles_to_files(smiles, angle_range=(0, 0), apply_torsion=False, xyz=False, pdb=False, mol2=False,
-                    file_prefix=None):
-    if file_prefix is None:
-        file_prefix = smiles
-    mol = pybel.readstring("smi", smiles)
-    mol.addh()
-    mol.make3D()
-    obmol = mol.OBMol
-    if apply_torsion:
-        for obatom in pybel.ob.OBMolAtomIter(obmol):
-            for bond in pybel.ob.OBAtomBondIter(obatom):
-                neighbor = bond.GetNbrAtom(obatom)
-                if len(list(pybel.ob.OBAtomAtomIter(neighbor))) < 2:
-                    continue
-                angle = random.uniform(*angle_range)
-                n1 = next(pybel.ob.OBAtomAtomIter(neighbor))
-                n2 = next(pybel.ob.OBAtomAtomIter(n1))
-                obmol.SetTorsion(obatom.GetIdx(), neighbor.GetIdx(), n1.GetIdx(), n2.GetIdx(), angle)
-    mol.localopt()
-    if xyz:
-        mol.write("xyz", f"{file_prefix}.xyz", overwrite=True)
-    if pdb:
-        mol.write("pdb", f"{file_prefix}.pdb", overwrite=True)
-    if mol2:
-        mol.write("mol2", f"{file_prefix}.mol2", overwrite=True)
-    # return mol
 
 
 def pdbtoxyz(pdb_file, xyz_file):

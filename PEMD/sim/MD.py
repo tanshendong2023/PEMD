@@ -8,12 +8,11 @@ Date: 2024.03.26
 
 import os
 import re
-from foyer import Forcefield
-import parmed as pmd
-from PEMD.model import PEMD_lib
-from PEMD.sim import qm
-from rdkit import Chem
 import pandas as pd
+import parmed as pmd
+from rdkit import Chem
+from foyer import Forcefield
+from PEMD.model import PEMD_lib
 import importlib.resources as pkg_resources
 
 
@@ -65,9 +64,11 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
 def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, num_repeating):
 
     (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
-        = qm.ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating)
+        = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating)
 
-    xyz_file_path = os.path.join(out_dir, f'{unit_name}_N{length}_gmx.xyz')
+    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
+
+    xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length}_gmx.xyz')
     atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
 
     # 处理末端非氢原子

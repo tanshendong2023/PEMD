@@ -18,6 +18,7 @@ from rdkit.Chem import AllChem
 from openbabel import openbabel as ob
 from simple_slurm import Slurm
 import PEMD.model.MD_lib as MDlib
+from PEMD.model import PEMD_lib
 from openbabel import openbabel
 from networkx.algorithms import isomorphism
 from pysimm import system, lmps, forcefield
@@ -873,6 +874,34 @@ def xyz_to_df(xyz_file_path):
     df['charge'] = None  # 初始化为空值
 
     return df
+
+
+def ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating):
+
+    # 处理非氢原子
+    nonH_df = resp_chg_df[resp_chg_df['atom'] != 'H']
+
+    cleaned_smiles = repeating_unit.replace('[*]', '')
+    molecule = Chem.MolFromSmiles(cleaned_smiles)
+    atom_count = molecule.GetNumAtoms()
+    N = atom_count * num_repeating
+
+    end_ave_chg_noH_df = PEMD_lib.ave_end_chg(nonH_df, N)
+    mid_df_noH_df = nonH_df.drop(nonH_df.head(N).index.union(nonH_df.tail(N).index)).reset_index(drop=True)
+    mid_ave_chg_noH_df = PEMD_lib.ave_mid_chg(mid_df_noH_df, atom_count)
+
+    # 处理氢原子
+    H_df = resp_chg_df[resp_chg_df['atom'] == 'H']
+
+    molecule_with_h = Chem.AddHs(molecule)
+    num_H_repeating = molecule_with_h.GetNumAtoms() - molecule.GetNumAtoms() - 2
+    N_H = num_H_repeating * num_repeating + 1
+
+    end_ave_chg_H_df = PEMD_lib.ave_end_chg(H_df, N_H)
+    mid_df_H_df = H_df.drop(H_df.head(N_H).index.union(H_df.tail(N_H).index)).reset_index(drop=True)
+    mid_ave_chg_H_df = PEMD_lib.ave_mid_chg(mid_df_H_df, num_H_repeating)
+
+    return end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df
 
 
 
