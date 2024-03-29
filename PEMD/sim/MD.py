@@ -101,21 +101,21 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
     tail_H_df = top_H_df.iloc[::-1].reset_index(drop=True)
 
     # 处理mid氢原子
-    atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] == 'H']
+    atoms_chg_H_df = atoms_chg_df[atoms_chg_df['atom'] == 'H']
 
     molecule_with_h = Chem.AddHs(molecule)
     num_H_repeating = molecule_with_h.GetNumAtoms() - molecule.GetNumAtoms() - 2
     N_H = num_H_repeating * num_repeating + 1
 
-    mid_atoms_chg_H_df = atoms_chg_noH_df.drop(
-        atoms_chg_noH_df.head(N_H).index.union(atoms_chg_noH_df.tail(N_H).index)).reset_index(drop=True)
+    mid_atoms_chg_H_df = atoms_chg_H_df.drop(
+        atoms_chg_H_df.head(N_H).index.union(atoms_chg_H_df.tail(N_H).index)).reset_index(drop=True)
 
     # 遍历中间原子的 DataFrame
     for idx, row in mid_atoms_chg_H_df.iterrows():
         # 计算当前原子在周期单元中的位置
         position_in_cycle = idx % num_H_repeating
         # 找到对应位置原子的平均电荷值
-        avg_chg_H = mid_atoms_chg_H_df.iloc[position_in_cycle]['charge']
+        avg_chg_H = mid_ave_chg_H_df.iloc[position_in_cycle]['charge']
         # 更新电荷值
         mid_atoms_chg_H_df.at[idx, 'charge'] = avg_chg_H
 
@@ -134,11 +134,11 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
     start_index = end_index = 0
     for i, line in enumerate(lines):
         if line.startswith('[ atoms ]'):
-            start_index = i + 2  # 跳过部分标题和列标题
+            start_index = i + 3  # 跳过部分标题和列标题
             in_section = True
             continue
         elif in_section and re.match(section_pattern, line.strip()):
-            end_index = i
+            end_index = i - 1
             break
 
     # 更新电荷，这里假设charge_update_df中的电荷顺序与.itp文件中的原子顺序一致
@@ -146,17 +146,15 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
     for i in range(start_index, end_index):
         parts = lines[i].split()
         if charge_index < len(charge_update_df):
-            # 从DataFrame中获取新电荷值
             new_charge = charge_update_df.iloc[charge_index]['charge']
             parts[6] = f'{new_charge:.8f}'  # 更新电荷值，假设电荷值在第7个字段
             lines[i] = ' '.join(parts) + '\n'
-            charge_index += 1  # 移动到DataFrame中的下一个电荷
+            charge_index += 1
 
     # 保存为新的.itp文件
     new_itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded_updated.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
-
 
 
 
