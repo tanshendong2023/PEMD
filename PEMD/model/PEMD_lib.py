@@ -812,8 +812,11 @@ def ave_mid_chg(df, atom_count):
     return pd.DataFrame(average_charges)
 
 
-def read_sec_from_gmxitp_to_df(itp_file, sec_name):
-    with open(itp_file, 'r') as file:
+def read_sec_from_gmxitp_to_df(unit_name, out_dir, sec_name):
+
+    itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded.itp')
+                                
+    with open(itp_filepath, 'r') as file:
         lines = file.readlines()
 
     data = []  # 用于存储数据行
