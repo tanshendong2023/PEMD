@@ -21,7 +21,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
     current_path = os.getcwd()
     relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
 
-    file_base = f"{unit_name}_{length}"
+    file_base = f"{unit_name}_N{length}"
     top_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.top")
     gro_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.gro")
 
