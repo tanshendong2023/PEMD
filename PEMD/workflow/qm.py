@@ -2,14 +2,14 @@
 
 
 """
-This script is used to generate the polymer with one repeating units and perform QM calculations,
+This script is used to generate the polymer monomer and perform QM calculations,
 including the HOMO, LUMO energy and the dipole_moment.
 Author: Shendong Tan
 Date: 2024-03-30
 """
 
 
-from PEMD.model import poly, PEMD_lib
+from PEMD.model import poly
 from PEMD.sim import qm
 from PEMD.analysis import prop
 
@@ -31,9 +31,9 @@ if __name__ == '__main__':
 
     # Perform second conformation search using Gaussian
     sorted_df = qm.conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multiplicity=1, core=32,
-                                           memory='64GB',
-                              chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)', dispersion_corr='em=GD3BJ',
-                              freq='freq', solv_model='scrf=(pcm,solvent=generic,read)', custom_solv='', )
+                                             memory='64GB', chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
+                                             dispersion_corr='em=GD3BJ',freq='freq',
+                                             solv_model='scrf=(pcm,solvent=generic,read)', custom_solv='', )
 
     # obtain the HOMO and LUMO property
     prop.homo_lumo_energy(sorted_df, unit_name, out_dir, length)
