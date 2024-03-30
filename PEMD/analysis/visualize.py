@@ -11,6 +11,8 @@ Date: 2024.02.23
 
 import py3Dmol
 import subprocess
+import datamol as dm
+from IPython.display import display
 
 def vis_3D(input_file, supercell=[1,1,1]):
   if input_file.split(".")[-1] == 'vasp':
@@ -26,4 +28,8 @@ def vis_3D(input_file, supercell=[1,1,1]):
   view.replicateUnitCell(supercell[0],supercell[1],supercell[2])
   view.zoomTo()
   view.show()
+
+def vis_2Dsmiles(smiles, mol_size=(350, 150)):
+  img = dm.to_image(smiles, mol_size=mol_size)
+  display(img)
 

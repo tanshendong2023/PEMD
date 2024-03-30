@@ -15,7 +15,7 @@ from rdkit.Chem import AllChem
 from simple_slurm import Slurm
 from PEMD.model import PEMD_lib
 from PEMD.sim_API import gaussian
-from PEMD.analysis import property
+from PEMD.analysis import prop
 
 
 def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf=10, core= 32, ):
@@ -240,7 +240,7 @@ epsinf={epsinf}\n\n"""
         status = PEMD_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
-            df = property.RESP_fit_Multiwfn(resp_dir, method='resp')
+            df = prop.RESP_fit_Multiwfn(resp_dir, method='resp')
             break
         else:
             print("RESP calculation not finish, waiting...")

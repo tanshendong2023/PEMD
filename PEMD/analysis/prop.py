@@ -46,6 +46,30 @@ def homo_lumo_energy(sorted_df, unit_name, out_dir, length):
     return result_df
 
 
+def dipole_moment(sorted_df, unit_name, out_dir, length):
+    found_dipole_moment = None
+    log_file_path = sorted_df.iloc[0]['File_Path']
+
+    with open(log_file_path, 'r') as file:
+        for line in file:
+            if "Dipole moment (field-independent basis, Debye):" in line:
+                found_dipole_moment = next(file)  # Keep updating until the last occurrence
+
+    if  found_dipole_moment:
+        parts =  found_dipole_moment.split()
+        # Extracting the X, Y, Z components and the total dipole moment
+        dipole_moment = parts[7]
+        dipole_moment_df = pd.DataFrame({'dipole_moment': [dipole_moment]})
+
+        # to csv file
+        csv_filepath = f'{out_dir}/{unit_name}_N{length}_dipole_moment.csv'
+
+        # 将DataFrame保存为CSV文件
+        dipole_moment_df.to_csv(csv_filepath, index=False)
+
+        return dipole_moment_df
+
+
 def RESP_fit_Multiwfn(resp_dir, method='resp',):
     origin_dir = os.getcwd()
     os.chdir(resp_dir)
@@ -91,6 +115,8 @@ def RESP_fit_Multiwfn(resp_dir, method='resp',):
     resp_chg_df = pd.DataFrame(data, columns=['atom', 'charge'])
     os.chdir(origin_dir)
     return resp_chg_df
+
+
 
 
 

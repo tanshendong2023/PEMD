@@ -5,9 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/PEMD/workflow/qm.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/copilot/chatSessions/00000000000.xd" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/copilot/chatSessions/blobs/version" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/copilot/chatSessions/xd.lck" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/model/PEMD_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/PEMD_lib.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/sim/MD.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/sim/MD.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/property.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/prop.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/visualize.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/visualize.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/model/poly.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/poly.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/sim/qm.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/sim/qm.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,27 +44,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "ToolWindowGitHub Copilot Chat.ShowToolbar": "false",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/tanshendong/Documents/GitHub/PEMD",
-    "settings.editor.selected.configurable": "com.github.copilot.settings.ApplicationConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;ToolWindowGitHub Copilot Chat.ShowToolbar&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/tanshendong/Documents/GitHub/PEMD&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.github.copilot.settings.ApplicationConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/PEMD" />
       <recent name="$PROJECT_DIR$/PEMD/sim_API" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/PEMD" />
       <recent name="$PROJECT_DIR$/PEMD/analysis" />
       <recent name="$PROJECT_DIR$/PEMD/model" />
       <recent name="$PROJECT_DIR$/PEMD/poss_proc" />
       <recent name="$PROJECT_DIR$/PEMD/sim" />
-      <recent name="$PROJECT_DIR$/PEMD" />
     </key>
   </component>
   <component name="RunManager" selected="Python.PolyElecMD">
