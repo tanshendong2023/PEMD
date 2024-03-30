@@ -70,7 +70,7 @@ def dipole_moment(sorted_df, unit_name, out_dir, length):
         return dipole_moment_df
 
 
-def RESP_fit_Multiwfn(out_dir, method='resp',):
+def RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',):
 
     origin_dir = os.getcwd()
     resp_dir = os.path.join(out_dir, 'resp_work')
@@ -116,6 +116,11 @@ def RESP_fit_Multiwfn(out_dir, method='resp',):
     # Create a DataFrame
     resp_chg_df = pd.DataFrame(data, columns=['atom', 'charge'])
     os.chdir(origin_dir)
+
+    # to csv file
+    csv_filepath = f'{out_dir}/{unit_name}_N{length}_{method}_chg.csv'
+    resp_chg_df.to_csv(csv_filepath, index=False)
+
     return resp_chg_df
 
 
