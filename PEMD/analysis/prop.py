@@ -70,8 +70,10 @@ def dipole_moment(sorted_df, unit_name, out_dir, length):
         return dipole_moment_df
 
 
-def RESP_fit_Multiwfn(resp_dir, method='resp',):
+def RESP_fit_Multiwfn(out_dir, method='resp',):
+
     origin_dir = os.getcwd()
+    resp_dir = os.path.join(out_dir, 'resp_work')
     os.chdir(resp_dir)
 
     chk_files = glob.glob('*.chk')

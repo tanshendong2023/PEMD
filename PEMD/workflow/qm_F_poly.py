@@ -14,7 +14,7 @@ from PEMD.sim import qm
 from PEMD.analysis import prop
 
 
-unit_name = 'F-PES'
+unit_name = 'F-PEO'
 repeating_unit = '[*]CCO[*]'
 leftcap = 'C[*]'
 rightcap = 'C[*]'
