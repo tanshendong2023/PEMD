@@ -118,7 +118,7 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',):
     os.chdir(origin_dir)
 
     # to csv file
-    csv_filepath = f'{out_dir}/{unit_name}_N{length}_{method}_chg.csv'
+    csv_filepath = os.path.join(resp_dir, f'{unit_name}_N{length}_{method}_chg.csv')
     resp_chg_df.to_csv(csv_filepath, index=False)
 
     return resp_chg_df

@@ -19,6 +19,7 @@ from openbabel import openbabel as ob
 from simple_slurm import Slurm
 import PEMD.model.MD_lib as MDlib
 from openbabel import openbabel
+from rdkit.Chem import Descriptors
 from networkx.algorithms import isomorphism
 from pysimm import system, lmps, forcefield
 
@@ -901,6 +902,16 @@ def ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating):
     mid_ave_chg_H_df = ave_mid_chg(mid_df_H_df, num_H_repeating)
 
     return end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df
+
+
+def calc_mol_weight(pdb_file):
+    mol = Chem.MolFromPDBFile(pdb_file, removeHs=False)
+    if mol is not None:
+        mol_weight = Descriptors.MolWt(mol)
+        return mol_weight
+    else:
+        raise ValueError(f"Unable to read molecular structure from {pdb_file}")
+
 
 
 

@@ -250,10 +250,16 @@ epsinf={epsinf}\n\n"""
     return df
 
 
-def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, num_repeating):
+def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, end_repeating, method='resp2', ):
+
+    # 读取 RESP 计算结果
+    if resp_chg_df is None:
+
+        csv_filepath = os.path.join(out_dir, 'resp_dir', f'{unit_name}_N{length}_{method}_chg.csv')
+        resp_chg_df = pd.read_csv(csv_filepath)
 
     (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
-        = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, num_repeating)
+        = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
 
     relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
 
@@ -270,7 +276,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
     cleaned_smiles = repeating_unit.replace('[*]', '')
     molecule = Chem.MolFromSmiles(cleaned_smiles)
     atom_count = molecule.GetNumAtoms()
-    N = atom_count * num_repeating
+    N = atom_count * end_repeating
 
     mid_atoms_chg_noH_df = atoms_chg_noH_df.drop(
         atoms_chg_noH_df.head(N).index.union(atoms_chg_noH_df.tail(N).index)).reset_index(drop=True)
@@ -293,7 +299,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
 
     molecule_with_h = Chem.AddHs(molecule)
     num_H_repeating = molecule_with_h.GetNumAtoms() - molecule.GetNumAtoms() - 2
-    N_H = num_H_repeating * num_repeating + 1
+    N_H = num_H_repeating * end_repeating + 1
 
     mid_atoms_chg_H_df = atoms_chg_H_df.drop(
         atoms_chg_H_df.head(N_H).index.union(atoms_chg_H_df.tail(N_H).index)).reset_index(drop=True)
@@ -310,7 +316,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
     charge_update_df = pd.concat([top_noH_df, mid_atoms_chg_noH_df, tail_noH_df, top_H_df, mid_atoms_chg_H_df,
                                 tail_H_df], ignore_index=True)
 
-    itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded.itp')
+    itp_filepath = os.path.join(out_dir, 'MD_dir', f'{unit_name}_bonded.itp')
 
     # 读取.itp文件
     with open(itp_filepath, 'r') as file:
@@ -340,7 +346,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, nu
             charge_index += 1
 
     # 保存为新的.itp文件
-    new_itp_filepath = os.path.join(out_dir, f'{unit_name}_bonded.itp')
+    new_itp_filepath = os.path.join(out_dir, 'MD_dir',f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 

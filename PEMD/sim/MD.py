@@ -18,11 +18,8 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
     current_path = os.getcwd()
     relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
 
-    file_base = f"{unit_name}_N{length}"
-    top_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.top")
-    gro_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}.gro")
-
     pdb_filename = None
+    file_base = f"{unit_name}_N{length}"
 
     for file in os.listdir(relax_polymer_lmp_dir):
         if file.endswith(".xyz"):
@@ -37,12 +34,19 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
         oplsaa = Forcefield(forcefield_files=str(oplsaa_path))
     typed_str = oplsaa.apply(untyped_str)
 
+    # build directory
+    MD_dir =  os.path.join(out_dir, 'MD_dir')
+    PEMD_lib.build_dir(MD_dir)
+
+    top_filename = os.path.join(MD_dir, f"{file_base}.top")
+    gro_filename = os.path.join(MD_dir, f"{file_base}.gro")
+
     # Save to any format supported by ParmEd
     typed_str.save(top_filename)
     typed_str.save(gro_filename)
 
-    nonbonditp_filename = out_dir + '/' + f'{unit_name}_nonbonded.itp'
-    bonditp_filename = out_dir + '/' + f'{unit_name}_bonded.itp'
+    nonbonditp_filename = os.path.join(MD_dir, f'{unit_name}_nonbonded.itp')
+    bonditp_filename = os.path.join(MD_dir, f'{unit_name}_bonded.itp')
 
     PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
 
@@ -57,6 +61,8 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
         os.remove(gro_filename)
     except Exception:
         pass  # 忽略任何异常
+
+    return pdb_filename, nonbonditp_filename, bonditp_filename
 
 
 

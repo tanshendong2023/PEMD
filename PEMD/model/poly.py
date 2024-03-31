@@ -9,10 +9,10 @@ Date: 2024.01.18
 import os
 import random
 import itertools
+import subprocess
 import pandas as pd
-from openbabel import pybel
 from rdkit import Chem
-from rdkit.Chem import Descriptors
+from openbabel import pybel
 from PEMD.model import PEMD_lib
 from LigParGenPEMD import Converter
 
@@ -69,7 +69,7 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     return smiles_poly, mol
 
 
-def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core = '32', atom_typing_ = 'pysimm', ):
+def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core, atom_typing_ = 'pysimm', ):
 
     # build directory
     out_dir = out_dir + '/'
@@ -205,30 +205,11 @@ def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
     return smiles_poly_list, mol_poly_list
 
 
-# 计算分子的相对分子质量
-def calculate_molecular_weight(pdb_file):
-    mol = Chem.MolFromPDBFile(pdb_file, removeHs=False)
-    if mol is not None:
-        molecular_weight = Descriptors.MolWt(mol)
-        return molecular_weight
-    else:
-        raise ValueError(f"Unable to read molecular structure from {pdb_file}")
-
-
 # 根据密度和分子数量计算盒子大小
 def calculate_box_size(numbers, pdb_files, density):
-    """
-    Calculate the edge length of the box needed based on the quantity of multiple molecules,
-    their corresponding PDB files, and the density of the entire system.
-
-    :param numbers: List of quantities of each type of molecule
-    :param pdb_files: List of PDB files corresponding to each molecule
-    :param density: Density of the entire system in g/cm^3
-    :return: Edge length of the box in Angstroms
-    """
     total_mass = 0
-    for number, pdb_file in zip(numbers, pdb_files):
-        molecular_weight = calculate_molecular_weight(pdb_file)  # in g/mol
+    for number, pdb_file in zip([numbers], [pdb_files]):
+        molecular_weight = PEMD_lib.calc_mol_weight(pdb_file)  # in g/mol
         total_mass += molecular_weight * number / 6.022e23  # accumulate mass of each molecule in grams
 
     total_volume = total_mass / density  # volume in cm^3
@@ -237,18 +218,27 @@ def calculate_box_size(numbers, pdb_files, density):
 
 
 # 定义生成Packmol输入文件的函数
-def generate_packmol_input(density, numbers, pdb_files, packmol_input='packmol.inp', packmol_out='packmol.pdb'):
-    # Calculate the box size for the given molecules and density
-    box_length = calculate_box_size(numbers, pdb_files, density) + 4
+def gen_packmol_input(out_dir, density, numbers, pdb_files, packinp_name='packmol.inp', packout_name='packmol.pdb'):
+    current_path = os.getcwd()
+    MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+    PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
 
-    # Initialize the input content with general settings
+    packinp_path = os.path.join(MD_dir, packinp_name)
+    packout_path = os.path.join(MD_dir, packout_name)
+
+    # 确保 numbers 和 pdb_files 是列表
+    if not isinstance(numbers, list) or not isinstance(pdb_files, list):
+        raise ValueError("numbers 和 pdb_files 必须是列表")
+
+    box_length = calculate_box_size(numbers, pdb_files, density) + 10  # add 10 Angstroms to each side
+
     input_content = [
         "tolerance 2.5",
-        f"output {packmol_out}",
+        f"output {packout_path}",
         "filetype pdb"
     ]
 
-    # Add the structure information for each molecule type
+    # 循环遍历每种分子的数量和对应的 PDB 文件
     for number, pdb_file in zip(numbers, pdb_files):
         input_content.extend([
             f"\nstructure {pdb_file}",
@@ -257,8 +247,17 @@ def generate_packmol_input(density, numbers, pdb_files, packmol_input='packmol.i
             "end structure"
         ])
 
-    # Write the content to the specified Packmol input file
-    with open(packmol_input, 'w') as file:
+    with open(packinp_path, 'w') as file:
         file.write('\n'.join(input_content))
 
-    return packmol_input
+    return packinp_path, packout_path
+
+
+def run_packmol(packinp_path):
+    """执行 Packmol 过程，并捕获可能的错误输出。"""
+    try:
+        subprocess.run(['packmol', '<', packinp_path], check=True, text=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Packmol errer：{e.stderr}")
+        raise
+
