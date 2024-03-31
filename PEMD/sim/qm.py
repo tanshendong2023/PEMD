@@ -250,13 +250,7 @@ epsinf={epsinf}\n\n"""
     return df
 
 
-def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, end_repeating, method='resp2', ):
-
-    # 读取 RESP 计算结果
-    if resp_chg_df is None:
-
-        csv_filepath = os.path.join(out_dir, 'resp_dir', f'{unit_name}_N{length}_{method}_chg.csv')
-        resp_chg_df = pd.read_csv(csv_filepath)
+def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, end_repeating, target_total_charge=0, correction_factor=1.0):
 
     (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
         = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
@@ -316,6 +310,9 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     charge_update_df = pd.concat([top_noH_df, mid_atoms_chg_noH_df, tail_noH_df, top_H_df, mid_atoms_chg_H_df,
                                 tail_H_df], ignore_index=True)
 
+    # charge neutralize and scale
+    charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_total_charge, correction_factor)
+
     itp_filepath = os.path.join(out_dir, 'MD_dir', f'{unit_name}_bonded.itp')
 
     # 读取.itp文件
@@ -339,8 +336,8 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     charge_index = 0  # 用于跟踪DataFrame中当前的电荷索引
     for i in range(start_index, end_index):
         parts = lines[i].split()
-        if charge_index < len(charge_update_df):
-            new_charge = charge_update_df.iloc[charge_index]['charge']
+        if charge_index < len(charge_update_df_cor):
+            new_charge = charge_update_df_cor.iloc[charge_index]['charge']
             parts[6] = f'{new_charge:.8f}'  # 更新电荷值，假设电荷值在第7个字段
             lines[i] = ' '.join(parts) + '\n'
             charge_index += 1
@@ -349,6 +346,18 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     new_itp_filepath = os.path.join(out_dir, 'MD_dir',f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
+
+
+
+def charge_neutralize_scale(df, target_total_charge, correction_factor):
+    current_total_charge = df['charge'].sum()  # 计算当前总电荷
+    charge_difference = target_total_charge - current_total_charge  # 计算与目标总电荷的差异
+    charge_adjustment_per_atom = charge_difference / len(df)  # 计算每个原子需要调整的电荷量
+
+    # 调整每个原子的电荷，并应用矫正参数
+    df['charge'] = (df['charge'] + charge_adjustment_per_atom) * correction_factor
+
+    return df
 
 
 

@@ -12,6 +12,8 @@ import itertools
 import subprocess
 import pandas as pd
 from rdkit import Chem
+from pathlib import Path
+from shutil import which
 from openbabel import pybel
 from PEMD.model import PEMD_lib
 from LigParGenPEMD import Converter
@@ -208,9 +210,9 @@ def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
 # 根据密度和分子数量计算盒子大小
 def calculate_box_size(numbers, pdb_files, density):
     total_mass = 0
-    for number, pdb_file in zip([numbers], [pdb_files]):
-        molecular_weight = PEMD_lib.calc_mol_weight(pdb_file)  # in g/mol
-        total_mass += molecular_weight * number / 6.022e23  # accumulate mass of each molecule in grams
+    for num, file in zip(numbers, pdb_files):
+        molecular_weight = PEMD_lib.calc_mol_weight(file)  # in g/mol
+        total_mass += molecular_weight * num / 6.022e23  # accumulate mass of each molecule in grams
 
     total_volume = total_mass / density  # volume in cm^3
     length = (total_volume * 1e24) ** (1 / 3)  # convert to Angstroms
@@ -218,46 +220,82 @@ def calculate_box_size(numbers, pdb_files, density):
 
 
 # 定义生成Packmol输入文件的函数
-def gen_packmol_input(out_dir, density, numbers, pdb_files, packinp_name='packmol.inp', packout_name='packmol.pdb'):
+def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length = 30, packinp_name='pack.inp',
+                      packout_name='pack_cell.pdb'):
+
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
     PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
 
     packinp_path = os.path.join(MD_dir, packinp_name)
-    packout_path = os.path.join(MD_dir, packout_name)
 
     # 确保 numbers 和 pdb_files 是列表
     if not isinstance(numbers, list) or not isinstance(pdb_files, list):
-        raise ValueError("numbers 和 pdb_files 必须是列表")
+        raise ValueError("numbers and pdb_files must be lists")
 
-    box_length = calculate_box_size(numbers, pdb_files, density) + 10  # add 10 Angstroms to each side
+    box_length = calculate_box_size(numbers, pdb_files, density) + add_length  # add 10 Angstroms to each side
 
-    input_content = [
-        "tolerance 2.5",
-        f"output {packout_path}",
-        "filetype pdb"
-    ]
+    file_contents = "tolerance 2.5\n"
+    file_contents += f"output {packout_name}\n"
+    file_contents += "filetype pdb\n\n"
+
 
     # 循环遍历每种分子的数量和对应的 PDB 文件
-    for number, pdb_file in zip(numbers, pdb_files):
-        input_content.extend([
-            f"\nstructure {pdb_file}",
-            f"  number {number}",
-            f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}",
-            "end structure"
-        ])
+    for num, file in zip(numbers, pdb_files):
+        file_contents = file_contents + f"\nstructure {num}\n"
+        file_contents = file_contents + f"  number {file}\n"
+        file_contents = file_contents + f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}\n"
+        file_contents = file_contents + "end structure\n\n"
 
+    # write to file
     with open(packinp_path, 'w') as file:
-        file.write('\n'.join(input_content))
+        file.write(file_contents)
+    print(f"packmol input file generation successful：{packinp_path}")
 
-    return packinp_path, packout_path
+    return packinp_path
 
 
-def run_packmol(packinp_path):
-    """执行 Packmol 过程，并捕获可能的错误输出。"""
+def run_packmol(out_dir, input_file='packmol.inp', output_file='packmol.out'):
+    current_path = os.getcwd()
+    if not which("packmol"):
+        raise RuntimeError(
+            "Running Packmol requires the executable 'packmol' to be in the path. Please "
+            "download packmol from https://github.com/leandromartinez98/packmol and follow the "
+            "instructions in the README to compile. Don't forget to add the packmol binary to your path"
+        )
+
     try:
-        subprocess.run(['packmol', '<', packinp_path], check=True, text=True, capture_output=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Packmol errer：{e.stderr}")
-        raise
+        MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+        os.chdir(MD_dir)
+        p = subprocess.run(
+            f"packmol < {input_file}",
+            check=True,
+            shell=True,
+            capture_output=True,
+        )
+
+        # Check for errors in packmol output
+        if "ERROR" in p.stdout.decode():
+            if "Could not open file." in p.stdout.decode():
+                raise ValueError(
+                    "Your packmol might be too old to handle paths with spaces. "
+                    "Please try again with a newer version or use paths without spaces."
+                )
+            msg = p.stdout.decode().split("ERROR")[-1]
+            raise ValueError(f"Packmol failed with return code 0 and stdout: {msg}")
+
+        # Write packmol output to the specified output file
+        with open(Path(MD_dir, output_file), mode="w") as out:
+            out.write(p.stdout.decode())
+
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 173:  # Only raise the error if it's not the specific 'STOP 173' case
+            raise ValueError(f"Packmol failed with error code {exc.returncode} and stderr: {exc.stderr.decode()}") from exc
+        else:
+            print("Packmol ended with 'STOP 173', but this error is being ignored.")
+
+    finally:
+        # Change back to the original working directory
+        os.chdir(current_path)
+
 
