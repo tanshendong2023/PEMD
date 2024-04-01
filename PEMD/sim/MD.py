@@ -69,7 +69,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
 
 
 def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name,
-                      core, Tg = False, Tinit = 1000, Tfinial = 100,):
+                      core, Tg=False, Tinit=1000, Tfinial=100,):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -81,20 +81,17 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
     gen_top_file(compositions, numbers, top_filename)
 
     # generation minimization mdp file
-    gen_min_mdp_file(file_name = 'em.mdp')
+    gen_min_mdp_file(file_name='em.mdp')
 
     # generation nvt mdp file
     gen_nvt_mdp_file(nsteps_nvt=200000, nvt_temperature=298, file_name='nvt.mdp', )
 
-    # generation npt mdp file, 1ns
-    gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=898, file_name='npt.mdp', )
-
     # generation npt anneal mdp file, anneal rate 0.08K/ps
-    gen_npt_anneal_mdp_file(nsteps_annealing=7500000, annealing_npoints = 2, annealing_time = '0 7500',
-                      annealing_temp = '898 298', file_name = 'npt_anneal.mdp', )
+    gen_npt_anneal_mdp_file(nsteps_annealing=12000000, annealing_npoints=4, annealing_time='0 1000 11000 12000',
+                      annealing_temp='898 898 298 298', file_name='npt_anneal.mdp', )
 
-    # generation npt production mdp file, 200ns
-    gen_npt_mdp_file(nsteps_npt=200000000, npt_temperature=298, file_name='npt_production.mdp', )
+    # generation nvt production mdp file, 200ns
+    gen_nvt_mdp_file(nsteps_nvt=200000000, nvt_temperature=298, file_name='nvt_production.mdp', )
 
     if Tg is True:
         # generation npt mdp file, 1ns
@@ -117,18 +114,17 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
                   n=f'{core}',
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
+
     slurm.add_cmd('module load GROMACS/2021.7-ompi')
     slurm.add_cmd(f'gmx_mpi editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
     slurm.add_cmd(f'gmx_mpi grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
-    slurm.add_cmd(f'gmx_mpi grompp -f npt.mdp -c nvt.gro -p {top_filename} -o npt.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c npt.gro -p {top_filename} -o npt_anneal.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
-    slurm.add_cmd(f'gmx_mpi grompp -f npt_production.mdp -c npt_anneal.gro -p {top_filename} -o npt_production.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_production')
+    slurm.add_cmd(f'gmx_mpi grompp -f nvt_production.mdp -c nvt_anneal.gro -p {top_filename} -o nvt_production.tpr')
+    slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt_production')
 
     if Tg is True:
         slurm.add_cmd(f'gmx_mpi grompp -f npt_Tg.mdp -c npt_production.gro -p {top_filename} -o npt_Tg.tpr')
@@ -243,12 +239,12 @@ def gen_nvt_mdp_file(nsteps_nvt, nvt_temperature, file_name = 'nvt.mdp', ):
     file_contents += "comm-mode             = Linear\n\n"
 
     file_contents += "; OUTPUT CONTROL OPTIONS\n"
-    file_contents += "nstxout               = 10000\n"
-    file_contents += "nstvout               = 10000\n"
-    file_contents += "nstfout               = 10000\n"
-    file_contents += "nstlog                = 10000\n"
-    file_contents += "nstenergy             = 10000\n"
-    file_contents += "nstxout-compressed    = 10000\n\n"
+    file_contents += "nstxout               = 5000\n"
+    file_contents += "nstvout               = 5000\n"
+    file_contents += "nstfout               = 5000\n"
+    file_contents += "nstlog                = 5000\n"
+    file_contents += "nstenergy             = 5000\n"
+    file_contents += "nstxout-compressed    = 5000\n\n"
 
     file_contents += "; NEIGHBORSEARCHING PARAMETERS\n"
     file_contents += "cutoff-scheme         = verlet\n"
@@ -308,12 +304,12 @@ def gen_npt_mdp_file(nsteps_npt, npt_temperature, file_name = 'npt.mdp', ):
     file_contents += "comm-mode             = Linear\n\n"
 
     file_contents += "; OUTPUT CONTROL OPTIONS\n"
-    file_contents += "nstxout               = 10000\n"
-    file_contents += "nstvout               = 10000\n"
-    file_contents += "nstfout               = 10000\n"
-    file_contents += "nstlog                = 10000\n"
-    file_contents += "nstenergy             = 10000\n"
-    file_contents += "nstxout-compressed    = 10000\n\n"
+    file_contents += "nstxout               = 5000\n"
+    file_contents += "nstvout               = 5000\n"
+    file_contents += "nstfout               = 5000\n"
+    file_contents += "nstlog                = 5000\n"
+    file_contents += "nstenergy             = 5000\n"
+    file_contents += "nstxout-compressed    = 5000\n\n"
 
     file_contents += "; NEIGHBORSEARCHING PARAMETERS\n"
     file_contents += "cutoff-scheme         = verlet\n"

@@ -76,8 +76,7 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf=10, cor
     return order_structures
 
 
-def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10,
-                          epsilon=30, ):
+def poly_conformer_search(mol, out_dir, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, epsilon=30, ):
 
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
