@@ -68,38 +68,48 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
     return pdb_filename, nonbonditp_filename, bonditp_filename
 
 
-def run_gmx_workflow(out_dir, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name, core):
+def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name,
+                      core, Tg = False, Tinit = 1000, Tfinial = 100,):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
     os.chdir(MD_dir)
 
-    # convert pdb to gro
-    try:
-        box_length = poly.calculate_box_size(numbers, pdb_files, density) + add_length
-        run_command(['gmx_mpi', 'editconf', '-f', f'{ packout_name}', '-o', 'conf.gro', '-box', f'{box_length}',
-                     f'{box_length}', f'{box_length}'])
-        print(f"GROMACS convert pdb to gro executed successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing GROMACS onvert pdb to gro: {e.stderr}")
+    box_length = (poly.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # a to nm
 
     # generate top file
     gen_top_file(compositions, numbers, top_filename)
 
     # generation minimization mdp file
-    gen_min_mdp_file()
+    gen_min_mdp_file(file_name = 'em.mdp')
 
     # generation nvt mdp file
-    gen_nvt_mdp_file(nsteps=500000, nvt_temperature=298, file_name='nvt.mdp', )
+    gen_nvt_mdp_file(nsteps_nvt=200000, nvt_temperature=298, file_name='nvt.mdp', )
 
     # generation npt mdp file, 1ns
-    gen_npt_mdp_file(nsteps=1000000, npt_temperature=898, file_name='npt.mdp', )
+    gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=898, file_name='npt.mdp', )
 
     # generation npt anneal mdp file, anneal rate 0.08K/ps
-    gen_npt_anneal_mdp_file(nsteps=7500000, file_name='npt_anneal.mdp', )
+    gen_npt_anneal_mdp_file(nsteps_annealing=7500000, annealing_npoints = 2, annealing_time = '0 7500',
+                      annealing_temp = '898 298', file_name = 'npt_anneal.mdp', )
 
     # generation npt production mdp file, 200ns
-    gen_npt_mdp_file(nsteps=200000000, npt_temperature=298, file_name='npt_production.mdp', )
+    gen_npt_mdp_file(nsteps_npt=200000000, npt_temperature=298, file_name='npt_production.mdp', )
+
+    if Tg is True:
+        # generation npt mdp file, 1ns
+        gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=1000, file_name='npt_Tg.mdp', )
+
+        annealing_npoints = len(range(Tinit, Tfinial, -20))  # 计算温度点的数量
+        nsteps_per_point = 2000  # 每个温度点的步数 ps
+        nsteps_annealing = annealing_npoints * nsteps_per_point
+
+        # generation npt anneal mdp file,
+        gen_npt_anneal_mdp_file(nsteps_annealing=nsteps_annealing, annealing_npoints=annealing_npoints,
+                                annealing_time=' '.join(str(t) for t in range(0, nsteps_annealing + 1,
+                                                                                 nsteps_per_point)),
+                                annealing_temp = ' '.join(str(temp) for temp in range(Tinit, Tfinial, -20)),
+                                file_name='npt_anneal_Tg.mdp', )
 
     # generation slurm file
     slurm = Slurm(J='gromacs',
@@ -108,6 +118,7 @@ def run_gmx_workflow(out_dir, compositions, numbers, pdb_files, top_filename, de
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
     slurm.add_cmd('module load GROMACS/2021.7-ompi')
+    slurm.add_cmd(f'gmx_mpi editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
     slurm.add_cmd(f'gmx_mpi grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
@@ -118,6 +129,13 @@ def run_gmx_workflow(out_dir, compositions, numbers, pdb_files, top_filename, de
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_production.mdp -c npt_anneal.gro -p {top_filename} -o npt_production.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_production')
+
+    if Tg is True:
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_Tg.mdp -c npt_production.gro -p {top_filename} -o npt_Tg.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_Tg')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal_Tg.mdp -c npt_Tg.gro -p {top_filename} -o npt_anneal_Tg.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal_Tg')
+
     job_id = slurm.sbatch()
 
     os.chdir(current_path)
@@ -129,7 +147,7 @@ def run_gmx_workflow(out_dir, compositions, numbers, pdb_files, top_filename, de
             break
         else:
             print("MD simulation not finish, waiting...")
-            time.sleep(30)
+            time.sleep(10)
 
 
 # Define a function to execute commands and capture output
@@ -161,8 +179,8 @@ def gen_top_file(compositions, numbers, top_filename):
     file_contents += "[ atomtypes ]\n"
 
     for com in compositions:
-        file_contents += f'#include "{com}_non_bond.itp"\n'
-        file_contents += f'#include "{com}_bond.itp"\n\n'
+        file_contents += f'#include "{com}_nonbonded.itp"\n'
+        file_contents += f'#include "{com}_bonded.itp"\n\n'
 
     file_contents += "[ system ]\n"
     file_contents += ";name "
@@ -193,7 +211,8 @@ def gen_min_mdp_file(file_name = 'em.mdp'):
     file_contents += "emtol           = 1000.0\n"
     file_contents += "emstep          = 0.01\n\n"
 
-    file_contents = "; Parameters describing how to find the neighbors of each atom and how to calculate the interactions\n"
+    file_contents += ("; Parameters describing how to find the neighbors of each atom and how to calculate the "
+                      "interactions\n")
     file_contents += "nstlist         = 1\n"
     file_contents += "cutoff-scheme   = Verlet\n"
     file_contents += "ns_type         = grid\n"
@@ -202,7 +221,9 @@ def gen_min_mdp_file(file_name = 'em.mdp'):
     file_contents += "rcoulomb        = 1.0\n"
     file_contents += "rvdw            = 1.0\n"
     file_contents += "pbc             = xyz\n"
-    file_contents += "cutoff-scheme   = Verlet\n\n"
+
+    file_contents += "; output control is on\n"
+    file_contents += "energygrps      = System\n"
 
     # write to file
     with open(file_name, 'w') as file:
@@ -211,14 +232,14 @@ def gen_min_mdp_file(file_name = 'em.mdp'):
 
 
 # generation nvt mdp file
-def gen_nvt_mdp_file(nsteps, nvt_temperature, file_name = 'nvt.mdp', ):
+def gen_nvt_mdp_file(nsteps_nvt, nvt_temperature, file_name = 'nvt.mdp', ):
     file_contents = ";nvt.mdp - used as input into grompp to generate nvt.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "; RUN CONTROL PARAMETERS\n"
     file_contents += "integrator            = md\n"
     file_contents += "dt                    = 0.001 \n"
-    file_contents += f"nsteps                = {nsteps}\n"
+    file_contents += f"nsteps                = {nsteps_nvt}\n"
     file_contents += "comm-mode             = Linear\n\n"
 
     file_contents += "; OUTPUT CONTROL OPTIONS\n"
@@ -276,14 +297,14 @@ def gen_nvt_mdp_file(nsteps, nvt_temperature, file_name = 'nvt.mdp', ):
 
 
 # generation npt mdp file
-def gen_npt_mdp_file(nsteps, npt_temperature, file_name = 'npt.mdp', ):
+def gen_npt_mdp_file(nsteps_npt, npt_temperature, file_name = 'npt.mdp', ):
     file_contents = ";npt.mdp - used as input into grompp to generate npt.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "; RUN CONTROL PARAMETERS\n"
     file_contents += "integrator            = md\n"
     file_contents += "dt                    = 0.001 \n"
-    file_contents += f"nsteps                = {nsteps}\n"
+    file_contents += f"nsteps                = {nsteps_npt}\n"
     file_contents += "comm-mode             = Linear\n\n"
 
     file_contents += "; OUTPUT CONTROL OPTIONS\n"
@@ -341,14 +362,15 @@ def gen_npt_mdp_file(nsteps, npt_temperature, file_name = 'npt.mdp', ):
 
 
 # generation npt anneal mdp file
-def gen_npt_anneal_mdp_file(nsteps, file_name = 'npt_anneal.mdp', ):
+def gen_npt_anneal_mdp_file(nsteps_annealing, annealing_npoints = 2, annealing_time = '0 7500', annealing_temp = '898 298',
+                            file_name = 'npt_anneal.mdp',):
     file_contents = ";npt_anneal.mdp - used as input into grompp to generate npt_anneal.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "; RUN CONTROL PARAMETERS\n"
     file_contents += "integrator            = md\n"
     file_contents += "dt                    = 0.001 \n"
-    file_contents += f"nsteps                = {nsteps}\n"
+    file_contents += f"nsteps                = {nsteps_annealing}\n"
     file_contents += "comm-mode             = Linear\n\n"
 
     file_contents += "; OUTPUT CONTROL OPTIONS\n"
@@ -388,9 +410,9 @@ def gen_npt_anneal_mdp_file(nsteps, file_name = 'npt_anneal.mdp', ):
 
     file_contents += "; Simulated annealing\n"
     file_contents += "annealing             = single\n"
-    file_contents += "annealing-npoints     = 2\n"
-    file_contents += "annealing-time        = 0 7500000\n"
-    file_contents += "annealing-temp        = 898 298\n\n"
+    file_contents += f"annealing-npoints     = {annealing_npoints}\n"
+    file_contents += f"annealing-time        = {annealing_time}\n"
+    file_contents += f"annealing-temp        = {annealing_temp}\n\n"
 
     file_contents += "; GENERATE VELOCITIES FOR STARTUP RUN\n"
     file_contents += "gen_vel               = no\n\n"

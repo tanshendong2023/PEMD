@@ -82,7 +82,7 @@ def poly_conformer_search(mol, out_dir, unit_name, length, max_conformers=1000, 
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
 
-    """从分子构象中搜索能量最低的构象"""
+    # """从分子构象中搜索能量最低的构象
     mol = Chem.AddHs(mol)
     # 生成多个构象
     ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
@@ -147,7 +147,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
 
     for i, structure in enumerate(structures):
 
-        # 在新创建的目录中保存XYZ文件
+        # create xyz file
         file_path = os.path.join(structure_directory, f"{unit_name}_{i + 1}.xyz")
 
         with open(file_path, 'w') as file:
@@ -179,7 +179,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
         time.sleep(10)
         job_ids.append(job_id)
 
-    # 检查所有任务的状态
+    # check the status of the gaussian job
     while True:
         all_completed = True
         for job_id in job_ids:
@@ -189,16 +189,16 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
                 break
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
-            # 执行下一个任务的代码...
+            # order the structures by energy calculated by gaussian
             sorted_df = PEMD_lib.orderlog_energy_gaussian(structure_directory)
             break
         else:
             print("g16 conformer search not finish, waiting...")
-            time.sleep(10)  # 等待30秒后再次检查
+            time.sleep(10)  # wait for 30 seconds
     return sorted_df
 
 
-def calc_resp_gaussian(unit_name, out_dir, sorted_df, core=16, memory='64GB', eps=5.0, epsinf=2.1,):
+def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, core=16, memory='64GB', eps=5.0, epsinf=2.1,):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -207,25 +207,25 @@ def calc_resp_gaussian(unit_name, out_dir, sorted_df, core=16, memory='64GB', ep
     chk_name = log_file_path.replace('.log', '.chk')
 
     # RESP template
-    template = f"""%nprocshared={core}
-%mem={memory}
-%oldchk={chk_name}
-%chk={resp_dir}/SP_gas.chk
-# B3LYP/def2TZVP em=GD3BJ geom=allcheck
+    file_contents = f"nprocshared={core}\n"
+    file_contents += f"%mem={memory}\n"
+    file_contents += f"%oldchk={chk_name}\n"
+    file_contents += f"%chk={resp_dir}/SP_gas.chk\n"
+    file_contents += "# B3LYP/def2TZVP em=GD3BJ geom=allcheck\n\n"
 
---link1--
-%nprocshared={core}
-%mem={memory}
-%oldchk={chk_name}
-%chk={resp_dir}/SP_solv.chk
-# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck
+    file_contents += "--link1--\n"
+    file_contents += f"nprocshared={core}\n"
+    file_contents += f"%mem={memory}\n"
+    file_contents += f"%oldchk={chk_name}\n"
+    file_contents += f"%chk={resp_dir}/SP_solv.chk\n"
+    file_contents += f"# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck\n\n"
 
-eps={eps}
-epsinf={epsinf}\n\n"""
+    file_contents += f"eps={eps}\n"
+    file_contents += f"epsinf={epsinf}\n\n"
 
     out_file = resp_dir + '/' + f'{unit_name}_resp.gjf'
     with open(out_file, 'w') as file:
-        file.write(template)
+        file.write(file_contents)
 
     structure_directory = os.getcwd() + '/' + resp_dir
 
@@ -242,7 +242,7 @@ epsinf={epsinf}\n\n"""
         status = PEMD_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
-            df = prop.RESP_fit_Multiwfn(resp_dir, method='resp')
+            df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',)
             break
         else:
             print("RESP calculation not finish, waiting...")
@@ -260,11 +260,11 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length}_gmx.xyz')
     atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
 
-    # 处理末端非氢原子
+    # deal with the head non-H atoms
     top_noH_df = end_ave_chg_noH_df
     tail_noH_df = top_noH_df.iloc[::-1].reset_index(drop=True)
 
-    # 处理mid非氢原子
+    # deal with the mid non-H atoms
     atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] != 'H']
 
     cleaned_smiles = repeating_unit.replace('[*]', '')
@@ -275,20 +275,20 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     mid_atoms_chg_noH_df = atoms_chg_noH_df.drop(
         atoms_chg_noH_df.head(N).index.union(atoms_chg_noH_df.tail(N).index)).reset_index(drop=True)
 
-    # 遍历中间原子的 DataFrame
+    # traverse the DataFrame of mid atoms
     for idx, row in mid_atoms_chg_noH_df.iterrows():
-        # 计算当前原子在周期单元中的位置
+        # calculate the position of the current atom in the repeating unit
         position_in_cycle = idx % atom_count
-        # 找到对应位置原子的平均电荷值
+        # find the average charge value of the atom at the corresponding position
         ave_chg_noH = mid_ave_chg_noH_df.iloc[position_in_cycle]['charge']
-        # 更新电荷值
+        # update the charge value
         mid_atoms_chg_noH_df.at[idx, 'charge'] = ave_chg_noH
 
-    # 处理末端氢原子
+    # deal with the head H atoms
     top_H_df = end_ave_chg_H_df
     tail_H_df = top_H_df.iloc[::-1].reset_index(drop=True)
 
-    # 处理mid氢原子
+    # deal with the mid H atoms
     atoms_chg_H_df = atoms_chg_df[atoms_chg_df['atom'] == 'H']
 
     molecule_with_h = Chem.AddHs(molecule)
@@ -298,13 +298,13 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     mid_atoms_chg_H_df = atoms_chg_H_df.drop(
         atoms_chg_H_df.head(N_H).index.union(atoms_chg_H_df.tail(N_H).index)).reset_index(drop=True)
 
-    # 遍历中间原子的 DataFrame
+    # traverse the DataFrame of mid atoms
     for idx, row in mid_atoms_chg_H_df.iterrows():
-        # 计算当前原子在周期单元中的位置
+        # calculate the position of the current atom in the repeating unit
         position_in_cycle = idx % num_H_repeating
-        # 找到对应位置原子的平均电荷值
+        # find the average charge value of the atom at the corresponding position
         avg_chg_H = mid_ave_chg_H_df.iloc[position_in_cycle]['charge']
-        # 更新电荷值
+        # update the charge value
         mid_atoms_chg_H_df.at[idx, 'charge'] = avg_chg_H
 
     charge_update_df = pd.concat([top_noH_df, mid_atoms_chg_noH_df, tail_noH_df, top_H_df, mid_atoms_chg_H_df,
@@ -332,7 +332,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
             end_index = i - 1
             break
 
-    # 更新电荷，这里假设charge_update_df中的电荷顺序与.itp文件中的原子顺序一致
+    # update the charge value in the [ atoms ] section
     charge_index = 0  # 用于跟踪DataFrame中当前的电荷索引
     for i in range(start_index, end_index):
         parts = lines[i].split()
@@ -342,7 +342,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
             lines[i] = ' '.join(parts) + '\n'
             charge_index += 1
 
-    # 保存为新的.itp文件
+    # save the updated itp file
     new_itp_filepath = os.path.join(out_dir, 'MD_dir',f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
@@ -350,11 +350,11 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
 
 
 def charge_neutralize_scale(df, target_total_charge, correction_factor):
-    current_total_charge = df['charge'].sum()  # 计算当前总电荷
-    charge_difference = target_total_charge - current_total_charge  # 计算与目标总电荷的差异
-    charge_adjustment_per_atom = charge_difference / len(df)  # 计算每个原子需要调整的电荷量
+    current_total_charge = df['charge'].sum()  # calculate the total charge of the current system
+    charge_difference = target_total_charge - current_total_charge  # calculate the difference between the target and current total charge
+    charge_adjustment_per_atom = charge_difference / len(df)  # calculate the charge adjustment per atom
 
-    # 调整每个原子的电荷，并应用矫正参数
+    # update the charge value
     df['charge'] = (df['charge'] + charge_adjustment_per_atom) * correction_factor
 
     return df
