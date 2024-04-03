@@ -95,7 +95,7 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
 
     if Tg is True:
         # generation npt mdp file, 1ns
-        gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=1000, file_name='npt_Tg.mdp', )
+        gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=Tinit, file_name='npt_tg.mdp', )
 
         annealing_npoints = len(range(Tinit, Tfinial, -20))  # 计算温度点的数量
         nsteps_per_point = 2000  # 每个温度点的步数 ps
@@ -105,8 +105,8 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
         gen_npt_anneal_mdp_file(nsteps_annealing=nsteps_annealing, annealing_npoints=annealing_npoints,
                                 annealing_time=' '.join(str(t) for t in range(0, nsteps_annealing + 1,
                                                                                  nsteps_per_point)),
-                                annealing_temp = ' '.join(str(temp) for temp in range(Tinit, Tfinial, -20)),
-                                file_name='npt_anneal_Tg.mdp', )
+                                annealing_temp = ' '.join(str(temp) for temp in range(Tinit, Tfinial - 1, -20)),
+                                file_name='npt_anneal_tg.mdp', )
 
     # generation slurm file
     slurm = Slurm(J='gromacs',
@@ -121,16 +121,16 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
-    slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c npt.gro -p {top_filename} -o npt_anneal.tpr')
+    slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
-    slurm.add_cmd(f'gmx_mpi grompp -f nvt_production.mdp -c nvt_anneal.gro -p {top_filename} -o nvt_production.tpr')
+    slurm.add_cmd(f'gmx_mpi grompp -f nvt_production.mdp -c npt_anneal.gro -p {top_filename} -o nvt_production.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt_production')
 
     if Tg is True:
-        slurm.add_cmd(f'gmx_mpi grompp -f npt_Tg.mdp -c npt_production.gro -p {top_filename} -o npt_Tg.tpr')
-        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_Tg')
-        slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal_Tg.mdp -c npt_Tg.gro -p {top_filename} -o npt_anneal_Tg.tpr')
-        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal_Tg')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_tg.mdp -c nvt_production.gro -p {top_filename} -o npt_tg.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_tg')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal_tg.mdp -c npt_tg.gro -p {top_filename} -o npt_anneal_tg.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal_tg')
 
     job_id = slurm.sbatch()
 
