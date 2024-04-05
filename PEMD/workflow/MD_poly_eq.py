@@ -47,10 +47,8 @@ if __name__ == '__main__':
                                              custom_solv='eps=5.0 \nepsinf=2.1',)
 
     # Perform RESP charge fitting
-    qm.calc_resp_gaussian(unit_name, length_resp, out_dir_resp, sorted_df, core=32, memory='64GB', eps=5.0, epsinf=2.1,)
-
-    # Obtain RESP charge fitting result
-    resp_chg_df = prop.RESP_fit_Multiwfn(unit_name, length_resp, out_dir_resp, method='resp2',)
+    qm.calc_resp_gaussian(unit_name, length_resp, out_dir_resp, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0,
+                          epsinf=2.1, method='resp', )
 
     # Generate polymer chain from smiles
     smiles_MD, mol_MD = poly.mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length_MD)

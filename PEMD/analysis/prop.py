@@ -70,7 +70,7 @@ def dipole_moment(sorted_df, unit_name, out_dir, length):
         return dipole_moment_df
 
 
-def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf=5,method='resp',):
+def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf, method,):
 
     origin_dir = os.getcwd()
     resp_dir = os.path.join(out_dir, 'resp_work')
@@ -134,7 +134,6 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf=5,method='resp',):
     # 计算所有charge列的平均值，并将结果存储在新列'charge'中
     charge_columns = [col for col in resp_chg_df.columns if 'charge' in col]
     resp_chg_df['charge'] = resp_chg_df[charge_columns].mean(axis=1)
-
     # 删除原始的charge列
     resp_chg_df.drop(columns=charge_columns, inplace=True)
 

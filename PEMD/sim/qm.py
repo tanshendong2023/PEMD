@@ -197,7 +197,8 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
     return sorted_df
 
 
-def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0, epsinf=2.1,):
+def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0, epsinf=2.1,
+                       method='resp',):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -238,6 +239,7 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
 
         job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_resp_conf_{i}.gjf')
         time.sleep(10)
+        job_ids.append(job_id)
 
     # check the status of the gaussian job
     while True:
@@ -250,7 +252,7 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
-            df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',)
+            df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, method,)
             break
         else:
             print("RESP calculation not finish, waiting...")
@@ -259,19 +261,27 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
     return df
 
 
-def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, end_repeating, target_total_charge=0, correction_factor=1.0):
+def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, method, target_total_charge=0,
+                     correction_factor=1.0):
 
-    (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
-        = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
+    # read resp fitting result from csv file
+    resp_chg_file = os.path.join(out_dir, 'resp_work', f'{unit_name}_N{length}_{method}_chg.csv')
+    resp_chg_df = pd.read_csv(resp_chg_file)
 
+    (top_N_noH_df, tail_N_noH_df, mid_ave_chg_noH_df, top_N_H_df, tail_N_H_df, mid_ave_chg_H_df) = (
+        PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating,))
+
+    # (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
+    #     = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
+
+    # read the xyz file
     relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
-
     xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length}_gmx.xyz')
     atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
 
-    # deal with the head non-H atoms
-    top_noH_df = end_ave_chg_noH_df
-    tail_noH_df = top_noH_df.iloc[::-1].reset_index(drop=True)
+    # # deal with the head non-H atoms
+    # top_noH_df = end_ave_chg_noH_df
+    # tail_noH_df = top_noH_df.iloc[::-1].reset_index(drop=True)
 
     # deal with the mid non-H atoms
     atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] != 'H']
@@ -293,9 +303,9 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
         # update the charge value
         mid_atoms_chg_noH_df.at[idx, 'charge'] = ave_chg_noH
 
-    # deal with the head H atoms
-    top_H_df = end_ave_chg_H_df
-    tail_H_df = top_H_df.iloc[::-1].reset_index(drop=True)
+    # # deal with the head H atoms
+    # top_H_df = end_ave_chg_H_df
+    # tail_H_df = top_H_df.iloc[::-1].reset_index(drop=True)
 
     # deal with the mid H atoms
     atoms_chg_H_df = atoms_chg_df[atoms_chg_df['atom'] == 'H']
@@ -316,8 +326,8 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
         # update the charge value
         mid_atoms_chg_H_df.at[idx, 'charge'] = avg_chg_H
 
-    charge_update_df = pd.concat([top_noH_df, mid_atoms_chg_noH_df, tail_noH_df, top_H_df, mid_atoms_chg_H_df,
-                                tail_H_df], ignore_index=True)
+    charge_update_df = pd.concat([top_N_noH_df, mid_atoms_chg_noH_df, tail_N_noH_df, top_N_H_df, mid_atoms_chg_H_df,
+                                tail_N_H_df], ignore_index=True)
 
     # charge neutralize and scale
     charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_total_charge, correction_factor)
@@ -355,7 +365,6 @@ def apply_chg_to_gmx(unit_name, out_dir, length, resp_chg_df, repeating_unit, en
     new_itp_filepath = os.path.join(out_dir, 'MD_dir',f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
-
 
 
 def charge_neutralize_scale(df, target_total_charge, correction_factor):
