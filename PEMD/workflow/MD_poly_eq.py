@@ -30,8 +30,8 @@ compositions=['PEO']
 top_filename='topol.top'
 
 
-
 if __name__ == '__main__':
+    # 1. obtain RESP charge fitting result
     # Generate polymer monomer from smiles
     smiles_resp, mol_resp = poly.mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length_resp,)
 
@@ -67,6 +67,7 @@ if __name__ == '__main__':
     # Apply RESP charge to the polymer chain
     qm.apply_chg_to_gmx(unit_name, out_dir_MD, length_MD, resp_chg_df, repeating_unit, end_repeating, target_total_charge=0, correction_factor=1.0)
 
+    # start MD simulation
     # Generate the packmol input file
     poly.gen_packmol_input(out_dir_MD, density, numbers, pdb_files, add_length, packinp_name='pack.inp', packout_name='pack_cell.pdb')
 

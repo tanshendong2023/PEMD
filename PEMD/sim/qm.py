@@ -201,51 +201,61 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, core=16, memory='6
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
+    job_ids = []
 
-    log_file_path = sorted_df.iloc[0]['File_Path']
-    chk_name = log_file_path.replace('.log', '.chk')
+    for i in range(10):
+        log_file_path = sorted_df.iloc[0]['File_Path']
+        chk_name = log_file_path.replace('.log', '.chk')
 
-    # RESP template
-    file_contents = f"nprocshared={core}\n"
-    file_contents += f"%mem={memory}\n"
-    file_contents += f"%oldchk={chk_name}\n"
-    file_contents += f"%chk={resp_dir}/SP_gas.chk\n"
-    file_contents += "# B3LYP/def2TZVP em=GD3BJ geom=allcheck\n\n"
+        # RESP template
+        file_contents = f"nprocshared={core}\n"
+        file_contents += f"%mem={memory}\n"
+        file_contents += f"%oldchk={chk_name}\n"
+        file_contents += f"%chk={resp_dir}/SP_gas_conf_{i}.chk\n"
+        file_contents += "# B3LYP/def2TZVP em=GD3BJ geom=allcheck\n\n"
 
-    file_contents += "--link1--\n"
-    file_contents += f"nprocshared={core}\n"
-    file_contents += f"%mem={memory}\n"
-    file_contents += f"%oldchk={chk_name}\n"
-    file_contents += f"%chk={resp_dir}/SP_solv.chk\n"
-    file_contents += f"# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck\n\n"
+        file_contents += "--link1--\n"
+        file_contents += f"nprocshared={core}\n"
+        file_contents += f"%mem={memory}\n"
+        file_contents += f"%oldchk={chk_name}\n"
+        file_contents += f"%chk={resp_dir}/SP_solv_conf_{i}.chk\n"
+        file_contents += f"# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck\n\n"
 
-    file_contents += f"eps={eps}\n"
-    file_contents += f"epsinf={epsinf}\n\n"
+        file_contents += f"eps={eps}\n"
+        file_contents += f"epsinf={epsinf}\n\n"
 
-    out_file = resp_dir + '/' + f'{unit_name}_resp.gjf'
-    with open(out_file, 'w') as file:
-        file.write(file_contents)
+        out_file = resp_dir + '/' + f'{unit_name}_resp_conf_{i}.gjf'
+        with open(out_file, 'w') as file:
+            file.write(file_contents)
 
-    structure_directory = os.getcwd() + '/' + resp_dir
+        structure_directory = os.getcwd() + '/' + resp_dir
 
-    slurm = Slurm(J='g16',
-                  N=1,
-                  n=f'{core}',
-                  output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
-                  )
+        slurm = Slurm(J='g16',
+                      N=1,
+                      n=f'{core}',
+                      output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      )
 
-    job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_resp.gjf')
-    time.sleep(10)
+        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_resp_conf_{i}.gjf')
+        time.sleep(10)
 
+    # check the status of the gaussian job
     while True:
-        status = PEMD_lib.get_slurm_job_status(job_id)
-        if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
+        all_completed = True
+        for job_id in job_ids:
+            status = PEMD_lib.get_slurm_job_status(job_id)
+            if status not in ['COMPLETED', 'FAILED', 'CANCELLED']:
+                all_completed = False
+                break
+        if all_completed:
+            print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
             df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',)
             break
         else:
             print("RESP calculation not finish, waiting...")
-            time.sleep(10)
+            time.sleep(10)  # wait for 30 seconds
+
     return df
 
 

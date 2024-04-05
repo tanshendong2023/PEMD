@@ -80,41 +80,64 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',):
     for chk_file in chk_files:
         PEMD_lib.convert_chk_to_fchk(chk_file)
 
+    # 初始化DataFrame
+    resp_chg_df = pd.DataFrame()
+
     # 使用importlib.resources获取脚本路径
     with resources.path("PEMD.analysis", "calcRESP.sh") as script_path:
-        if method == 'resp':
-            command = ["bash", str(script_path), "SP_solv.fchk"]
-        elif method == 'resp2':
-            command = ["bash", str(script_path), "SP_gas.fchk", "SP_solv.fchk"]
-        else:
-            raise ValueError("Unsupported method. Please choose 'resp' or 'resp2'.")
+        for i in range(10):
+            if method == 'resp':
+                command = ["bash", str(script_path), f"SP_gas_conf_{i}.fchk"]
+            elif method == 'resp2':
+                command = ["bash", str(script_path), f"SP_gas_conf_{i}.fchk", f"SP_solv_conf_{i}.fchk"]
+            else:
+                raise ValueError("Unsupported method. Please choose 'resp' or 'resp2'.")
 
-        # 使用subprocess模块调用脚本
-        process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # 使用subprocess模块调用脚本
+            process = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-        # 输出命令执行结果
-        if process.returncode == 0:
-            print("RESP fitting completed successfully.")
-        else:
-            print(f"Error during RESP fitting: {process.stderr}")
+            # 输出命令执行结果
+            if process.returncode == 0:
+                print(f"RESP fitting for the {i + 1}-th structure has been successfully completed.")
+            else:
+                print(f"RESP fitting for the {i + 1}-th structure failed : {process.stderr}")
 
-    if method == 'resp':
-        with open('SP_solv.chg', 'r') as file:
-            lines = file.readlines()
-    elif method == 'resp2':
-        with open('RESP2.chg', 'r') as file:
-            lines = file.readlines()
-    # Extract atom names and charges
-    data = []
-    for line in lines:
-        parts = line.split()
-        if len(parts) == 5:  # Atom X Y Z Charge
-            atom_name = parts[0]
-            charge = float(parts[-1])
-            data.append((atom_name, charge))
+            if method == 'resp':
+                with open('SP_solv.chg', 'r') as file:
+                    lines = file.readlines()
+            elif method == 'resp2':
+                with open('RESP2.chg', 'r') as file:
+                    lines = file.readlines()
 
-    # Create a DataFrame
-    resp_chg_df = pd.DataFrame(data, columns=['atom', 'charge'])
+            # 第一次循环时读取原子和电荷，后续只更新电荷
+            if i == 0:
+                data = []
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) == 5:  # 假设格式为：Atom X Y Z Charge
+                        atom_name = parts[0]
+                        charge = float(parts[-1])
+                        data.append((atom_name, charge))
+
+                resp_chg_df = pd.DataFrame(data, columns=['atom', f'charge_{i}'])
+            else:
+                charges = []
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) == 5:
+                        charge = float(parts[-1])
+                        charges.append(charge)
+
+                # 将新的电荷数据添加为DataFrame的新列
+                resp_chg_df[f'charge_{i}'] = charges
+
+    # 计算所有charge列的平均值，并将结果存储在新列'charge'中
+    charge_columns = [col for col in resp_chg_df.columns if 'charge' in col]
+    resp_chg_df['charge'] = resp_chg_df[charge_columns].mean(axis=1)
+
+    # 删除原始的charge列
+    resp_chg_df.drop(columns=charge_columns, inplace=True)
+
     os.chdir(origin_dir)
 
     # to csv file
@@ -122,6 +145,7 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',):
     resp_chg_df.to_csv(csv_filepath, index=False)
 
     return resp_chg_df
+
 
 
 
