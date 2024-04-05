@@ -197,13 +197,13 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
     return sorted_df
 
 
-def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, core=16, memory='64GB', eps=5.0, epsinf=2.1,):
+def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0, epsinf=2.1,):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
     job_ids = []
 
-    for i in range(10):
+    for i in range(numconf):
         log_file_path = sorted_df.iloc[0]['File_Path']
         chk_name = log_file_path.replace('.log', '.chk')
 

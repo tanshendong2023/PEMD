@@ -70,7 +70,7 @@ def dipole_moment(sorted_df, unit_name, out_dir, length):
         return dipole_moment_df
 
 
-def RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',):
+def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf=5,method='resp',):
 
     origin_dir = os.getcwd()
     resp_dir = os.path.join(out_dir, 'resp_work')
@@ -85,7 +85,7 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, method='resp',):
 
     # 使用importlib.resources获取脚本路径
     with resources.path("PEMD.analysis", "calcRESP.sh") as script_path:
-        for i in range(10):
+        for i in range(numconf):
             if method == 'resp':
                 command = ["bash", str(script_path), f"SP_gas_conf_{i}.fchk"]
             elif method == 'resp2':
