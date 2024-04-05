@@ -289,7 +289,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, 
     cleaned_smiles = repeating_unit.replace('[*]', '')
     molecule = Chem.MolFromSmiles(cleaned_smiles)
     atom_count = molecule.GetNumAtoms()
-    N = atom_count * end_repeating
+    N = atom_count * end_repeating + 1
 
     mid_atoms_chg_noH_df = atoms_chg_noH_df.drop(
         atoms_chg_noH_df.head(N).index.union(atoms_chg_noH_df.tail(N).index)).reset_index(drop=True)
@@ -312,7 +312,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, 
 
     molecule_with_h = Chem.AddHs(molecule)
     num_H_repeating = molecule_with_h.GetNumAtoms() - molecule.GetNumAtoms() - 2
-    N_H = num_H_repeating * end_repeating + 1
+    N_H = num_H_repeating * end_repeating + 3
 
     mid_atoms_chg_H_df = atoms_chg_H_df.drop(
         atoms_chg_H_df.head(N_H).index.union(atoms_chg_H_df.tail(N_H).index)).reset_index(drop=True)

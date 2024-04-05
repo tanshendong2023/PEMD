@@ -63,7 +63,8 @@ if __name__ == '__main__':
     pdb_files.append(PEO_pdb)
 
     # Apply RESP charge to the polymer chain
-    qm.apply_chg_to_gmx(unit_name, out_dir_MD, length_MD, resp_chg_df, repeating_unit, end_repeating, target_total_charge=0, correction_factor=1.0)
+    qm.apply_chg_to_gmx(unit_name, out_dir_MD, length_MD, repeating_unit, end_repeating, method='resp',
+                        target_total_charge=0, correction_factor=1.0)
 
     # start MD simulation
     # Generate the packmol input file

@@ -97,7 +97,7 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
         # generation npt mdp file, 1ns
         gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=Tinit, file_name='npt_tg.mdp', )
 
-        annealing_npoints = len(range(Tinit, Tfinial, -20))  # 计算温度点的数量
+        annealing_npoints = len(range(Tinit, Tfinial, -20)) + 1# 计算温度点的数量
         nsteps_per_point = 2000  # 每个温度点的步数 ps
         nsteps_annealing = annealing_npoints * nsteps_per_point
 

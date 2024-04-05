@@ -16,7 +16,45 @@ from pathlib import Path
 from shutil import which
 from openbabel import pybel
 from PEMD.model import PEMD_lib
+from rdkit.Chem import Descriptors
 from LigParGenPEMD import Converter
+
+
+def calc_poly_chains(num_Li_salt , conc_Li_salt, mass_per_chain):
+
+    # calculate the mol of LiTFSI salt
+    avogadro_number = 6.022e23  # unit 1/mol
+    mol_Li_salt = num_Li_salt / avogadro_number # mol
+
+    # calculate the total mass of the polymer
+    total_mass_polymer =  mol_Li_salt / (conc_Li_salt / 1000)  # g
+
+    # calculate the number of polymer chains
+    num_chains = (total_mass_polymer*avogadro_number) / mass_per_chain  # no unit; mass_per_chain input unit g/mol
+
+    return int(num_chains)
+
+
+def calc_poly_length(total_mass_polymer, smiles_repeating_unit, smiles_leftcap, smiles_rightcap, ):
+    # remove [*] from the repeating unit SMILES, add hydrogens, and calculate the molecular weight
+    simplified_smiles_repeating_unit = smiles_repeating_unit.replace('[*]', '')
+    molecule_repeating_unit = Chem.MolFromSmiles(simplified_smiles_repeating_unit)
+    mol_weight_repeating_unit = Descriptors.MolWt(molecule_repeating_unit) - 2 * 1.008
+
+    # remove [*] from the end group SMILES, add hydrogens, and calculate the molecular weight
+    simplified_smiles_rightcap = smiles_rightcap.replace('[*]', '')
+    simplified_smiles_leftcap = smiles_leftcap.replace('[*]', '')
+    molecule_rightcap = Chem.MolFromSmiles(simplified_smiles_rightcap)
+    molecule_leftcap = Chem.MolFromSmiles(simplified_smiles_leftcap)
+    mol_weight_end_group = Descriptors.MolWt(molecule_rightcap) + Descriptors.MolWt(molecule_leftcap) - 2 * 1.008
+
+    # calculate the mass of the polymer chain
+    mass_polymer_chain = total_mass_polymer - mol_weight_end_group
+
+    # calculate the number of repeating units in the polymer chain
+    length = round(mass_polymer_chain / mol_weight_repeating_unit)
+
+    return length
 
 
 def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
