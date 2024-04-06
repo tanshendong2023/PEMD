@@ -15,7 +15,7 @@ from PEMD.analysis import prop
 
 unit_name = 'PEO'
 repeating_unit = '[*]CCO[*]'
-leftcap = 'CO[*]'
+leftcap = 'C[*]'
 rightcap = 'C[*]'
 length_resp = 10                     # for resp charge fitting via show chain polymer
 out_dir_resp = 'PEO_N10'             # for resp charge fitting via show chain polymer
@@ -47,8 +47,8 @@ if __name__ == '__main__':
                                              custom_solv='eps=5.0 \nepsinf=2.1',)
 
     # Perform RESP charge fitting
-    qm.calc_resp_gaussian(unit_name, length_resp, out_dir_resp, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0,
-                          epsinf=2.1, method='resp', )
+    qm.calc_resp_gaussian(unit_name, length_resp, out_dir_resp, sorted_df, numconf=5, core=32, memory='64GB', eps=5.0,
+                          epsinf=2.1, method='resp2', )
 
     # Generate polymer chain from smiles
     smiles_MD, mol_MD = poly.mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length_MD)
@@ -63,8 +63,8 @@ if __name__ == '__main__':
     pdb_files.append(PEO_pdb)
 
     # Apply RESP charge to the polymer chain
-    qm.apply_chg_to_gmx(unit_name, out_dir_MD, length_MD, repeating_unit, end_repeating, method='resp',
-                        target_total_charge=0, correction_factor=1.0)
+    qm.apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD, repeating_unit, end_repeating,
+                        method='resp2', target_total_charge=0, correction_factor=1.0)
 
     # start MD simulation
     # Generate the packmol input file

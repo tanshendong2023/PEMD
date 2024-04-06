@@ -198,7 +198,7 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
 
 
 def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0, epsinf=2.1,
-                       method='resp',):
+                       method='resp2',):
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -252,7 +252,7 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
-            df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, method,)
+            df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, numconf, method,)
             break
         else:
             print("RESP calculation not finish, waiting...")
@@ -261,11 +261,11 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
     return df
 
 
-def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, method, target_total_charge=0,
-                     correction_factor=1.0):
+def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD, repeating_unit, end_repeating,
+                     method, target_total_charge=0, correction_factor=1.0):
 
     # read resp fitting result from csv file
-    resp_chg_file = os.path.join(out_dir, 'resp_work', f'{unit_name}_N{length}_{method}_chg.csv')
+    resp_chg_file = os.path.join(out_dir_resp, 'resp_work', f'{unit_name}_N{length_resp}_{method}_chg.csv')
     resp_chg_df = pd.read_csv(resp_chg_file)
 
     (top_N_noH_df, tail_N_noH_df, mid_ave_chg_noH_df, top_N_H_df, tail_N_H_df, mid_ave_chg_H_df) = (
@@ -275,8 +275,8 @@ def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, 
     #     = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
 
     # read the xyz file
-    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
-    xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length}_gmx.xyz')
+    relax_polymer_lmp_dir = os.path.join(out_dir_MD, 'relax_polymer_lmp')
+    xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length_MD}_gmx.xyz')
     atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
 
     # # deal with the head non-H atoms
@@ -332,7 +332,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, 
     # charge neutralize and scale
     charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_total_charge, correction_factor)
 
-    itp_filepath = os.path.join(out_dir, 'MD_dir', f'{unit_name}_bonded.itp')
+    itp_filepath = os.path.join(out_dir_MD, 'MD_dir', f'{unit_name}_bonded.itp')
 
     # 读取.itp文件
     with open(itp_filepath, 'r') as file:
@@ -362,7 +362,7 @@ def apply_chg_to_gmx(unit_name, out_dir, length, repeating_unit, end_repeating, 
             charge_index += 1
 
     # save the updated itp file
-    new_itp_filepath = os.path.join(out_dir, 'MD_dir',f'{unit_name}_bonded.itp')
+    new_itp_filepath = os.path.join(out_dir_MD, 'MD_dir',f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 
