@@ -69,7 +69,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
 
 
 def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name,
-                      core, Tg=False, Tinit=1000, Tfinial=100,):
+                      core, T_prod, Tg=False, Tinit=1000, Tfinial=100,):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -84,18 +84,18 @@ def run_gmx_annealing(out_dir, compositions, numbers, pdb_files, top_filename, d
     gen_min_mdp_file(file_name='em.mdp')
 
     # generation nvt mdp file
-    gen_nvt_mdp_file(nsteps_nvt=200000, nvt_temperature=298, file_name='nvt.mdp', )
+    gen_nvt_mdp_file(nsteps_nvt=200000, nvt_temperature=f'{T_prod}', file_name='nvt.mdp', )
 
     # generation npt anneal mdp file, anneal rate 0.08K/ps
-    gen_npt_anneal_mdp_file(nsteps_annealing=12000000, annealing_npoints=4, annealing_time='0 1000 11000 12000',
-                      annealing_temp='898 898 298 298', file_name='npt_anneal.mdp', )
+    gen_npt_anneal_mdp_file(nsteps_annealing=14000000, annealing_npoints=4, annealing_time='0 2000 12000 14000',
+                      annealing_temp=f'{T_prod}+500 {T_prod}+500 {T_prod} {T_prod}', file_name='npt_anneal.mdp', )
 
     # generation nvt production mdp file, 200ns
-    gen_nvt_mdp_file(nsteps_nvt=200000000, nvt_temperature=298, file_name='nvt_production.mdp', )
+    gen_nvt_mdp_file(nsteps_nvt=200000000, nvt_temperature=f'{T_prod}', file_name='nvt_production.mdp', )
 
     if Tg is True:
         # generation npt mdp file, 1ns
-        gen_npt_mdp_file(nsteps_npt=1000000, npt_temperature=Tinit, file_name='npt_tg.mdp', )
+        gen_npt_mdp_file(nsteps_npt=2000000, npt_temperature=Tinit, file_name='npt_tg.mdp', )
 
         annealing_npoints = len(range(Tinit, Tfinial, -20)) + 1# 计算温度点的数量
         nsteps_per_point = 2000  # 每个温度点的步数 ps
@@ -176,7 +176,10 @@ def gen_top_file(compositions, numbers, top_filename):
 
     for com in compositions:
         file_contents += f'#include "{com}_nonbonded.itp"\n'
-        file_contents += f'#include "{com}_bonded.itp"\n\n'
+    file_contents += "\n"
+    for com in compositions:
+        file_contents += f'#include "{com}_bonded.itp"\n'
+    file_contents += "\n"
 
     file_contents += "[ system ]\n"
     file_contents += ";name "
@@ -199,7 +202,7 @@ def gen_top_file(compositions, numbers, top_filename):
 
 # generation minimization mdp file
 def gen_min_mdp_file(file_name = 'em.mdp'):
-    file_contents = ";em.mdp - used as input into grompp to generate em.tpr\n"
+    file_contents = "; em.mdp - used as input into grompp to generate em.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "integrator      = steep\n"
@@ -229,7 +232,7 @@ def gen_min_mdp_file(file_name = 'em.mdp'):
 
 # generation nvt mdp file
 def gen_nvt_mdp_file(nsteps_nvt, nvt_temperature, file_name = 'nvt.mdp', ):
-    file_contents = ";nvt.mdp - used as input into grompp to generate nvt.tpr\n"
+    file_contents = "; nvt.mdp - used as input into grompp to generate nvt.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "; RUN CONTROL PARAMETERS\n"
@@ -294,7 +297,7 @@ def gen_nvt_mdp_file(nsteps_nvt, nvt_temperature, file_name = 'nvt.mdp', ):
 
 # generation npt mdp file
 def gen_npt_mdp_file(nsteps_npt, npt_temperature, file_name = 'npt.mdp', ):
-    file_contents = ";npt.mdp - used as input into grompp to generate npt.tpr\n"
+    file_contents = "; npt.mdp - used as input into grompp to generate npt.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "; RUN CONTROL PARAMETERS\n"
@@ -360,7 +363,7 @@ def gen_npt_mdp_file(nsteps_npt, npt_temperature, file_name = 'npt.mdp', ):
 # generation npt anneal mdp file
 def gen_npt_anneal_mdp_file(nsteps_annealing, annealing_npoints = 2, annealing_time = '0 7500', annealing_temp = '898 298',
                             file_name = 'npt_anneal.mdp',):
-    file_contents = ";npt_anneal.mdp - used as input into grompp to generate npt_anneal.tpr\n"
+    file_contents = "; npt_anneal.mdp - used as input into grompp to generate npt_anneal.tpr\n"
     file_contents += "; Created by PEMD\n\n"
 
     file_contents += "; RUN CONTROL PARAMETERS\n"

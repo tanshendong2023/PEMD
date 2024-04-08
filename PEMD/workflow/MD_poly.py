@@ -50,6 +50,7 @@ if __name__ == '__main__':
     qm.calc_resp_gaussian(unit_name, length_resp, out_dir_resp, sorted_df, numconf=5, core=32, memory='64GB', eps=5.0,
                           epsinf=2.1, method='resp2', )
 
+    # 2. start MD simulation for sigle-chain polymer
     # Generate polymer chain from smiles
     smiles_MD, mol_MD = poly.mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length_MD)
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     qm.apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD, repeating_unit, end_repeating,
                         method='resp2', target_total_charge=0, correction_factor=1.0)
 
-    # start MD simulation
+    # 3. start MD simulation for amorphous polymer system
     # Generate the packmol input file
     poly.gen_packmol_input(out_dir_MD, density, numbers, pdb_files, add_length, packinp_name='pack.inp', packout_name='pack_cell.pdb')
 

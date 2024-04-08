@@ -262,6 +262,8 @@ def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length = 30, pac
                       packout_name='pack_cell.pdb'):
 
     current_path = os.getcwd()
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
     PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
 
@@ -273,10 +275,10 @@ def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length = 30, pac
 
     box_length = calculate_box_size(numbers, pdb_files, density) + add_length  # add 10 Angstroms to each side
 
-    file_contents = "tolerance 2.5\n"
+    file_contents = "tolerance 2.0\n"
+    file_contents += f"add_box_sides 1.2\n"
     file_contents += f"output {packout_name}\n"
     file_contents += "filetype pdb\n\n"
-
 
     # 循环遍历每种分子的数量和对应的 PDB 文件
     for num, file in zip(numbers, pdb_files):
