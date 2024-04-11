@@ -134,7 +134,8 @@ def pre_run_gmx(out_dir, compositions, numbers, pdb_files, top_filename, density
             time.sleep(10)
 
 
-def run_gmx_prod(out_dir, top_filename, core, T_target, input_str, nstep_ns=200, output_str='nvt_prod'):
+def run_gmx_prod(out_dir, top_filename, core, T_target, input_str, module_soft='GROMACS/2021.7-ompi',
+                 nstep_ns=200, output_str='nvt_prod'):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -153,7 +154,7 @@ def run_gmx_prod(out_dir, top_filename, core, T_target, input_str, nstep_ns=200,
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
-    slurm.add_cmd('module load GROMACS/2021.7-ompi')
+    slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr')
     slurm.add_cmd(f'gmx_mpi mdrun -v -deffnm {output_str}')
 
@@ -171,7 +172,8 @@ def run_gmx_prod(out_dir, top_filename, core, T_target, input_str, nstep_ns=200,
             time.sleep(10)
 
 
-def run_gmx_tg(out_dir, top_filename, input_str, out_str, anneal_rate=0.01, core=64, Tinit=1000, Tfinal=100,):
+def run_gmx_tg(out_dir, top_filename, input_str, out_str, module_soft='GROMACS/2021.7-ompi', anneal_rate=0.01,
+               core=64, Tinit=1000, Tfinal=100,):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -238,7 +240,7 @@ def run_gmx_tg(out_dir, top_filename, input_str, out_str, anneal_rate=0.01, core
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
-    slurm.add_cmd('module load GROMACS/2021.7-ompi')
+    slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_heating.mdp -c {input_str}.gro -p {top_filename} -o npt_heating.tpr')
     slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_heating')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal_tg.mdp -c npt_heating.gro -p {top_filename} -o {out_str}.tpr')
