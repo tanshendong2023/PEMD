@@ -76,7 +76,7 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf=10, cor
     return order_structures
 
 
-def poly_conformer_search(mol, out_dir, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, epsilon=30, ):
+def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, epsilon=30, ):
 
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
@@ -108,17 +108,34 @@ def poly_conformer_search(mol, out_dir, max_conformers=1000, top_n_MMFF=100, top
         output_filename = f'conf_{conf_id}_xtb.xyz'
         PEMD_lib.mol_to_xyz(mol, conf_id, xyz_filename)
 
-        try:
-            # 使用xtb进行进一步优化
-            # xyz_file_path = os.path.join(origin_dir, xyz_filename)
-            subprocess.run(['xtb', xyz_filename, '--opt', f'--gbsa={epsilon}', '--ceasefiles'],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            os.rename('xtbopt.xyz', output_filename)
-            PEMD_lib.std_xyzfile(output_filename)
+        # try:
+        slurm = Slurm(J='xtb',
+                      N=1,
+                      n=f'{core}',
+                      output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      )
 
-        except subprocess.CalledProcessError as e:
-            print(f'Error during optimization with xtb: {e}')
+        job_id = slurm.sbatch(f'xtb {xyz_filename} --opt --gbsa={epsilon} --ceasefiles')
+        time.sleep(10)
 
+        while True:
+            status = PEMD_lib.get_slurm_job_status(job_id)
+            if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
+                print("one xtb finish, executing the next xtb...")
+                os.rename('xtbopt.xyz', output_filename)
+                PEMD_lib.std_xyzfile(output_filename)
+                break
+            else:
+                print("xtb not finish, waiting...")
+                time.sleep(30)
+                # 使用xtb进行进一步优化
+                # xyz_file_path = os.path.join(origin_dir, xyz_filename)
+                # subprocess.run(['xtb', xyz_filename, '--opt', f'--gbsa={epsilon}', '--ceasefiles'],
+                #                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # except subprocess.CalledProcessError as e:
+            #     print(f'Error during optimization with xtb: {e}')
+
+    print('all xtb finish, merging the xyz files...')
     # 匹配当前目录下所有后缀为xtb.xyz的文件
     filenames = glob.glob('*_xtb.xyz')
     # 输出文件名

@@ -74,7 +74,16 @@ if __name__ == '__main__':
     # Run packmol
     poly.run_packmol(out_dir_MD, input_file = 'pack.inp', output_file = 'pack.out', )
 
-    # Run simulation via gromacs
-    MD.run_gmx_annealing(out_dir_MD, compositions, numbers, pdb_files, top_filename, density, add_length,
-                         packout_name='pack_cell.pdb', core=64, Tg=False, Tinit=1000, Tfinial=100, )
+    # Pre-run gromacs
+    MD.pre_run_gmx(out_dir_MD, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name='pack_cell.pdb',
+                   core=64, T_target=300, module_soft='GROMACS/2021.7-ompi', output_str='pre_eq')
+
+    # Run gromacs for glass transition temperature
+    MD.run_gmx_tg(out_dir_MD, top_filename, input_str='pre_eq', out_str='npt_anneal_tg', anneal_rate=0.01, core=64,
+                  Tinit=600, Tfinal=100, )
+
+    # post-process for glass transition temperature
+    # need to be implemented
+
+
 
