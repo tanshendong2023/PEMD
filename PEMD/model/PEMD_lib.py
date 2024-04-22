@@ -973,7 +973,56 @@ def calc_mol_weight(pdb_file):
         raise ValueError(f"Unable to read molecular structure from {pdb_file}")
 
 
+def smiles_to_pdb(smiles, output_file):
+    try:
+        # Generate molecule object from SMILES string
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            raise ValueError("Invalid SMILES string. Please check the input string.")
 
+        # Add hydrogens to the molecule
+        mol = Chem.AddHs(mol)
+
+        # Generate 3D coordinates
+        if AllChem.EmbedMolecule(mol, randomSeed=42) == -1:
+            raise ValueError("Cannot embed the molecule into a 3D space.")
+        AllChem.UFFOptimizeMolecule(mol)
+
+        # Write molecule to a temporary SDF file
+        tmp_sdf = "temp.sdf"
+        with Chem.SDWriter(tmp_sdf) as writer:
+            writer.write(mol)
+
+        # Convert SDF to PDB using OpenBabel
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("sdf", "pdb")
+        obmol = openbabel.OBMol()
+        if not obConversion.ReadFile(obmol, tmp_sdf):
+            raise IOError("Failed to read from the temporary SDF file.")
+
+        if not obConversion.WriteFile(obmol, output_file):
+            raise IOError("Failed to write the PDB file.")
+
+        print(f"PDB file successfully created: {output_file}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise
+
+
+def print_compounds(info_dict, key_name):
+    """
+    This function recursively searches for and prints 'compound' entries in a nested dictionary.
+    """
+    compounds = []
+    for key, value in info_dict.items():
+        # If the value is a dictionary, we make a recursive call
+        if isinstance(value, dict):
+            compounds.extend(print_compounds(value,key_name))
+        # If the key is 'compound', we print its value
+        elif key == key_name:
+            compounds.append(value)
+    return compounds
 
 
 

@@ -249,6 +249,7 @@ def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
 def calculate_box_size(numbers, pdb_files, density):
     total_mass = 0
     for num, file in zip(numbers, pdb_files):
+
         molecular_weight = PEMD_lib.calc_mol_weight(file)  # in g/mol
         total_mass += molecular_weight * num / 6.022e23  # accumulate mass of each molecule in grams
 
@@ -258,7 +259,7 @@ def calculate_box_size(numbers, pdb_files, density):
 
 
 # 定义生成Packmol输入文件的函数
-def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length=30, packinp_name='pack.inp',packout_name='pack_cell.pdb'):
+def gen_packmol_input(out_dir, density, model_info, add_length=30, packinp_name='pack.inp',packout_name='pack_cell.pdb'):
 
     current_path = os.getcwd()
     if not os.path.exists(out_dir):
@@ -268,9 +269,13 @@ def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length=30, packi
 
     packinp_path = os.path.join(MD_dir, packinp_name)
 
-    # 确保 numbers 和 pdb_files 是列表
-    if not isinstance(numbers, list) or not isinstance(pdb_files, list):
-        raise ValueError("numbers and pdb_files must be lists")
+    numbers = PEMD_lib.print_compounds(model_info,'numbers')
+    compounds = PEMD_lib.print_compounds(model_info,'compound')
+
+    pdb_files = []
+    for com in compounds:
+        filepath = os.path.join(MD_dir, f"{com}.pdb")
+        pdb_files.append(filepath)
 
     box_length = calculate_box_size(numbers, pdb_files, density) + add_length  # add 10 Angstroms to each side
 
@@ -336,5 +341,6 @@ def run_packmol(out_dir, input_file='pack.inp', output_file='pack.out'):
     finally:
         # Change back to the original working directory
         os.chdir(current_path)
+
 
 

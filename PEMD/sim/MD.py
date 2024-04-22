@@ -13,11 +13,12 @@ import subprocess
 import parmed as pmd
 from foyer import Forcefield
 from simple_slurm import Slurm
+from LigParGenPEMD import Converter
 from PEMD.model import poly, PEMD_lib
 import importlib.resources as pkg_resources
 
 
-def gen_gmx_oplsaa(unit_name, out_dir, length, resname, pdb_files):
+def gen_gmx_oplsaa(unit_name, out_dir, length, model_info):
 
     current_path = os.getcwd()
     relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
@@ -31,13 +32,13 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, resname, pdb_files):
     pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
     mol2_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.mol2")
 
-    resname_poly = resname[0]
+    resname_poly = model_info['polymer']['resname']
     PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, unit_name, resname_poly)
     PEMD_lib.convert_xyz_to_mol2(xyz_filename, mol2_filename, unit_name, resname_poly)
 
     untyped_str = pmd.load_file(mol2_filename, structure=True)
 
-    with pkg_resources.path("PEMD.sim", "oplsaa.xml") as oplsaa_path:
+    with pkg_resources.path("PEMD.forcefields", "oplsaa.xml") as oplsaa_path:
         oplsaa = Forcefield(forcefield_files=str(oplsaa_path))
     typed_str = oplsaa.apply(untyped_str)
 
@@ -52,7 +53,8 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, resname, pdb_files):
     typed_str.save(top_filename)
     typed_str.save(gro_filename)
 
-    shutil.copyfile(pdb_filename, os.path.join(MD_dir, f'{pdb_files[0]}.pdb'))
+    compound_poly = model_info['polymer']['compound']
+    shutil.copyfile(pdb_filename, os.path.join(MD_dir, f'{compound_poly}.pdb'))
     nonbonditp_filename = os.path.join(MD_dir, f'{unit_name}_nonbonded.itp')
     bonditp_filename = os.path.join(MD_dir, f'{unit_name}_bonded.itp')
 
@@ -73,17 +75,83 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, resname, pdb_files):
     return nonbonditp_filename, bonditp_filename
 
 
-def pre_run_gmx(out_dir, compositions, resname, numbers, pdb_files, top_filename, density, add_length, packout_name,
-                core, T_target, module_soft='GROMACS/2021.7-ompi',output_str='pre_eq'):
+def copy_from_database(source_pkg, source_file, dest_dir, dest_file):
+    """
+    Copy specified files from a source package to a destination directory.
+    """
+    full_source_path = f"{source_pkg}/{source_file}"
+    full_dest_path = os.path.join(dest_dir, dest_file)
+    shutil.copy(full_source_path, full_dest_path)
+    print(f"Copied {source_file} to {full_dest_path}")
+
+
+def generate_from_smiles(compound_info, directory):
+    """
+    Generate PDB and parameter files from SMILES using external tools.
+    """
+    pdb_file = os.path.join(directory, f"{compound_info['compound']}.pdb")
+    PEMD_lib.smiles_to_pdb(compound_info['smiles'], pdb_file)
+    try:
+        Converter.convert(pdb=pdb_file,
+                          resname=compound_info['resname'],
+                          charge=0,
+                          opt=0,
+                          outdir=directory)
+        print(compound_info['compound'], ": OPLS parameter file generated.")
+    except Exception as e:  # Using Exception here to catch all possible exceptions
+        print(f"Problem running LigParGen for {pdb_file}: {e}")
+
+
+def process_compound(compound_key, model_info, database, directory):
+    """
+    Process compound based on whether it's in the database or needs generation from SMILES.
+    """
+    if compound_key in model_info:
+        compound = model_info[compound_key]['compound']
+        if compound in database:
+            files_to_copy = [
+                f"pdb/{compound}.pdb", f"itp/{compound}_bonded.itp", f"itp/{compound}_nonbonded.itp"
+            ]
+            for file_path in files_to_copy:
+                copy_from_database("PEMD.forcefields", file_path, directory, os.path.basename(file_path))
+        else:
+            generate_from_smiles(model_info[compound_key], directory)
+
+
+def gen_oplsaa_ff_molecule(model_info, out_dir):
+    """
+    Generate OPLS-AA force fields for given models based on available data and database.
+    """
+    MD_dir = os.path.join(out_dir, 'MD_dir')
+    os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
+    database = ['Li', 'TFSI']
+
+    # Process Li cation and anions if present in model_info
+    process_compound('Li_cation', model_info, database, MD_dir)
+    process_compound('salt_anion', model_info, database, MD_dir)
+    process_compound('additive', model_info, database, MD_dir)
+
+
+def pre_run_gmx(out_dir, model_info, density, add_length, packout_name, core, T_target, top_filename='topol.top',
+                module_soft='GROMACS/2021.7-ompi',output_str='pre_eq'):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
     os.chdir(MD_dir)
 
+    numbers = PEMD_lib.print_compounds(model_info,'numbers')
+    compounds = PEMD_lib.print_compounds(model_info,'compound')
+    resnames = PEMD_lib.print_compounds(model_info,'resname')
+
+    pdb_files = []
+    for com in compounds:
+        filepath = os.path.join(MD_dir, f"{com}.pdb")
+        pdb_files.append(filepath)
+
     box_length = (poly.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
 
     # generate top file
-    gen_top_file(compositions, resname, numbers, top_filename)
+    gen_top_file(compounds, resnames, numbers, top_filename)
 
     # generation minimization mdp file
     gen_min_mdp_file(file_name='em.mdp')
@@ -139,8 +207,8 @@ def pre_run_gmx(out_dir, compositions, resname, numbers, pdb_files, top_filename
             time.sleep(10)
 
 
-def run_gmx_prod(out_dir, top_filename, core, T_target, input_str, module_soft='GROMACS/2021.7-ompi',
-                 nstep_ns=200, output_str='nvt_prod'):
+def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='GROMACS/2021.7-ompi', nstep_ns=200,
+                 output_str='nvt_prod'):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -177,8 +245,8 @@ def run_gmx_prod(out_dir, top_filename, core, T_target, input_str, module_soft='
             time.sleep(10)
 
 
-def run_gmx_tg(out_dir, top_filename, input_str, out_str, module_soft='GROMACS/2021.7-ompi', anneal_rate=0.01,
-               core=64, Tinit=1000, Tfinal=100,):
+def run_gmx_tg(out_dir, input_str, out_str,  top_filename='topol.top', module_soft='GROMACS/2021.7-ompi',
+               anneal_rate=0.01, core=64, Tinit=1000, Tfinal=100,):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')

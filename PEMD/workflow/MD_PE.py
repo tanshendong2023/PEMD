@@ -4,7 +4,7 @@
 """
 This script is used to start the molecular dynamics of polymer.
 Author: Shendong Tan
-Date: 2024-04-01
+Date: 2024-04-22
 """
 
 
@@ -19,16 +19,29 @@ leftcap = 'C[*]'
 rightcap = 'C[*]'
 length_resp = 10                     # for resp charge fitting via show chain polymer
 out_dir_resp = 'PEO_N10'             # for resp charge fitting via show chain polymer
+
 length_MD = 50                       # for MD
 out_dir_MD = 'PEO_N50'               # for MD
 end_repeating = 2                    # keep the charge of polymer end group
 density = 0.8                        # system density
 add_length = 25                      # unit: Å
-numbers = [20]                       # the number of polymer chain
-pdb_files = ['PEO']
-compound = ['PEO']
-resname = ['MOL']
-top_filename='topol.top'
+
+model_info = {
+    'polymer': {
+        'cmpound': 'PEO',
+        'resname': 'MOL',
+        'numbers': 20,
+    },
+    'Li_salt': {
+        'cation': {'compound': 'Li', 'resname': 'LIP', 'numbers': 50,},
+        'anion': {'compound': 'TFSI', 'resname': 'NSC', 'numbers': 50,},
+    },
+    'addivite':{
+        'compound': 'EC',
+        'resname': 'EC',
+        'numbers': 50,
+    },
+    }
 
 
 if __name__ == '__main__':
@@ -59,26 +72,28 @@ if __name__ == '__main__':
     poly.build_polymer(unit_name, smiles_MD, out_dir_MD, length_MD, opls=False, core=32)
 
     # Generate the topology and itp files for polymer chain
-    nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(unit_name, out_dir_MD, length_MD, resname, pdb_files)
+    nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(unit_name, out_dir_MD, length_MD, model_info,)
 
     # Apply RESP charge to the polymer chain
     qm.apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD, repeating_unit, end_repeating,
                         method='resp2', target_total_charge=0, correction_factor=1.0)
 
-    # 3. start MD simulation for amorphous polymer system
+    # 3. production the force filed for the small molecules
+    MD.gen_oplsaa_ff_molecule(model_info, out_dir_MD)
+
+    # 4. start MD simulation for amorphous polymer system
     # Generate the packmol input file
-    poly.gen_packmol_input(out_dir_MD, density, numbers, pdb_files, add_length, packinp_name='pack.inp', packout_name='pack_cell.pdb')
+    poly.gen_packmol_input(out_dir_MD, density, model_info, add_length, packinp_name='pack.inp', packout_name='pack_cell.pdb')
 
     # Run packmol
     poly.run_packmol(out_dir_MD, input_file='pack.inp', output_file='pack.out', )
 
     # Pre-run gromacs
-    MD.pre_run_gmx(out_dir_MD, compound, resname, numbers, pdb_files, top_filename, density, add_length,
-                   packout_name='pack_cell.pdb', core=64, T_target=333, module_soft='GROMACS/2021.7-ompi',
-                   output_str='pre_eq')
+    MD.pre_run_gmx(out_dir_MD, model_info, density, add_length, packout_name='pack_cell.pdb', core=64, T_target=333,
+                   top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', output_str='pre_eq')
 
     # Run gromacs for production simulation, 200 ns
-    MD.run_gmx_prod(out_dir_MD, top_filename, core=64, T_target=333, input_str='pre_eq',
+    MD.run_gmx_prod(out_dir_MD, core=64, T_target=333, input_str='pre_eq', top_filename='topol.top',
                     module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod')
 
 
