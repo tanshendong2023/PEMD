@@ -25,8 +25,9 @@ end_repeating = 2                    # keep the charge of polymer end group
 density = 0.8                        # system density
 add_length = 25                      # unit: Å
 numbers = [20]                       # the number of polymer chain
-pdb_files =[]
-compositions=['PEO']
+pdb_files = []
+compound = ['PEO']
+resname = ['MOL']
 top_filename='topol.top'
 
 
@@ -36,8 +37,8 @@ if __name__ == '__main__':
     smiles_resp, mol_resp = poly.mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length_resp,)
 
     # Perform first conformation search using xtb for RESP charge fitting
-    structures = qm.poly_conformer_search(mol_resp, out_dir_resp, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10,
-                                          epsilon=5, )
+    structures = qm.poly_conformer_search(mol_resp, out_dir_resp, core=32, max_conformers=1000, top_n_MMFF=100,
+                                          top_n_xtb=10, epsilon=5, )
 
     # Perform second conformation search using Gaussian for RESP charge fitting
     sorted_df = qm.conformer_search_gaussian(out_dir_resp, structures, unit_name, charge=0, multiplicity=1, core=32,
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     poly.build_polymer(unit_name, smiles_MD, out_dir_MD, length_MD, opls=False, core = 32)
 
     # Generate the topology and itp files
-    PEO_pdb, nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(unit_name, out_dir_MD, length_MD)
+    PEO_pdb, nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(unit_name, out_dir_MD, length_MD, resname)
 
     # Append the pdb file to the pdb_files list
     pdb_files.append(PEO_pdb)
@@ -72,18 +73,23 @@ if __name__ == '__main__':
     poly.gen_packmol_input(out_dir_MD, density, numbers, pdb_files, add_length, packinp_name='pack.inp', packout_name='pack_cell.pdb')
 
     # Run packmol
-    poly.run_packmol(out_dir_MD, input_file = 'pack.inp', output_file = 'pack.out', )
+    poly.run_packmol(out_dir_MD, input_file='pack.inp', output_file='pack.out', )
 
     # Pre-run gromacs
-    MD.pre_run_gmx(out_dir_MD, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name='pack_cell.pdb',
-                   core=64, T_target=300, module_soft='GROMACS/2021.7-ompi', output_str='pre_eq')
+    MD.pre_run_gmx(out_dir_MD, compound, resname, numbers, pdb_files, top_filename, density, add_length,
+                   packout_name='pack_cell.pdb', core=64, T_target=300, module_soft='GROMACS/2021.7-ompi',
+                   output_str='pre_eq')
 
     # Run gromacs for glass transition temperature
     MD.run_gmx_tg(out_dir_MD, top_filename, input_str='pre_eq', out_str='npt_anneal_tg', anneal_rate=0.01, core=64,
                   Tinit=600, Tfinal=100, )
 
-    # post-process for glass transition temperature
-    # need to be implemented
+    # Post-process for glass transition temperature
+    df=prop.dens_temp(out_dir_MD, 'npt_anneal_tg.tpr', 'npt_anneal_tg.edr', initial_time=500, time_gap=4000,
+                      duration=1000, temp_initial=600, temp_decrement=20, max_time=102000, summary_file="dens_tem.csv")
+
+    df_tg=prop.fit_tg(df, param_file="fitting_tg.csv")
+
 
 
 

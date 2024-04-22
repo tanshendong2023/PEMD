@@ -16,22 +16,25 @@ from PEMD.model import poly, PEMD_lib
 import importlib.resources as pkg_resources
 
 
-def gen_gmx_oplsaa(unit_name, out_dir, length):
+def gen_gmx_oplsaa(unit_name, out_dir, length, resname):
 
     current_path = os.getcwd()
     relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
 
-    pdb_filename = None
+    # mol2_filename = None
     file_base = f"{unit_name}_N{length}"
 
-    for file in os.listdir(relax_polymer_lmp_dir):
-        if file.endswith(".xyz"):
-            xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.xyz")
-            pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
+    # for file in os.listdir(relax_polymer_lmp_dir):
+    #     if file.endswith(".xyz"):
+    xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.xyz")
+    pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
+    mol2_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.mol2")
 
-            PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, f'{unit_name}', f'{unit_name}')
+    resname_poly = resname[0]
+    PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, unit_name, resname_poly)
+    PEMD_lib.convert_xyz_to_mol2(xyz_filename, mol2_filename, unit_name, resname_poly)
 
-    untyped_str = pmd.load_file(pdb_filename, structure=True)
+    untyped_str = pmd.load_file(mol2_filename, structure=True)
 
     with pkg_resources.path("PEMD.sim", "oplsaa.xml") as oplsaa_path:
         oplsaa = Forcefield(forcefield_files=str(oplsaa_path))
@@ -68,8 +71,8 @@ def gen_gmx_oplsaa(unit_name, out_dir, length):
     return pdb_filename, nonbonditp_filename, bonditp_filename
 
 
-def pre_run_gmx(out_dir, compositions, numbers, pdb_files, top_filename, density, add_length, packout_name, core,
-                T_target, module_soft='GROMACS/2021.7-ompi',output_str='pre_eq'):
+def pre_run_gmx(out_dir, compositions, resname, numbers, pdb_files, top_filename, density, add_length, packout_name,
+                core, T_target, module_soft='GROMACS/2021.7-ompi',output_str='pre_eq'):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -78,7 +81,7 @@ def pre_run_gmx(out_dir, compositions, numbers, pdb_files, top_filename, density
     box_length = (poly.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
 
     # generate top file
-    gen_top_file(compositions, numbers, top_filename)
+    gen_top_file(compositions, resname, numbers, top_filename)
 
     # generation minimization mdp file
     gen_min_mdp_file(file_name='em.mdp')
@@ -277,7 +280,7 @@ def run_command(command, input_text=None, output_file=None):
 
 
 # generate top file for MD simulation
-def gen_top_file(compositions, numbers, top_filename):
+def gen_top_file(compound, resname, numbers, top_filename):
     file_contents = "; gromcs generation top file\n"
     file_contents += "; Created by PEMD\n\n"
 
@@ -288,22 +291,22 @@ def gen_top_file(compositions, numbers, top_filename):
     file_contents += ";LOAD atomtypes\n"
     file_contents += "[ atomtypes ]\n"
 
-    for com in compositions:
+    for com in compound:
         file_contents += f'#include "{com}_nonbonded.itp"\n'
     file_contents += "\n"
-    for com in compositions:
+    for com in compound:
         file_contents += f'#include "{com}_bonded.itp"\n'
     file_contents += "\n"
 
     file_contents += "[ system ]\n"
     file_contents += ";name "
-    for i in compositions:
+    for i in compound:
         file_contents += f"{i}"
 
     file_contents += "\n\n"
 
     file_contents += "[ molecules ]\n"
-    for com, num in zip(compositions, numbers):
+    for com, num in zip(resname, numbers):
         file_contents += f"{com} {num}\n"
 
     file_contents += "\n"

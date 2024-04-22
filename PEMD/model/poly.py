@@ -258,8 +258,7 @@ def calculate_box_size(numbers, pdb_files, density):
 
 
 # 定义生成Packmol输入文件的函数
-def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length = 30, packinp_name='pack.inp',
-                      packout_name='pack_cell.pdb'):
+def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length=30, packinp_name='pack.inp',packout_name='pack_cell.pdb'):
 
     current_path = os.getcwd()
     if not os.path.exists(out_dir):

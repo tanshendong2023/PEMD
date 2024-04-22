@@ -716,6 +716,42 @@ def convert_xyz_to_pdb(xyz_filename, pdb_filename, molecule_name, resname):
     obConversion.WriteFile(mol, pdb_filename)
 
 
+def convert_xyz_to_mol2(xyz_filename, mol2_filename, molecule_name, resname):
+    obConversion = openbabel.OBConversion()
+    # 设置输入格式为XYZ，输出格式为MOL2
+    obConversion.SetInAndOutFormats("xyz", "mol2")
+
+    mol = openbabel.OBMol()
+    # 从XYZ文件中读取分子数据
+    obConversion.ReadFile(mol, xyz_filename)
+
+    # 设置分子名称，这会在MOL2文件中作为注释出现
+    mol.SetTitle(molecule_name)
+
+    # 遍历所有原子，设置自定义残基名称
+    for atom in openbabel.OBMolAtomIter(mol):
+        res = atom.GetResidue()
+        if res:  # 确保残基信息存在
+            res.SetName(resname)
+
+    # 将分子数据写入MOL2文件
+    obConversion.WriteFile(mol, mol2_filename)
+
+    # 后处理：去除残基名称后的数字1
+    remove_numbers_from_residue_names(mol2_filename, resname)
+
+
+def remove_numbers_from_residue_names(mol2_filename, resname):
+    with open(mol2_filename, 'r') as file:
+        content = file.read()
+
+    # 使用正则表达式删除特定残基名称后的数字1（确保只删除末尾的数字1）
+    updated_content = re.sub(r'({})1\b'.format(resname), r'\1', content)
+
+    with open(mol2_filename, 'w') as file:
+        file.write(updated_content)
+
+
 def extract_from_top(top_file, out_itp_file, nonbonded=False, bonded=False):
     sections_to_extract = []
     if nonbonded:
