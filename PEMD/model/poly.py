@@ -281,7 +281,7 @@ def gen_packmol_input(out_dir, density, numbers, pdb_files, add_length=30, packi
 
     # 循环遍历每种分子的数量和对应的 PDB 文件
     for num, file in zip(numbers, pdb_files):
-        file_contents = file_contents + f"\nstructure {file}\n"
+        file_contents = file_contents + f"\nstructure {file}.pdb\n"
         file_contents = file_contents + f"  number {num}\n"
         file_contents = file_contents + f"  inside box 0.0 0.0 0.0 {box_length:.2f} {box_length:.2f} {box_length:.2f}\n"
         file_contents = file_contents + "end structure\n\n"

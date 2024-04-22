@@ -8,6 +8,7 @@ Date: 2024.03.26
 
 import os
 import time
+import shutil
 import subprocess
 import parmed as pmd
 from foyer import Forcefield
@@ -16,7 +17,7 @@ from PEMD.model import poly, PEMD_lib
 import importlib.resources as pkg_resources
 
 
-def gen_gmx_oplsaa(unit_name, out_dir, length, resname):
+def gen_gmx_oplsaa(unit_name, out_dir, length, resname, pdb_files):
 
     current_path = os.getcwd()
     relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
@@ -51,6 +52,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, resname):
     typed_str.save(top_filename)
     typed_str.save(gro_filename)
 
+    shutil.copyfile(pdb_filename, os.path.join(MD_dir, f'{pdb_files[0]}.pdb'))
     nonbonditp_filename = os.path.join(MD_dir, f'{unit_name}_nonbonded.itp')
     bonditp_filename = os.path.join(MD_dir, f'{unit_name}_bonded.itp')
 
@@ -68,7 +70,7 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, resname):
     except Exception:
         pass  # 忽略任何异常
 
-    return pdb_filename, nonbonditp_filename, bonditp_filename
+    return nonbonditp_filename, bonditp_filename
 
 
 def pre_run_gmx(out_dir, compositions, resname, numbers, pdb_files, top_filename, density, add_length, packout_name,

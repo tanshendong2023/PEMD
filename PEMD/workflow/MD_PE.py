@@ -56,9 +56,9 @@ if __name__ == '__main__':
     smiles_MD, mol_MD = poly.mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length_MD)
 
     # Build polymer chain
-    poly.build_polymer(unit_name, smiles_MD, out_dir_MD, length_MD, opls=False, core = 32)
+    poly.build_polymer(unit_name, smiles_MD, out_dir_MD, length_MD, opls=False, core=32)
 
-    # Generate the topology and itp files
+    # Generate the topology and itp files for polymer chain
     nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(unit_name, out_dir_MD, length_MD, resname, pdb_files)
 
     # Apply RESP charge to the polymer chain
@@ -74,18 +74,12 @@ if __name__ == '__main__':
 
     # Pre-run gromacs
     MD.pre_run_gmx(out_dir_MD, compound, resname, numbers, pdb_files, top_filename, density, add_length,
-                   packout_name='pack_cell.pdb', core=64, T_target=300, module_soft='GROMACS/2021.7-ompi',
+                   packout_name='pack_cell.pdb', core=64, T_target=333, module_soft='GROMACS/2021.7-ompi',
                    output_str='pre_eq')
 
-    # Run gromacs for glass transition temperature
-    MD.run_gmx_tg(out_dir_MD, top_filename, input_str='pre_eq', out_str='npt_anneal_tg', anneal_rate=0.01, core=64,
-                  Tinit=600, Tfinal=100, )
-
-    # Post-process for glass transition temperature
-    df=prop.dens_temp(out_dir_MD, 'npt_anneal_tg.tpr', 'npt_anneal_tg.edr', initial_time=500, time_gap=4000,
-                      duration=1000, temp_initial=600, temp_decrement=20, max_time=102000, summary_file="dens_tem.csv")
-
-    df_tg=prop.fit_tg(df, param_file="fitting_tg.csv")
+    # Run gromacs for production simulation, 200 ns
+    MD.run_gmx_prod(out_dir_MD, top_filename, core=64, T_target=333, input_str='pre_eq',
+                    module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod')
 
 
 
