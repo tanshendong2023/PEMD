@@ -123,7 +123,7 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core, atom_typi
     mol.addh()
     mol.make3D()
     obmol = mol.OBMol
-    angle_range = (0, 1)
+    angle_range = (0, 0.5)
     for obatom in pybel.ob.OBMolAtomIter(obmol):
         for bond in pybel.ob.OBAtomBondIter(obatom):
             neighbor = bond.GetNbrAtom(obatom)

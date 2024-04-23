@@ -5,10 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/model/PEMD_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/PEMD_lib.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/MD_PE.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/MD_PE.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/MD_tg.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/MD_tg.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/model/poly.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/poly.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
