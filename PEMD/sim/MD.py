@@ -133,7 +133,7 @@ def gen_oplsaa_ff_molecule(model_info, out_dir):
 
 
 def pre_run_gmx(out_dir, model_info, density, add_length, packout_name, core, T_target, top_filename='topol.top',
-                module_soft='GROMACS/2021.7-ompi',output_str='pre_eq'):
+                module_soft='GROMACS',output_str='pre_eq'):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
@@ -207,7 +207,7 @@ def pre_run_gmx(out_dir, model_info, density, add_length, packout_name, core, T_
             time.sleep(10)
 
 
-def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='GROMACS/2021.7-ompi', nstep_ns=200,
+def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='GROMACS', nstep_ns=200,
                  output_str='nvt_prod'):
 
     current_path = os.getcwd()
@@ -245,7 +245,7 @@ def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='
             time.sleep(10)
 
 
-def run_gmx_tg(out_dir, input_str, out_str,  top_filename='topol.top', module_soft='GROMACS/2021.7-ompi',
+def run_gmx_tg(out_dir, input_str, out_str,  top_filename='topol.top', module_soft='GROMACS',
                anneal_rate=0.01, core=64, Tinit=1000, Tfinal=100,):
 
     current_path = os.getcwd()
