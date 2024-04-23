@@ -33,13 +33,14 @@ model_info = {
         'numbers': 20,
     },
     'Li_salt': {
-        'cation': {'compound': 'Li', 'resname': 'LIP', 'numbers': 50,},
-        'anion': {'compound': 'TFSI', 'resname': 'NSC', 'numbers': 50,},
+        'cation': {'compound': 'Li', 'resname': 'LIP', 'numbers': 50, 'smiles':'[Li+]'},
+        'anion': {'compound': 'TFSI', 'resname': 'NSC', 'numbers': 50, 'smiles': 'C(F)(F)(F)(F)S(=O)(=O)[O-]'},
     },
     'addivite':{
         'compound': 'EC',
         'resname': 'EC',
         'numbers': 50,
+        'smiles': 'CCOC(=O)C',
     },
     }
 
@@ -95,6 +96,9 @@ if __name__ == '__main__':
     # Run gromacs for production simulation, 200 ns
     MD.run_gmx_prod(out_dir_MD, core=64, T_target=333, input_str='pre_eq', top_filename='topol.top',
                     module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod')
+
+    # post-analysis for the production simulation
+    # 1.
 
 
 

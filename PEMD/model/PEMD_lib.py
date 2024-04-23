@@ -522,7 +522,6 @@ def get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing='pysimm
         print('problem reading {} for Pysimm.'.format(file_base + '.cml'))
 
 
-
 def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
     input_mol = Chem.MolFromSmiles(input_smiles)
     edit_m1 = Chem.EditableMol(input_mol)
