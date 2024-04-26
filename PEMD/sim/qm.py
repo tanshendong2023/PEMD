@@ -278,7 +278,7 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
     return df
 
 
-def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD, repeating_unit, end_repeating,
+def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir, length_resp, length_MD, repeating_unit, end_repeating,
                      method, target_total_charge=0, correction_factor=1.0):
 
     # read resp fitting result from csv file
@@ -292,7 +292,7 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD
     #     = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
 
     # read the xyz file
-    relax_polymer_lmp_dir = os.path.join(out_dir_MD, 'relax_polymer_lmp')
+    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
     xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length_MD}_gmx.xyz')
     atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
 
@@ -311,7 +311,7 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD
     mid_atoms_chg_noH_df = atoms_chg_noH_df.drop(
         atoms_chg_noH_df.head(N).index.union(atoms_chg_noH_df.tail(N).index)).reset_index(drop=True)
 
-    # traverse the DataFrame of mid atoms
+    # traverse the DataFrame of mid-atoms
     for idx, row in mid_atoms_chg_noH_df.iterrows():
         # calculate the position of the current atom in the repeating unit
         position_in_cycle = idx % atom_count
@@ -334,7 +334,7 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD
     mid_atoms_chg_H_df = atoms_chg_H_df.drop(
         atoms_chg_H_df.head(N_H).index.union(atoms_chg_H_df.tail(N_H).index)).reset_index(drop=True)
 
-    # traverse the DataFrame of mid atoms
+    # traverse the DataFrame of mid-atoms
     for idx, row in mid_atoms_chg_H_df.iterrows():
         # calculate the position of the current atom in the repeating unit
         position_in_cycle = idx % num_H_repeating
@@ -349,7 +349,7 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD
     # charge neutralize and scale
     charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_total_charge, correction_factor)
 
-    itp_filepath = os.path.join(out_dir_MD, 'MD_dir', f'{unit_name}_bonded.itp')
+    itp_filepath = os.path.join(out_dir, 'ff_dir', f'{unit_name}_bonded.itp')
 
     # 读取.itp文件
     with open(itp_filepath, 'r') as file:
@@ -379,7 +379,7 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir_MD, length_resp, length_MD
             charge_index += 1
 
     # save the updated itp file
-    new_itp_filepath = os.path.join(out_dir_MD, 'MD_dir',f'{unit_name}_bonded.itp')
+    new_itp_filepath = os.path.join(out_dir, 'ff_dir',f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 

@@ -148,12 +148,15 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf, method,):
     return resp_chg_df
 
 
-def dens_temp(out_dir, tpr_file, edr_file, initial_time=500, time_gap=4000, duration=1000, temp_initial=600,
-              temp_decrement=20, max_time=102000, summary_file="dens_tem.csv"):
+def dens_temp(out_dir, tpr_file, edr_file, module_soft='GROMACS', initial_time=500, time_gap=4000, duration=1000,
+              temp_initial=600, temp_decrement=20, max_time=102000, summary_file="dens_tem.csv"):
     # go to dir
     current_path = os.getcwd()
-    MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+    MD_dir = os.path.join(current_path, out_dir)
     os.chdir(MD_dir)
+
+    # Load GROMACS module before starting the loop
+    subprocess.run(f"module load {module_soft}", shell=True)
 
     # Initialize a list to store the data
     results = []

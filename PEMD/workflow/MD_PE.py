@@ -28,7 +28,7 @@ add_length = 25                      # unit: Å
 
 model_info = {
     'polymer': {
-        'cmpound': 'PEO',
+        'compound': 'PEO',
         'resname': 'MOL',
         'numbers': 20,
     },
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                     module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod')
 
     # post-analysis for the production simulation
-    # 1.
+
 
 
 

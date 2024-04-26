@@ -43,20 +43,20 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, model_info):
     typed_str = oplsaa.apply(untyped_str)
 
     # build directory
-    MD_dir =  os.path.join(out_dir, 'MD_dir')
-    PEMD_lib.build_dir(MD_dir)
+    ff_dir =  os.path.join(out_dir, 'ff_dir')
+    PEMD_lib.build_dir(ff_dir)
 
-    top_filename = os.path.join(MD_dir, f"{file_base}.top")
-    gro_filename = os.path.join(MD_dir, f"{file_base}.gro")
+    top_filename = os.path.join(ff_dir, f"{file_base}.top")
+    gro_filename = os.path.join(ff_dir, f"{file_base}.gro")
 
     # Save to any format supported by ParmEd
     typed_str.save(top_filename)
     typed_str.save(gro_filename)
 
     compound_poly = model_info['polymer']['compound']
-    shutil.copyfile(pdb_filename, os.path.join(MD_dir, f'{compound_poly}.pdb'))
-    nonbonditp_filename = os.path.join(MD_dir, f'{unit_name}_nonbonded.itp')
-    bonditp_filename = os.path.join(MD_dir, f'{unit_name}_bonded.itp')
+    shutil.copyfile(pdb_filename, os.path.join(ff_dir, f'{compound_poly}.pdb'))
+    nonbonditp_filename = os.path.join(ff_dir, f'{unit_name}_nonbonded.itp')
+    bonditp_filename = os.path.join(ff_dir, f'{unit_name}_bonded.itp')
 
     PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
 
@@ -132,11 +132,11 @@ def gen_oplsaa_ff_molecule(model_info, out_dir):
     process_compound('additive', model_info, database, MD_dir)
 
 
-def pre_run_gmx(out_dir, model_info, density, add_length, packout_name, core, T_target, top_filename='topol.top',
-                module_soft='GROMACS',output_str='pre_eq'):
+def pre_run_gmx(unit_name, length, model_info, density, add_length, out_dir, packout_name, core, T_target,
+                top_filename='topol.top', module_soft='GROMACS',output_str='pre_eq'):
 
     current_path = os.getcwd()
-    MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+    MD_dir = os.path.join(current_path, out_dir)
     os.chdir(MD_dir)
 
     numbers = PEMD_lib.print_compounds(model_info,'numbers')
@@ -145,13 +145,21 @@ def pre_run_gmx(out_dir, model_info, density, add_length, packout_name, core, T_
 
     pdb_files = []
     for com in compounds:
-        filepath = os.path.join(MD_dir, f"{com}.pdb")
+        if com == model_info['polymer']['compound']:
+            ff_dir = current_path + '/' + f'{unit_name}_N{length}' + '/' + 'ff_dir'
+            filepath = os.path.join(ff_dir, f"{com}.pdb")
+            nonbonditp_filepath = os.path.join(ff_dir, f'{com}_nonbonded.itp')
+            bonditp_filepath = os.path.join(ff_dir, f'{com}_bonded.itp')
+            shutil.copy(nonbonditp_filepath, MD_dir)
+            shutil.copy(bonditp_filepath, MD_dir)
+        else:
+            filepath = os.path.join(MD_dir, f"{com}.pdb")
         pdb_files.append(filepath)
 
     box_length = (poly.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
 
     # generate top file
-    gen_top_file(compounds, resnames, numbers, top_filename)
+    gen_top_file(unit_name, length, compounds, resnames, numbers, top_filename)
 
     # generation minimization mdp file
     gen_min_mdp_file(file_name='em.mdp')
@@ -249,7 +257,7 @@ def run_gmx_tg(out_dir, input_str, out_str,  top_filename='topol.top', module_so
                anneal_rate=0.01, core=64, Tinit=1000, Tfinal=100,):
 
     current_path = os.getcwd()
-    MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+    MD_dir = os.path.join(current_path, out_dir)
     os.chdir(MD_dir)
 
     # heating up for anneal, heating rate 0.05K/ps
@@ -350,7 +358,7 @@ def run_command(command, input_text=None, output_file=None):
 
 
 # generate top file for MD simulation
-def gen_top_file(compound, resname, numbers, top_filename):
+def gen_top_file(unit_name, length, compound, resname, numbers, top_filename):
     file_contents = "; gromcs generation top file\n"
     file_contents += "; Created by PEMD\n\n"
 

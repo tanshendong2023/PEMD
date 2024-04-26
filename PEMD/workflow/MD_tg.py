@@ -71,22 +71,25 @@ if __name__ == '__main__':
 
     # 3. start MD simulation for amorphous polymer system
     # Generate the packmol input file
-    poly.gen_packmol_input(out_dir_MD, density, model_info, add_length, packinp_name='pack.inp', packout_name='pack_cell.pdb')
+    poly.gen_packmol_input(unit_name, length_MD, density, model_info, add_length, out_dir='tg_dir',
+                           packinp_name='pack.inp', packout_name='pack_cell.pdb',)
 
     # Run packmol
-    poly.run_packmol(out_dir_MD, input_file='pack.inp', output_file='pack.out', )
+    poly.run_packmol(out_dir='tg_dir', input_file='pack.inp', output_file='pack.out', )
 
     # Pre-run gromacs
-    MD.pre_run_gmx(out_dir_MD, model_info, density, add_length, packout_name='pack_cell.pdb', core=64, T_target=333,
-                   top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', output_str='pre_eq')
+    MD.pre_run_gmx(unit_name, length_MD, model_info, density, add_length, out_dir='tg_dir',
+                   packout_name='pack_cell.pdb', core=64, T_target=333, top_filename='topol.top',
+                   module_soft='GROMACS/2021.7-ompi', output_str='pre_eq')
 
     # Run gromacs for glass transition temperature
-    MD.run_gmx_tg(out_dir_MD, input_str='pre_eq', out_str='npt_anneal_tg', anneal_rate=0.01, core=64,
-                  Tinit=600, Tfinal=100, )
+    MD.run_gmx_tg(out_dir='tg_dir', input_str='pre_eq', out_str='npt_anneal_tg', top_filename='topol.top',
+                  module_soft='GROMACS/2021.7-ompi', anneal_rate=0.01, core=64, Tinit=600, Tfinal=100, )
 
     # Post-process for glass transition temperature
-    df=prop.dens_temp(out_dir_MD, 'npt_anneal_tg.tpr', 'npt_anneal_tg.edr', initial_time=500, time_gap=4000,
-                      duration=1000, temp_initial=600, temp_decrement=20, max_time=102000, summary_file="dens_tem.csv")
+    df=prop.dens_temp(out_dir='tg_dir', tpr_file='npt_anneal_tg.tpr', edr_file='npt_anneal_tg.edr',
+                      module_soft='GROMACS/2021.7-ompi', initial_time=500, time_gap=4000, duration=1000,
+                      temp_initial=600, temp_decrement=20, max_time=102000, summary_file="dens_tem.csv")
 
     df_tg=prop.fit_tg(df, param_file="fitting_tg.csv")
 

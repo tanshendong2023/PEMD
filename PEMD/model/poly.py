@@ -258,13 +258,14 @@ def calculate_box_size(numbers, pdb_files, density):
     return length
 
 
-# 定义生成Packmol输入文件的函数
-def gen_packmol_input(out_dir, density, model_info, add_length=30, packinp_name='pack.inp',packout_name='pack_cell.pdb'):
+# define the function to generate the packmol input file
+def gen_packmol_input(unit_name, length, density, model_info, add_length, out_dir, packinp_name='pack.inp',
+                      packout_name='pack_cell.pdb'):
 
     current_path = os.getcwd()
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+    MD_dir = os.path.join(current_path, out_dir)
     PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
 
     packinp_path = os.path.join(MD_dir, packinp_name)
@@ -274,7 +275,11 @@ def gen_packmol_input(out_dir, density, model_info, add_length=30, packinp_name=
 
     pdb_files = []
     for com in compounds:
-        filepath = os.path.join(MD_dir, f"{com}.pdb")
+        if com == model_info['polymer']['compound']:
+            ff_dir = current_path + '/' + f'{unit_name}_N{length}' + '/' + 'ff_dir'
+            filepath = os.path.join(ff_dir, f"{com}.pdb")
+        else:
+            filepath = os.path.join(MD_dir, f"{com}.pdb")
         pdb_files.append(filepath)
 
     box_length = calculate_box_size(numbers, pdb_files, density) + add_length  # add 10 Angstroms to each side
@@ -309,7 +314,7 @@ def run_packmol(out_dir, input_file='pack.inp', output_file='pack.out'):
         )
 
     try:
-        MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+        MD_dir = os.path.join(current_path, out_dir)
         os.chdir(MD_dir)
         p = subprocess.run(
             f"packmol < {input_file}",
