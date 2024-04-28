@@ -81,9 +81,8 @@ def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=10
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
 
-    # """从分子构象中搜索能量最低的构象
     mol = Chem.AddHs(mol)
-    # 生成多个构象
+    # generate multiple conformers
     ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
     props = AllChem.MMFFGetMoleculeProperties(mol)
 

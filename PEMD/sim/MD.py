@@ -75,61 +75,75 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, model_info):
     return nonbonditp_filename, bonditp_filename
 
 
-def copy_from_database(source_pkg, source_file, dest_dir, dest_file):
-    """
-    Copy specified files from a source package to a destination directory.
-    """
-    full_source_path = f"{source_pkg}/{source_file}"
-    full_dest_path = os.path.join(dest_dir, dest_file)
-    shutil.copy(full_source_path, full_dest_path)
-    print(f"Copied {source_file} to {full_dest_path}")
-
-
-def generate_from_smiles(compound_info, directory):
+def gen_ff_from_smiles(compound_info, directory):
     """
     Generate PDB and parameter files from SMILES using external tools.
     """
-    pdb_file = os.path.join(directory, f"{compound_info['compound']}.pdb")
-    PEMD_lib.smiles_to_pdb(compound_info['smiles'], pdb_file)
+    # pdb_file = os.path.join(directory, f"{compound_info['compound']}.pdb")
+    # PEMD_lib.smiles_to_pdb(compound_info['smiles'], pdb_file, molecule_name=compound_info['compound'], resname=compound_info['resname'])
+    smiles=compound_info['smiles']
     try:
-        Converter.convert(pdb=pdb_file,
+        Converter.convert(smiles=smiles,
                           resname=compound_info['resname'],
                           charge=0,
                           opt=0,
                           outdir=directory)
         print(compound_info['compound'], ": OPLS parameter file generated.")
+        os.rename('plt.pdb', f"{compound_info['compound']}.pdb")
     except Exception as e:  # Using Exception here to catch all possible exceptions
-        print(f"Problem running LigParGen for {pdb_file}: {e}")
+        print(f"Problem running LigParGen for {compound_info['compound']}: {e}")
 
 
-def process_compound(compound_key, model_info, database, directory):
+def process_compound(compound_key, model_info, data_ff, directory):
     """
     Process compound based on whether it's in the database or needs generation from SMILES.
     """
     if compound_key in model_info:
-        compound = model_info[compound_key]['compound']
-        if compound in database:
+        compound_info = model_info[compound_key]
+        compound_name = compound_info['compound']
+        if compound_name in data_ff:
             files_to_copy = [
-                f"pdb/{compound}.pdb", f"itp/{compound}_bonded.itp", f"itp/{compound}_nonbonded.itp"
+                f"pdb/{compound_name}.pdb",
+                f"itp/{compound_name}_bonded.itp",
+                f"itp/{compound_name}_nonbonded.itp"
             ]
             for file_path in files_to_copy:
-                copy_from_database("PEMD.forcefields", file_path, directory, os.path.basename(file_path))
+                try:
+                    resource_dir = pkg_resources.files('PEMD.forcefields')
+                    resource_path = resource_dir.joinpath(file_path)
+                    os.makedirs(directory, exist_ok=True)
+                    shutil.copy(str(resource_path), directory)
+                    print(f"Copied {file_path} to {directory} successfully.")
+                except Exception as e:
+                    print(f"Failed to copy {file_path}: {e}")
         else:
-            generate_from_smiles(model_info[compound_key], directory)
+            gen_ff_from_smiles(compound_info, directory)
+
+            top_filename = f"{compound_name}.itp"
+            nonbonditp_filename = f'{compound_name}_nonbonded.itp'
+            bonditp_filename = f'{compound_name}_bonded.itp'
+            PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
+            PEMD_lib.extract_from_top(top_filename, bonditp_filename, nonbonded=False, bonded=True)
+            print(f"{compound_key} generated from SMILES by ligpargen successfully.")
+
+    else:
+        print(f"{compound_key} not found in model_info.")
 
 
 def gen_oplsaa_ff_molecule(model_info, out_dir):
     """
     Generate OPLS-AA force fields for given models based on available data and database.
     """
-    MD_dir = os.path.join(out_dir, 'MD_dir')
+    current_path = os.getcwd()
+    MD_dir = os.path.join(current_path, out_dir)
     os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
-    database = ['Li', 'TFSI']
+    data_ff = ['Li', 'TFSI']
 
-    # Process Li cation and anions if present in model_info
-    process_compound('Li_cation', model_info, database, MD_dir)
-    process_compound('salt_anion', model_info, database, MD_dir)
-    process_compound('additive', model_info, database, MD_dir)
+    # Process each type of compound if present in model_info
+    for compound_key in ['Li_cation', 'salt_anion', 'solvent']:
+        process_compound(compound_key, model_info, data_ff, MD_dir)
+
+    os.chdir(current_path)
 
 
 def pre_run_gmx(unit_name, length, model_info, density, add_length, out_dir, packout_name, core, T_target,
@@ -219,7 +233,7 @@ def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='
                  output_str='nvt_prod'):
 
     current_path = os.getcwd()
-    MD_dir = os.path.join(current_path, out_dir, 'MD_dir')
+    MD_dir = os.path.join(current_path, out_dir)
     os.chdir(MD_dir)
 
     # generation nvt production mdp file, 200ns

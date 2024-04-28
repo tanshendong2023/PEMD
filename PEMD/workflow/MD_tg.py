@@ -89,7 +89,7 @@ if __name__ == '__main__':
     # Post-process for glass transition temperature
     df=prop.dens_temp(out_dir='tg_dir', tpr_file='npt_anneal_tg.tpr', edr_file='npt_anneal_tg.edr',
                       module_soft='GROMACS/2021.7-ompi', initial_time=500, time_gap=4000, duration=1000,
-                      temp_initial=600, temp_decrement=20, max_time=102000, summary_file="dens_tem.csv")
+                      temp_initial=600,temp_decrement=20, max_time=102000, summary_file="dens_tem.csv")
 
     df_tg=prop.fit_tg(df, param_file="fitting_tg.csv")
 

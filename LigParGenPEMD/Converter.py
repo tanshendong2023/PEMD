@@ -181,7 +181,7 @@ def convert(**kwargs):
         mol = pdb_filename.replace('pdb', 'mol')
         obConversion.WriteFile(mole, mol)
         GenMolRep(mol, optim, resname, charge)
-        mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc)
+        mol = BOSSReader('%s.z' % resname, '%s' % outdir, optim, charge, lbcc,)
         # clu = True
     assert (
         mol.MolData['TotalQ']['Reference-Solute'] == charge
@@ -191,9 +191,9 @@ def convert(**kwargs):
     ), "Hydrogens are not added. Please add Hydrogens"
 
     pickle.dump(mol, open(resname + ".p", "wb"))
-    mainBOSS2LAMMPS(resname, clu, ln)
-    print('DONE WITH LAMMPS')
-    mainBOSS2GMX(resname, clu, ln)
+    # mainBOSS2LAMMPS(resname, clu, ln)
+    # print('DONE WITH LAMMPS')
+    mainBOSS2GMX(resname, clu)
     print('DONE WITH GROMACS')
 
     # Cleanup
@@ -204,7 +204,7 @@ def convert(**kwargs):
         "out",
         "optzmat",
         "slvzmat",
-        "plt.pdb",
+        # "plt.pdb",
         "clu.pdb",
         "LL",
         "LBCC_BONDS.csv",

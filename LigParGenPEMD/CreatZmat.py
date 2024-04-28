@@ -106,6 +106,7 @@ def Get_OPT(zmat, optim, charge):
     os.system('/bin/cp sum %s' % (zmat))
     return None
 
+
 def ReadMolFile(mollines):
     [nats, nbonds] = map(int, (mollines[3][0:3], mollines[3][3:6]))
     cooslines = mollines[4: 4 + nats]

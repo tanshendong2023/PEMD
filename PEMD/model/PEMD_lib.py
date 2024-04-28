@@ -972,7 +972,7 @@ def calc_mol_weight(pdb_file):
         raise ValueError(f"Unable to read molecular structure from {pdb_file}")
 
 
-def smiles_to_pdb(smiles, output_file):
+def smiles_to_pdb(smiles, output_file, molecule_name, resname):
     try:
         # Generate molecule object from SMILES string
         mol = Chem.MolFromSmiles(smiles)
@@ -998,6 +998,14 @@ def smiles_to_pdb(smiles, output_file):
         obmol = openbabel.OBMol()
         if not obConversion.ReadFile(obmol, tmp_sdf):
             raise IOError("Failed to read from the temporary SDF file.")
+
+        # Set molecule name in OpenBabel
+        obmol.SetTitle(molecule_name)
+
+        # Set residue name for all atoms in the molecule in OpenBabel
+        for atom in openbabel.OBMolAtomIter(obmol):
+            res = atom.GetResidue()
+            res.SetName(resname)
 
         if not obConversion.WriteFile(obmol, output_file):
             raise IOError("Failed to write the PDB file.")
