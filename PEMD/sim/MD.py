@@ -11,23 +11,25 @@ import time
 import shutil
 import subprocess
 import parmed as pmd
+from PEMD.sim import qm
 from foyer import Forcefield
 from simple_slurm import Slurm
 from LigParGenPEMD import Converter
-from PEMD.model import poly, PEMD_lib
+from PEMD.model import build, PEMD_lib
 import importlib.resources as pkg_resources
 
 
-def gen_gmx_oplsaa(unit_name, out_dir, length, model_info):
+def gen_gmx_oplsaa(model_info):
+
+    unit_name = model_info['polymer']['compound']
+    length = model_info['polymer']['length'][1]
 
     current_path = os.getcwd()
-    relax_polymer_lmp_dir = os.path.join(current_path, out_dir, 'relax_polymer_lmp')
+    out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
+    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
 
     # mol2_filename = None
-    file_base = f"{unit_name}_N{length}"
-
-    # for file in os.listdir(relax_polymer_lmp_dir):
-    #     if file.endswith(".xyz"):
+    file_base = f'{unit_name}_N{length}'
     xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.xyz")
     pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
     mol2_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.mol2")
@@ -75,29 +77,30 @@ def gen_gmx_oplsaa(unit_name, out_dir, length, model_info):
     return nonbonditp_filename, bonditp_filename
 
 
-def gen_ff_from_smiles(compound_info, directory):
+def gen_ff_from_smiles(compound_info, out_dir):
     """
     Generate PDB and parameter files from SMILES using external tools.
     """
-    # pdb_file = os.path.join(directory, f"{compound_info['compound']}.pdb")
-    # PEMD_lib.smiles_to_pdb(compound_info['smiles'], pdb_file, molecule_name=compound_info['compound'], resname=compound_info['resname'])
+    current_path = os.getcwd()
+    MD_dir = os.path.join(current_path, out_dir)
     smiles=compound_info['smiles']
     try:
         Converter.convert(smiles=smiles,
                           resname=compound_info['resname'],
                           charge=0,
                           opt=0,
-                          outdir=directory)
+                          outdir=MD_dir,)
         print(compound_info['compound'], ": OPLS parameter file generated.")
         os.rename('plt.pdb', f"{compound_info['compound']}.pdb")
     except Exception as e:  # Using Exception here to catch all possible exceptions
         print(f"Problem running LigParGen for {compound_info['compound']}: {e}")
+    os.chdir(current_path)
 
 
-def process_compound(compound_key, model_info, data_ff, directory):
-    """
-    Process compound based on whether it's in the database or needs generation from SMILES.
-    """
+def process_compound(compound_key, model_info, data_ff, out_dir, epsilon):
+
+    current_path = os.getcwd()
+    MD_dir = os.path.join(current_path, out_dir)
     if compound_key in model_info:
         compound_info = model_info[compound_key]
         compound_name = compound_info['compound']
@@ -111,14 +114,37 @@ def process_compound(compound_key, model_info, data_ff, directory):
                 try:
                     resource_dir = pkg_resources.files('PEMD.forcefields')
                     resource_path = resource_dir.joinpath(file_path)
-                    os.makedirs(directory, exist_ok=True)
-                    shutil.copy(str(resource_path), directory)
-                    print(f"Copied {file_path} to {directory} successfully.")
+                    os.makedirs(MD_dir, exist_ok=True)
+                    shutil.copy(str(resource_path), MD_dir)
+                    print(f"Copied {file_path} to {out_dir} successfully.")
                 except Exception as e:
                     print(f"Failed to copy {file_path}: {e}")
-        else:
-            gen_ff_from_smiles(compound_info, directory)
 
+            corr_factor = compound_info['scale']
+            target_sum_chg = compound_info['charge']
+            filename = os.path.join(MD_dir, f"{compound_name}_bonded.itp")
+            qm.scale_chg_itp(compound_name, out_dir, filename, corr_factor, target_sum_chg)
+            print(f"scale charge successfully.")
+
+        else:
+            smiles = compound_info['smiles']
+            corr_factor =  compound_info['scale']
+            structures = qm.conformer_search_xtb(model_info, smiles, epsilon, core=32, polymer=False, work_dir=out_dir,
+                                                 max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, )
+
+            sorted_df = qm.conformer_search_gaussian(structures, model_info, polymer=False, work_dir=out_dir, charge=0,
+                                                     multiplicity=1, core = 32, memory= '64GB', chk=True,
+                                                     opt_method='B3LYP', opt_basis='6-311+g(d,p)',
+                                                     dispersion_corr='em=GD3BJ', freq='freq',
+                                                     solv_model='scrf=(pcm,solvent=generic,read)',
+                                                     custom_solv=f'eps={epsilon} \nepsinf=2.1', )
+
+            qm.calc_resp_gaussian(sorted_df, model_info, epsilon, epsinf=2.1, polymer=False, work_dir=out_dir,
+                                  numconf=5, core=32, memory='64GB', method='resp2', )
+
+            print(f"Resp charge fitting for small moelcule successfully.")
+
+            gen_ff_from_smiles(compound_info, out_dir)
             top_filename = f"{compound_name}.itp"
             nonbonditp_filename = f'{compound_name}_nonbonded.itp'
             bonditp_filename = f'{compound_name}_bonded.itp'
@@ -126,30 +152,33 @@ def process_compound(compound_key, model_info, data_ff, directory):
             PEMD_lib.extract_from_top(top_filename, bonditp_filename, nonbonded=False, bonded=True)
             print(f"{compound_key} generated from SMILES by ligpargen successfully.")
 
+            qm.apply_chg_tomole(compound_name, out_dir, corr_factor, method='resp2', target_sum_chg=0,)
+            print("apply charge to molecule force field successfully.")
     else:
         print(f"{compound_key} not found in model_info.")
 
 
-def gen_oplsaa_ff_molecule(model_info, out_dir):
-    """
-    Generate OPLS-AA force fields for given models based on available data and database.
-    """
+def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
+
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
     os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
     data_ff = ['Li', 'TFSI']
 
     # Process each type of compound if present in model_info
-    for compound_key in ['Li_cation', 'salt_anion', 'solvent']:
-        process_compound(compound_key, model_info, data_ff, MD_dir)
+    keys_list = [key for key in model_info.keys() if key != 'polymer']
+    for compound_key in keys_list:
+        process_compound(compound_key, model_info, data_ff, out_dir, epsilon)
 
-    os.chdir(current_path)
 
-
-def pre_run_gmx(unit_name, length, model_info, density, add_length, out_dir, packout_name, core, T_target,
+def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, T_target,
                 top_filename='topol.top', module_soft='GROMACS',output_str='pre_eq'):
 
     current_path = os.getcwd()
+
+    unit_name = model_info['polymer']['compound']
+    length = model_info['polymer']['length'][1]
+
     MD_dir = os.path.join(current_path, out_dir)
     os.chdir(MD_dir)
 
@@ -160,7 +189,7 @@ def pre_run_gmx(unit_name, length, model_info, density, add_length, out_dir, pac
     pdb_files = []
     for com in compounds:
         if com == model_info['polymer']['compound']:
-            ff_dir = current_path + '/' + f'{unit_name}_N{length}' + '/' + 'ff_dir'
+            ff_dir = os.path.join(current_path, f'{unit_name}_N{length}', 'ff_dir')
             filepath = os.path.join(ff_dir, f"{com}.pdb")
             nonbonditp_filepath = os.path.join(ff_dir, f'{com}_nonbonded.itp')
             bonditp_filepath = os.path.join(ff_dir, f'{com}_bonded.itp')
@@ -170,10 +199,10 @@ def pre_run_gmx(unit_name, length, model_info, density, add_length, out_dir, pac
             filepath = os.path.join(MD_dir, f"{com}.pdb")
         pdb_files.append(filepath)
 
-    box_length = (poly.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
+    box_length = (build.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
 
     # generate top file
-    gen_top_file(unit_name, length, compounds, resnames, numbers, top_filename)
+    gen_top_file(compounds, resnames, numbers, top_filename)
 
     # generation minimization mdp file
     gen_min_mdp_file(file_name='em.mdp')
@@ -372,7 +401,7 @@ def run_command(command, input_text=None, output_file=None):
 
 
 # generate top file for MD simulation
-def gen_top_file(unit_name, length, compound, resname, numbers, top_filename):
+def gen_top_file(compound, resname, numbers, top_filename):
     file_contents = "; gromcs generation top file\n"
     file_contents += "; Created by PEMD\n\n"
 

@@ -57,7 +57,17 @@ def calc_poly_length(total_mass_polymer, smiles_repeating_unit, smiles_leftcap, 
     return length
 
 
-def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
+def gen_poly_smiles(model_info, resp=False):
+
+    unit_name = model_info['polymer']['compound']
+    repeating_unit = model_info['polymer']['repeating_unit']
+    leftcap = model_info['polymer']['terminal_cap']
+    rightcap = model_info['polymer']['terminal_cap']
+
+    if resp:
+        length = model_info['polymer']['length'][0]
+    else:
+        length = model_info['polymer']['length'][1]
 
     input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
     df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
@@ -102,24 +112,28 @@ def mol_from_smiles(unit_name, repeating_unit, leftcap, rightcap, length):
     if os.path.exists(xyz_file_path):
         os.remove(xyz_file_path)
 
-    mol = Chem.MolFromSmiles(smiles_poly)
-    if mol is None:
-        raise ValueError(f"Invalid SMILES string generated: {smiles_poly}")
+    # mol = Chem.MolFromSmiles(smiles_poly)
+    # if mol is None:
+    #     raise ValueError(f"Invalid SMILES string generated: {smiles_poly}")
 
-    return smiles_poly, mol
+    return smiles_poly
 
 
-def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core, atom_typing_ = 'pysimm', ):
+def gen_poly_3D(model_info, smiles, core, atom_typing_ = 'pysimm', ):
+
+    unit_name = model_info['polymer']['compound']
+    length = model_info['polymer']['length'][1]
 
     # build directory
-    out_dir = out_dir + '/'
+    current_path = os.getcwd()
+    out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
     PEMD_lib.build_dir(out_dir)
 
     relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
     os.makedirs(relax_polymer_lmp_dir, exist_ok=True)
 
     # print(smiles)
-    mol = pybel.readstring("smi", smiles_poly)
+    mol = pybel.readstring("smi", smiles)
     mol.addh()
     mol.make3D()
     obmol = mol.OBMol
@@ -136,6 +150,7 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core, atom_typi
     mol.localopt()
 
     # 构建文件名基础，这样可以避免重复拼接字符串
+    unit_name = model_info['polymer']['compound']
     file_base = f"{unit_name}_N{length}"
 
     # 使用os.path.join构建完整的文件路径，确保路径在不同操作系统上的兼容性
@@ -147,23 +162,23 @@ def build_polymer(unit_name, smiles_poly, out_dir, length, opls, core, atom_typi
     mol.write("xyz", xyz_file, overwrite=True)
     mol.write("mol2", mol_file, overwrite=True)
 
-    # Generate OPLS parameter file
-    if opls is True:
-        print(unit_name, ": Generating OPLS parameter file ...")
-
-        if os.path.exists(f"{unit_name}_N{length}.xyz"):
-            try:
-                Converter.convert(
-                    pdb=pdb_file,
-                    resname=unit_name,
-                    charge=0,
-                    opt=0,
-                    outdir= out_dir,
-                    ln = length,
-                )
-                print(unit_name, ": OPLS parameter file generated.")
-            except BaseException:
-                print('problem running LigParGen for {}.pdb.'.format(pdb_file))
+    # # Generate OPLS parameter file
+    # if opls is True:
+    #     print(unit_name, ": Generating OPLS parameter file ...")
+    #
+    #     if os.path.exists(f"{unit_name}_N{length}.xyz"):
+    #         try:
+    #             Converter.convert(
+    #                 pdb=pdb_file,
+    #                 resname=unit_name,
+    #                 charge=0,
+    #                 opt=0,
+    #                 outdir= out_dir,
+    #                 ln = length,
+    #             )
+    #             print(unit_name, ": OPLS parameter file generated.")
+    #         except BaseException:
+    #             print('problem running LigParGen for {}.pdb.'.format(pdb_file))
 
     print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
 
@@ -259,12 +274,14 @@ def calculate_box_size(numbers, pdb_files, density):
 
 
 # define the function to generate the packmol input file
-def gen_packmol_input(unit_name, length, density, model_info, add_length, out_dir, packinp_name='pack.inp',
+def gen_packmol_input(model_info, density, add_length, out_dir, packinp_name='pack.inp',
                       packout_name='pack_cell.pdb'):
 
     current_path = os.getcwd()
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+
+    unit_name = model_info['polymer']['compound']
+    length = model_info['polymer']['length'][1]
+
     MD_dir = os.path.join(current_path, out_dir)
     PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
 
@@ -276,7 +293,7 @@ def gen_packmol_input(unit_name, length, density, model_info, add_length, out_di
     pdb_files = []
     for com in compounds:
         if com == model_info['polymer']['compound']:
-            ff_dir = current_path + '/' + f'{unit_name}_N{length}' + '/' + 'ff_dir'
+            ff_dir = os.path.join(current_path, f'{unit_name}_N{length}', 'ff_dir')
             filepath = os.path.join(ff_dir, f"{com}.pdb")
         else:
             filepath = os.path.join(MD_dir, f"{com}.pdb")

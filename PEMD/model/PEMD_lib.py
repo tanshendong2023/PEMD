@@ -474,7 +474,7 @@ def get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing='pysimm
     # r = MDlib.get_coord_from_pdb(outfile_name + ".pdb")
     # from pysimm import system, forcefield
 
-    file_base = relax_polymer_lmp_dir + '/' + '{}_N{}'.format(unit_name, length)
+    file_base = relax_polymer_lmp_dir + '/' + f'{unit_name}_N{length}'
 
     obConversion.SetInAndOutFormats("pdb", "cml")
     if os.path.exists(file_base + '.pdb'):
@@ -522,39 +522,11 @@ def get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing='pysimm
         print('problem reading {} for Pysimm.'.format(file_base + '.cml'))
 
 
-def gen_dimer_smiles(dum1, dum2, atom1, atom2, input_smiles):
-    input_mol = Chem.MolFromSmiles(input_smiles)
-    edit_m1 = Chem.EditableMol(input_mol)
-    edit_m2 = Chem.EditableMol(input_mol)
-
-    edit_m1.RemoveAtom(dum1)
-    edit_m2.RemoveAtom(dum2)
-
-    edit_m1_mol = edit_m1.GetMol()
-    edit_m2_mol = edit_m2.GetMol()
-
-    if dum1 < atom1:
-        first_atom = atom1 - 1
-    else:
-        first_atom = atom1
-
-    if dum2 < atom2:
-        second_atom = atom2 - 1
-    else:
-        second_atom = atom2 + edit_m1_mol.GetNumAtoms()
-
-    combo = Chem.CombineMols(edit_m1_mol, edit_m2_mol)
-    edcombo = Chem.EditableMol(combo)
-    edcombo.AddBond(first_atom, second_atom, order=Chem.rdchem.BondType.SINGLE)
-    combo_mol = edcombo.GetMol()
-    return Chem.MolToSmiles(combo_mol)
-
-
 def relax_polymer_lmp(unit_name, length, relax_polymer_lmp_dir, core):
     origin_dir = os.getcwd()
     os.chdir(relax_polymer_lmp_dir)
     # 创建LAMMPS输入文件字符串
-    file_base = '{}_N{}'.format(unit_name, length)
+    file_base = f'{unit_name}_N{length}'
     lmp_commands = """
     units real
     boundary s s s
@@ -596,13 +568,12 @@ def relax_polymer_lmp(unit_name, length, relax_polymer_lmp_dir, core):
         status = get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("\n", unit_name, ": MD simulation normally terminated.\n")
-            file_base = '{}_N{}'.format(unit_name, length)
             toxyz_lammps(f'{file_base}_lmp.xyz', f'{file_base}_gmx.xyz', f'{file_base}_gaff2.lmp')
             os.chdir(origin_dir)
             break
         else:
             print("polymer relax not finish, waiting...")
-            time.sleep(30)
+            time.sleep(10)
 
 
 def mol_to_nx(mol):
@@ -1030,6 +1001,9 @@ def print_compounds(info_dict, key_name):
         elif key == key_name:
             compounds.append(value)
     return compounds
+
+
+
 
 
 

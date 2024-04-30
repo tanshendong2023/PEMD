@@ -76,10 +76,23 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf=10, cor
     return order_structures
 
 
-def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, epsilon=30, ):
+def conformer_search_xtb(model_info, smiles, epsilon, core, polymer=False, work_dir=None, max_conformers=1000,
+                         top_n_MMFF=100, top_n_xtb=10, ):
 
-    out_dir = out_dir + '/'
+    current_path = os.getcwd()
+    if polymer:
+        unit_name = model_info['polymer']['compound']
+        length = model_info['polymer']['length'][0]
+        out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
+    else:
+        if work_dir is None:
+            raise ValueError("work_dir must be specified when polymer is False")
+        out_dir = os.path.join(current_path, work_dir)
     PEMD_lib.build_dir(out_dir)
+
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError(f"Invalid SMILES string generated: {smiles}")
 
     mol = Chem.AddHs(mol)
     # generate multiple conformers
@@ -99,7 +112,6 @@ def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=10
 
     xtb_dir = os.path.join(out_dir, 'xtb_work')
     os.makedirs(xtb_dir, exist_ok=True)
-    origin_dir = os.getcwd()
     os.chdir(xtb_dir)
 
     for conf_id, _ in top_conformers:
@@ -115,7 +127,6 @@ def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=10
                       )
 
         job_id = slurm.sbatch(f'xtb {xyz_filename} --opt --gbsa={epsilon} --ceasefiles')
-        time.sleep(10)
 
         while True:
             status = PEMD_lib.get_slurm_job_status(job_id)
@@ -127,12 +138,6 @@ def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=10
             else:
                 print("xtb not finish, waiting...")
                 time.sleep(30)
-                # 使用xtb进行进一步优化
-                # xyz_file_path = os.path.join(origin_dir, xyz_filename)
-                # subprocess.run(['xtb', xyz_filename, '--opt', f'--gbsa={epsilon}', '--ceasefiles'],
-                #                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            # except subprocess.CalledProcessError as e:
-            #     print(f'Error during optimization with xtb: {e}')
 
     print('all xtb finish, merging the xyz files...')
     # 匹配当前目录下所有后缀为xtb.xyz的文件
@@ -147,23 +152,34 @@ def poly_conformer_search(mol, out_dir, core, max_conformers=1000, top_n_MMFF=10
                 outfile.write(infile.read())
     order_structures = PEMD_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
 
-    os.chdir(origin_dir)
+    os.chdir(current_path)
     return order_structures
 
 
-def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multiplicity=1, core = 32, memory= '64GB',
-                              chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',dispersion_corr='em=GD3BJ',
-                              freq='freq', solv_model='scrf=(pcm,solvent=generic,read)', custom_solv='eps=5.0 \nepsinf=2.1', ):
+def conformer_search_gaussian(structures, model_info, polymer, work_dir=None, charge=0, multiplicity=1, core = 32,
+                              memory= '64GB', chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
+                              dispersion_corr='em=GD3BJ', freq='freq', solv_model='scrf=(pcm,solvent=generic,read)',
+                              custom_solv='eps=5.0 \nepsinf=2.1', ):
 
-    current_directory = os.getcwd()
+    current_path = os.getcwd()
+    if polymer:
+        unit_name = model_info['polymer']['compound']
+        length = model_info['polymer']['length'][0]
+        out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
+    else:
+        if work_dir is None:
+            raise ValueError("work_dir must be specified when polymer is False")
+        out_dir = os.path.join(current_path, work_dir)
+    PEMD_lib.build_dir(out_dir)
+
     job_ids = []
-    structure_directory = current_directory + '/' + out_dir + '/' + f'{unit_name}_conf_g16'
+    structure_directory = os.path.join(out_dir, 'conf_g16_work')
     os.makedirs(structure_directory, exist_ok=True)
 
     for i, structure in enumerate(structures):
 
         # create xyz file
-        file_path = os.path.join(structure_directory, f"{unit_name}_{i + 1}.xyz")
+        file_path = os.path.join(structure_directory, f"conf_{i + 1}.xyz")
 
         with open(file_path, 'w') as file:
             for line in structure:
@@ -190,8 +206,8 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
                       output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                       )
 
-        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_{i + 1}.gjf')
-        time.sleep(10)
+        job_id = slurm.sbatch(f'g16 {structure_directory}/conf_{i + 1}.gjf')
+        time.sleep(1)
         job_ids.append(job_id)
 
     # check the status of the gaussian job
@@ -213,8 +229,19 @@ def conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multipli
     return sorted_df
 
 
-def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16, memory='64GB', eps=5.0, epsinf=2.1,
-                       method='resp2',):
+def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=False, work_dir=None, numconf=5,
+                       core=16, memory='64GB', method='resp2',):
+
+    current_path = os.getcwd()
+    if polymer:
+        unit_name = model_info['polymer']['compound']
+        length = model_info['polymer']['length'][0]
+        out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
+    else:
+        if work_dir is None:
+            raise ValueError("work_dir must be specified when polymer is False")
+        out_dir = os.path.join(current_path, work_dir)
+    PEMD_lib.build_dir(out_dir)
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -238,23 +265,22 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
         file_contents += f"%chk={resp_dir}/SP_solv_conf_{i}.chk\n"
         file_contents += f"# B3LYP/def2TZVP em=GD3BJ scrf=(pcm,solvent=generic,read) geom=allcheck\n\n"
 
-        file_contents += f"eps={eps}\n"
+        file_contents += f"eps={epsilon}\n"
         file_contents += f"epsinf={epsinf}\n\n"
 
-        out_file = resp_dir + '/' + f'{unit_name}_resp_conf_{i}.gjf'
+        out_file = os.path.join(resp_dir, f'resp_conf_{i}.gjf')
+
         with open(out_file, 'w') as file:
             file.write(file_contents)
-
-        structure_directory = os.getcwd() + '/' + resp_dir
 
         slurm = Slurm(J='g16',
                       N=1,
                       n=f'{core}',
-                      output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      output=f'{resp_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                       )
 
-        job_id = slurm.sbatch(f'g16 {structure_directory}/{unit_name}_resp_conf_{i}.gjf')
-        time.sleep(10)
+        job_id = slurm.sbatch(f'g16 {resp_dir}/resp_conf_{i}.gjf')
+        time.sleep(1)
         job_ids.append(job_id)
 
     # check the status of the gaussian job
@@ -268,7 +294,7 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             print("RESP calculation finish, executing the resp fit with Multiwfn...")
-            df = prop.RESP_fit_Multiwfn(unit_name, length, out_dir, numconf, method,)
+            df = prop.RESP_fit_Multiwfn(out_dir, numconf, method,)
             break
         else:
             print("RESP calculation not finish, waiting...")
@@ -277,27 +303,28 @@ def calc_resp_gaussian(unit_name, length, out_dir, sorted_df, numconf=5, core=16
     return df
 
 
-def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir, length_resp, length_MD, repeating_unit, end_repeating,
-                     method, target_total_charge=0, correction_factor=1.0):
+def apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg=0):
+
+    current_path = os.getcwd()
+    unit_name = model_info['polymer']['compound']
+    length_resp = model_info['polymer']['length'][0]
+    length_MD = model_info['polymer']['length'][1]
+    out_dir_resp = os.path.join(current_path, f'{unit_name}_N{length_resp}')
+    out_dir_MD = os.path.join(current_path, f'{unit_name}_N{length_MD}')
 
     # read resp fitting result from csv file
-    resp_chg_file = os.path.join(out_dir_resp, 'resp_work', f'{unit_name}_N{length_resp}_{method}_chg.csv')
+    resp_chg_file = os.path.join(out_dir_resp, 'resp_work', f'{method}_chg.csv')
     resp_chg_df = pd.read_csv(resp_chg_file)
+
+    repeating_unit = model_info['polymer']['repeating_unit']
 
     (top_N_noH_df, tail_N_noH_df, mid_ave_chg_noH_df, top_N_H_df, tail_N_H_df, mid_ave_chg_H_df) = (
         PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating,))
 
-    # (end_ave_chg_noH_df, mid_ave_chg_noH_df, end_ave_chg_H_df, mid_ave_chg_H_df) \
-    #     = PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating)
-
     # read the xyz file
-    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
+    relax_polymer_lmp_dir = os.path.join(out_dir_MD, 'relax_polymer_lmp')
     xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length_MD}_gmx.xyz')
     atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
-
-    # # deal with the head non-H atoms
-    # top_noH_df = end_ave_chg_noH_df
-    # tail_noH_df = top_noH_df.iloc[::-1].reset_index(drop=True)
 
     # deal with the mid non-H atoms
     atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] != 'H']
@@ -318,10 +345,6 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir, length_resp, length_MD, r
         ave_chg_noH = mid_ave_chg_noH_df.iloc[position_in_cycle]['charge']
         # update the charge value
         mid_atoms_chg_noH_df.at[idx, 'charge'] = ave_chg_noH
-
-    # # deal with the head H atoms
-    # top_H_df = end_ave_chg_H_df
-    # tail_H_df = top_H_df.iloc[::-1].reset_index(drop=True)
 
     # deal with the mid H atoms
     atoms_chg_H_df = atoms_chg_df[atoms_chg_df['atom'] == 'H']
@@ -346,9 +369,10 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir, length_resp, length_MD, r
                                 tail_N_H_df], ignore_index=True)
 
     # charge neutralize and scale
-    charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_total_charge, correction_factor)
+    corr_factor = model_info['polymer']['scale']
+    charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_sum_chg, corr_factor)
 
-    itp_filepath = os.path.join(out_dir, 'ff_dir', f'{unit_name}_bonded.itp')
+    itp_filepath = os.path.join(out_dir_MD, 'ff_dir', f'{unit_name}_bonded.itp')
 
     # 读取.itp文件
     with open(itp_filepath, 'r') as file:
@@ -356,16 +380,18 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir, length_resp, length_MD, r
 
     # 找到[ atoms ]部分的开始和结束
     in_section = False  # 标记是否处于指定部分
-    section_pattern = r'\[\s*.+\s*\]'  # 用于匹配部分标题的正则表达式
     start_index = end_index = 0
     for i, line in enumerate(lines):
-        if line.startswith('[ atoms ]'):
-            start_index = i + 3  # 跳过部分标题和列标题
+        if line.strip().startswith("[") and 'atoms' in line.split():
             in_section = True
             continue
-        elif in_section and re.match(section_pattern, line.strip()):
-            end_index = i - 1
-            break
+        if in_section:
+            if line.strip().startswith(";"):
+                start_index = i + 1  # 跳过部分标题和列标题
+                continue
+            if line.strip() == "":
+                end_index = i
+                break
 
     # update the charge value in the [ atoms ] section
     charge_index = 0  # 用于跟踪DataFrame中当前的电荷索引
@@ -378,16 +404,124 @@ def apply_chg_to_gmx(unit_name, out_dir_resp, out_dir, length_resp, length_MD, r
             charge_index += 1
 
     # save the updated itp file
-    new_itp_filepath = os.path.join(out_dir, 'ff_dir',f'{unit_name}_bonded.itp')
+    new_itp_filepath = os.path.join(out_dir_MD, 'ff_dir',f'{unit_name}_bonded.itp')
+    with open(new_itp_filepath, 'w') as file:
+        file.writelines(lines)
+
+
+def apply_chg_tomole(name, out_dir, corr_factor, method, target_sum_chg=0,):
+
+    # read resp fitting result from csv file
+    current_path = os.getcwd()
+    MD_dir = os.path.join(current_path, out_dir)
+    resp_chg_file = os.path.join(MD_dir, 'resp_work', f'{method}_chg.csv')
+    resp_chg_df = pd.read_csv(resp_chg_file)
+
+    # charge neutralize and scale
+    charge_update_df_cor = charge_neutralize_scale(resp_chg_df , target_sum_chg, corr_factor)
+
+    itp_filepath = os.path.join(MD_dir, f'{name}_bonded.itp')
+
+    # 读取.itp文件
+    with open(itp_filepath, 'r') as file:
+        lines = file.readlines()
+
+    # 找到[ atoms ]部分的开始和结束
+    in_section = False  # 标记是否处于指定部分
+    start_index = end_index = 0
+    for i, line in enumerate(lines):
+        if line.strip().startswith("[") and 'atoms' in line.split():
+            in_section = True
+            continue
+        if in_section:
+            if line.strip().startswith(";"):
+                start_index = i + 1  # 跳过部分标题和列标题
+                continue
+            if line.strip() == "":
+                end_index = i
+                break
+
+    # update the charge value in the [ atoms ] section
+    charge_index = 0  # 用于跟踪DataFrame中当前的电荷索引
+    for i in range(start_index, end_index):
+        parts = lines[i].split()
+        if charge_index < len(charge_update_df_cor):
+            new_charge = charge_update_df_cor.iloc[charge_index]['charge']
+            parts[6] = f'{new_charge:.8f}'  # 更新电荷值，假设电荷值在第7个字段
+            lines[i] = ' '.join(parts) + '\n'
+            charge_index += 1
+
+    # save the updated itp file
+    new_itp_filepath = os.path.join(MD_dir,f'{name}_bonded.itp')
+    with open(new_itp_filepath, 'w') as file:
+        file.writelines(lines)
+
+
+def scale_chg_itp(name, out_dir, filename, corr_factor, target_sum_chg):
+    # 标记开始读取数据
+    start_reading = False
+    atoms = []
+
+    with open(filename, 'r') as file:
+        for line in file:
+            if line.strip().startswith("[") and 'atoms' in line.split():  # 找到原子信息开始的地方
+                start_reading = True
+                continue
+            if start_reading:
+                if line.strip() == "":  # 遇到空行，停止读取
+                    break
+                if line.strip().startswith(";"):  # 忽略注释行
+                    continue
+                parts = line.split()
+                if len(parts) >= 7:  # 确保行包含足够的数据
+                    atom_id = parts[4]  # 假设原子类型在第5列
+                    charge = float(parts[6])  # 假设电荷在第7列
+                    atoms.append([atom_id, charge])
+
+    # create DataFrame
+    df = pd.DataFrame(atoms, columns=['atom', 'charge'])
+    # charge neutralize and scale
+    charge_update_df_cor = charge_neutralize_scale(df, target_sum_chg, corr_factor)
+
+    # reas itp file
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+
+    # 找到[ atoms ]部分的开始和结束
+    in_section = False  # 标记是否处于指定部分
+    start_index = end_index = 0
+    for i, line in enumerate(lines):
+        if line.strip().startswith("[") and 'atoms' in line.split():
+            in_section = True
+            continue
+        if in_section:
+            if line.strip().startswith(";"):
+                start_index = i + 1  # 跳过部分标题和列标题
+                continue
+            if line.strip() == "":
+                end_index = i
+                break
+
+    # update the charge value in the [ atoms ] section
+    charge_index = 0  # 用于跟踪DataFrame中当前的电荷索引
+    for i in range(start_index, end_index):
+        parts = lines[i].split()
+        if charge_index < len(charge_update_df_cor):
+            new_charge = charge_update_df_cor.iloc[charge_index]['charge']
+            parts[6] = f'{new_charge:.8f}'  # 更新电荷值，假设电荷值在第7个字段
+            lines[i] = ' '.join(parts) + '\n'
+            charge_index += 1
+
+    # save the updated itp file
+    new_itp_filepath = os.path.join(out_dir,f'{name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 
 
 def charge_neutralize_scale(df, target_total_charge, correction_factor):
     current_total_charge = df['charge'].sum()  # calculate the total charge of the current system
-    charge_difference = target_total_charge - current_total_charge  # calculate the difference between the target and current total charge
-    charge_adjustment_per_atom = charge_difference / len(df)  # calculate the charge adjustment per atom
-
+    charge_difference = target_total_charge - current_total_charge
+    charge_adjustment_per_atom = charge_difference / len(df)
     # update the charge value
     df['charge'] = (df['charge'] + charge_adjustment_per_atom) * correction_factor
 

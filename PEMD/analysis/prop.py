@@ -72,7 +72,7 @@ def dipole_moment(sorted_df, unit_name, out_dir, length):
         return dipole_moment_df
 
 
-def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf, method,):
+def RESP_fit_Multiwfn(out_dir, numconf, method,):
 
     origin_dir = os.getcwd()
     resp_dir = os.path.join(out_dir, 'resp_work')
@@ -142,7 +142,7 @@ def RESP_fit_Multiwfn(unit_name, length, out_dir, numconf, method,):
     os.chdir(origin_dir)
 
     # to csv file
-    csv_filepath = os.path.join(resp_dir, f'{unit_name}_N{length}_{method}_chg.csv')
+    csv_filepath = os.path.join(resp_dir, f'{method}_chg.csv')
     resp_chg_df.to_csv(csv_filepath, index=False)
 
     return resp_chg_df
