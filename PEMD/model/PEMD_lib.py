@@ -1003,10 +1003,61 @@ def print_compounds(info_dict, key_name):
     return compounds
 
 
+def extract_volume(edr_file, output_file='volume.xvg', option_id='21'):
+    """
+    使用GROMACS的gmx_mpi energy工具提取体积数据。
+    """
+    command = f"gmx_mpi energy -f {edr_file} -o {output_file}"
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+    output, error = process.communicate(input=f'{option_id}\n')
 
 
+def read_volume_data(volume_file):
+    """
+    从 XVG 文件读取体积数据，忽略注释行，并从给定的开始时间 `start` 后收集数据。
+
+    参数:
+    - volume_file: 包含体积数据的 XVG 文件名。
+    - start: 数据收集开始的时间（单位与 XVG 文件中的时间单位相同）。
+    - dt_collection: 数据点之间的时间间隔。
+
+    返回:
+    - volumes: 从 `start` 时间开始的体积数据数组。
+    """
+    volumes = []
+    with open(volume_file, 'r') as file:
+        for line in file:
+            if line.startswith(('@', '#')):
+                continue
+            parts = line.split()
+            volumes.append(float(parts[1]))
+
+    return np.array(volumes)
 
 
+def analyze_volume(volumes, start, dt_collection):
+    """
+    计算并返回平均体积及最接近平均体积的帧索引。
+    """
+    start_time = int(start) / dt_collection
+    average_volume = np.mean(volumes[int(start_time):])
+    closest_index = np.argmin(np.abs(volumes - average_volume))
+    return average_volume, closest_index
+
+
+def extract_structure(tpr_file, xtc_file, save_gro_file, frame_time):
+    """
+    使用 GROMACS 的 gmx trjconv 工具从轨迹文件中提取特定时间点的结构。
+
+    参数:
+    - tpr_file: TPR 输入文件路径。
+    - xtc_file: XTC 轨迹文件路径。
+    - save_gro_file: 输出的 GRO 文件路径。
+    - frame_time: 需要提取的帧对应的时间（单位ps）。
+    """
+    command = f"gmx_mpi trjconv -s {tpr_file} -f {xtc_file} -o {save_gro_file} -dump {frame_time} -quiet"
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+    output, error = process.communicate('0\n')  # Assuming the selection of the system, change if needed
 
 
 

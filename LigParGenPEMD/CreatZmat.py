@@ -67,6 +67,7 @@ def GenMolRep(ifile, optim, resid, charge):
         )
         CanonicaliedZmat(ifile, optim, resid)
     Get_OPT('%s.z' % resid, optim, charge)
+
     if os.path.exists('clu.pdb'):
         os.system('/bin/rm clu.pdb')
     if iform[1] == 'pdb':

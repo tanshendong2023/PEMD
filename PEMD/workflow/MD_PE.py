@@ -30,7 +30,7 @@ model_info = {
         'resname': 'LIP',
         'numbers': 50,
         'smiles':'[Li+]',
-        'scale': 0.75,
+        'scale': 0.8,
         'charge': +1,
     },
     'salt_anion':{
@@ -38,14 +38,14 @@ model_info = {
         'resname': 'NSC',
         'numbers': 50,
         'smiles': 'C(F)(F)(F)(F)S(=O)(=O)[O-]',
-        'scale': 0.75,
+        'scale': 0.8,
         'charge': -1,
     },
     'solvent':{
-        'compound': 'EC',
-        'resname': 'EC',
+        'compound': 'SN',
+        'resname': 'SN',
         'numbers': 50,
-        'smiles': 'CCOC(=O)C',
+        'smiles': 'C(CC#N)C#N',
         'scale': 1.0,
         'charge': 0,
     },
@@ -97,11 +97,12 @@ if __name__ == '__main__':
 
     # Pre-run gromacs
     MD.pre_run_gmx(model_info, density=0.8, add_length=25, out_dir='MD_dir', packout_name='pack_cell.pdb', core=64,
-                   T_target=333, top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', output_str='pre_eq')
+                   partition='interactive', T_target=333, top_filename='topol.top',
+                   module_soft='GROMACS/2021.7-ompi', output_str='pre_eq',)
 
     # Run gromacs for production simulation, 200 ns
-    MD.run_gmx_prod(out_dir='MD_dir', core=64, T_target=333, input_str='pre_eq', top_filename='topol.top',
-                    module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod')
+    MD.run_gmx_prod(out_dir='MD_dir', core=64, partition='interactive', T_target=333, input_str='pre_eq',
+                    top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod',)
 
     # post-analysis for the production simulation
 

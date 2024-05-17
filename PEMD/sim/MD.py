@@ -81,9 +81,12 @@ def gen_ff_from_smiles(compound_info, out_dir):
     """
     Generate PDB and parameter files from SMILES using external tools.
     """
+    print({compound_info['compound']}, ": Generating OPLS parameter file ...")
+
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
-    smiles=compound_info['smiles']
+    smiles = compound_info['smiles']
+
     try:
         Converter.convert(smiles=smiles,
                           resname=compound_info['resname'],
@@ -94,6 +97,7 @@ def gen_ff_from_smiles(compound_info, out_dir):
         os.rename('plt.pdb', f"{compound_info['compound']}.pdb")
     except Exception as e:  # Using Exception here to catch all possible exceptions
         print(f"Problem running LigParGen for {compound_info['compound']}: {e}")
+
     os.chdir(current_path)
 
 
@@ -163,7 +167,7 @@ def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
     os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
-    data_ff = ['Li', 'TFSI']
+    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM']
 
     # Process each type of compound if present in model_info
     keys_list = [key for key in model_info.keys() if key != 'polymer']
@@ -171,8 +175,8 @@ def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
         process_compound(compound_key, model_info, data_ff, out_dir, epsilon)
 
 
-def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, T_target,
-                top_filename='topol.top', module_soft='GROMACS',output_str='pre_eq'):
+def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, partition, T_target,
+                top_filename='topol.top', module_soft='GROMACS', output_str='pre_eq'):
 
     current_path = os.getcwd()
 
@@ -222,31 +226,30 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, T_
                             file_name='npt_anneal.mdp', )
 
     # generation nvt mdp file
-    gen_nvt_mdp_file(nsteps_nvt=1000000,
-                     nvt_temperature=f'{T_target}',
-                     file_name='nvt_eq.mdp', )
+    gen_npt_mdp_file(nsteps_npt=5000000,
+                     npt_temperature=f'{T_target}',
+                     file_name = 'npt_eq.mdp',)
 
     # generation slurm file
     slurm = Slurm(J='gromacs',
                   N=1,
                   n=f'{core}',
+                  p=f'{partition}',
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
     slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
     slurm.add_cmd(f'gmx_mpi grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
+    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm em')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
+    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm nvt')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
-    slurm.add_cmd(f'gmx_mpi grompp -f nvt_eq.mdp -c npt_anneal.gro -p {top_filename} -o {output_str}.tpr')
-    slurm.add_cmd(f'gmx_mpi mdrun -v -deffnm {output_str}')
+    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm npt_anneal')
+    slurm.add_cmd(f'gmx_mpi grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr')
+    slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm npt_eq')
 
     job_id = slurm.sbatch()
-
-    os.chdir(current_path)
 
     while True:
         status = PEMD_lib.get_slurm_job_status(job_id)
@@ -257,9 +260,21 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, T_
             print("MD simulation not finish, waiting...")
             time.sleep(10)
 
+    PEMD_lib.extract_volume(edr_file='npt_eq.edr', output_file='volume.xvg', option_id='21')
 
-def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='GROMACS', nstep_ns=200,
-                 output_str='nvt_prod'):
+    volumes_path = os.path.join(MD_dir, 'volume.xvg')
+    volumes = PEMD_lib.read_volume_data(volumes_path)
+
+    average_volume, frame_time = PEMD_lib.analyze_volume(volumes, start=4000, dt_collection=5)
+
+    PEMD_lib.extract_structure(tpr_file='npt_eq.tpr', xtc_file='npt_eq.xtc', save_gro_file= f'{output_str}.gro',
+                               frame_time=frame_time)
+
+    os.chdir(current_path)
+
+
+def run_gmx_prod(out_dir, core, partition, T_target, input_str, top_filename, module_soft='GROMACS', nstep_ns=200,
+                 output_str='nvt_prod',):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
@@ -275,12 +290,13 @@ def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='
     slurm = Slurm(J='gromacs',
                   N=1,
                   n=f'{core}',
+                  p=f'{partition}',
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
     slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr')
-    slurm.add_cmd(f'gmx_mpi mdrun -v -deffnm {output_str}')
+    slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {output_str}')
 
     job_id = slurm.sbatch()
 
@@ -296,7 +312,7 @@ def run_gmx_prod(out_dir, core, T_target, input_str, top_filename, module_soft='
             time.sleep(10)
 
 
-def run_gmx_tg(out_dir, input_str, out_str,  top_filename='topol.top', module_soft='GROMACS',
+def run_gmx_tg(out_dir, input_str, out_str, partition,top_filename='topol.top', module_soft='GROMACS',
                anneal_rate=0.01, core=64, Tinit=1000, Tfinal=100,):
 
     current_path = os.getcwd()
@@ -361,14 +377,15 @@ def run_gmx_tg(out_dir, input_str, out_str,  top_filename='topol.top', module_so
     slurm = Slurm(J='gromacs',
                   N=1,
                   n=f'{core}',
+                  p=f'{partition}',
                   output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
                   )
 
     slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_heating.mdp -c {input_str}.gro -p {top_filename} -o npt_heating.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_heating')
+    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm npt_heating')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal_tg.mdp -c npt_heating.gro -p {top_filename} -o {out_str}.tpr')
-    slurm.add_cmd(f'gmx_mpi mdrun -v -deffnm {out_str}')
+    slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {out_str}')
 
     job_id = slurm.sbatch()
 

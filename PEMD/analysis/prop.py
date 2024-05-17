@@ -371,24 +371,37 @@ def compute_all_Lij(cation_positions, anion_positions, times):
     return msds_all
 
 
-def compute_slope_msd(msd, times, dt_collection, dt, interval_time):
+def compute_slope_msd(msd, times, dt_collection, dt, interval_time=5000): # 5ns
     log_time = np.log(times)
     log_msd = np.log(msd)
 
     dt_ = dt_collection * dt
     interval_msd = int(interval_time / dt_)
+    small_interval = 200 # 1ns
 
+    average_slopes = []  # 存储每个大间隔的平均斜率
+    x_ranges = []  # 存储每个大间隔的x坐标范围
     closest_slope = float('inf')
     time_range = (None, None)
 
     for i in range(0, len(log_time) - interval_msd, interval_msd):
-        delta_y = log_msd[i + interval_msd] - log_msd[i]
-        delta_x = log_time[i + interval_msd] - log_time[i]
-        if delta_x != 0:
-            slope_log = delta_y / delta_x
+        slopes_log = []
+        for j in range(i, i + interval_msd - small_interval, small_interval):
+            delta_y = log_msd[j + small_interval] - log_msd[j]
+            delta_x = log_time[j + small_interval] - log_time[j]
+            if delta_x != 0:
+                slope_log = delta_y / delta_x
+                slopes_log.append(slope_log)
 
-            if abs(slope_log - 1) < abs(closest_slope - 1):
-                closest_slope = slope_log
+        # 计算当前大间隔内的平均斜率
+        if slopes_log:
+            average_slope = np.mean(slopes_log)
+            average_slopes.append(average_slope)
+            x_ranges.append((times[i], times[i + interval_msd]))
+
+            # 更新最接近1的平均斜率及其范围
+            if abs(average_slope - 1) < abs(closest_slope - 1):
+                closest_slope = average_slope
                 time_range = (times[i], times[i + interval_msd])
 
     slope = (msd[int(time_range[1] / dt_)] - msd[int(time_range[0] / dt_)]) / (time_range[1] - time_range[0])
@@ -411,50 +424,37 @@ def compute_self_diffusion(atom_positions, times, dt_collection, dt, interval_ti
     return msd, D, time_range
 
 
-def plot_msd(msd, times, time_range, dt_collection, dt, label, x_range, y_range, save_file):
-
+def plot_msd(msd_data, times, time_ranges, dt_collection, dt, labels, save_file):
     font_list = {"title": 20, "label": 18, "legend": 16, "ticket": 18, "data": 14}
     color_list = ["#DF543F", "#2286A9", "#FBBF7C", "#3C3846"]
 
     dt_ = dt_collection * dt
-
     fig, ax = plt.subplots()
 
-    if len(msd) == 1:
+    # 判断是单个MSD还是双MSD
+    if isinstance(msd_data, list):  # 假设msd_data是列表，包含两个MSD数组
+        for i, msd in enumerate(msd_data):
+            mid_time = (time_ranges[i][1] + time_ranges[i][0]) / 2
+            start = int(10 ** (np.log10(mid_time) - 0.15) / dt_)
+            end = int(10 ** (np.log10(mid_time) + 0.15) / dt_)
+            scale = (msd[int(mid_time / dt_)] + 40) / mid_time
 
-        mid_time = (time_range[1] - time_range[0]) / 2
+            x_log = times[start:end]
+            y_log = x_log * scale
+
+            ax.plot(times[1:], msd[1:], '-', linewidth=1.5, color=color_list[i], label=labels[i])
+            ax.plot(x_log, y_log, '--', linewidth=2, color=color_list[i])
+    else:  # 单个MSD
+        mid_time = (time_ranges[1] + time_ranges[0]) / 2
         start = int(10 ** (np.log10(mid_time) - 0.15) / dt_)
         end = int(10 ** (np.log10(mid_time) + 0.15) / dt_)
-
-        scale = (msd[int(mid_time / dt_)] + 80) / mid_time
+        scale = (msd_data[int(mid_time / dt_)] + 40) / mid_time
 
         x_log = times[start:end]
         y_log = x_log * scale
 
-        ax.plot(times[1:], msd[1:], '-', linewidth=1.5, color=color_list[0], label=label)
+        ax.plot(times[1:], msd_data[1:], '-', linewidth=1.5, color=color_list[0], label=labels)
         ax.plot(x_log, y_log, '--', linewidth=2, color="grey")
-
-    else:
-        mid_time = (time_range[0][1] - time_range[0][0]) / 2
-        start = int(10 ** (np.log10(mid_time) - 0.15) / dt_)
-        end = int(10 ** (np.log10(mid_time) + 0.15) / dt_)
-        scale = (msd[int(mid_time / dt_)] + 80) / mid_time
-
-        mid_time2 = (time_range[1][1] - time_range[1][0]) / 2
-        start2 = int(10 ** (np.log10(mid_time2) - 0.15) / dt_)
-        end2 = int(10 ** (np.log10(mid_time2) + 0.15) / dt_)
-        scale2 = (msd[int(mid_time2 / dt_)] + 80) / mid_time2
-
-        x_log = times[start:end]
-        y_log = x_log * scale
-
-        x_log2 = times[start2:end2]
-        y_log2 = x_log * scale2
-
-        ax.plot(times[0][1:], msd[0][1:], '-', linewidth=1.5, color=color_list[0], label=label)
-        ax.plot(times[1][1:], msd[1][1:], '-', linewidth=1.5, color=color_list[0], label=label)
-        ax.plot(x_log, y_log, '--', linewidth=2, color="grey")
-        ax.plot(x_log2, y_log2, '--', linewidth=2, color="grey")
 
     ax.legend(fontsize=font_list["legend"], frameon=False)
     ax.set_xlabel(r'$t$ (ps)', fontsize=font_list["label"])
@@ -463,8 +463,8 @@ def plot_msd(msd, times, time_range, dt_collection, dt, label, x_range, y_range,
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_xlim(x_range[0], x_range[1])
-    ax.set_ylim(y_range[0], y_range[1])
+
+    ax.set_xlim(1e2,)
 
     ax.grid(True, linestyle='--')
     fig.set_size_inches(5.5, 4)
@@ -475,7 +475,7 @@ def plot_msd(msd, times, time_range, dt_collection, dt, label, x_range, y_range,
     plt.show()
 
 
-def compute_conductivity(run, run_start, dt_collection, cations_list, anions_list, times, dt, interval_time):
+def compute_conductivity(run, run_start, dt_collection, cations_list, anions_list, times, dt, T, interval_time=5000):
 
     # compute sum over all charges and positions
     qr = []
@@ -496,7 +496,6 @@ def compute_conductivity(run, run_start, dt_collection, cations_list, anions_lis
     e2c = 1.60217662e-19  # elementary charge to Coulomb
     kb = 1.38064852e-23  # Boltzmann Constant, J/K
     convert = e2c * e2c / ps2s / A2cm * 1000
-    T = 333  # K
     v = (run.dimensions[0]) ** 3.0
 
     cond = slope / 6 / kb / T / v * convert   # "mS/cm"
@@ -504,34 +503,23 @@ def compute_conductivity(run, run_start, dt_collection, cations_list, anions_lis
     return msd, cond, time_range
 
 
-def compute_transfer_number(run, run_start, dt_collection, cation_positions, anion_positions, times, dt, interval_time):
-
-    A2cm = 1e-8  # Angstroms to cm
-    ps2s = 1e-12  # picoseconds to seconds
-    e2c = 1.60217662e-19  # elementary charge to Coulomb
-    kb = 1.38064852e-23  # Boltzmann Constant, J/K
-    convert = e2c * e2c / ps2s / A2cm * 1000
-    T = 333  # K
-    volume = (run.dimensions[0]) ** 3.0
+def compute_transfer_number(run, dt_collection, cation_positions, anion_positions, times, dt, T, interval_time):
 
     msds_all = compute_all_Lij(cation_positions, anion_positions, times)
 
     # Utilize the common slope calculation function
-    slope_plusplus = compute_slope_msd(msds_all[0], times, dt_collection, dt, interval_time)
-
-    slope_minusminus = compute_slope_msd(msds_all[2], times, dt_collection, dt, interval_time)
-
-    slope_plusminus = compute_slope_msd(msds_all[4], times, dt_collection, dt, interval_time)
+    slope_plusplus, time_range_plusplus = compute_slope_msd(msds_all[0], times, dt_collection, dt, interval_time)
+    slope_minusminus, time_range_minusminus = compute_slope_msd(msds_all[2], times, dt_collection, dt, interval_time)
+    slope_plusminus, time_range_plusminus = compute_slope_msd(msds_all[4], times, dt_collection, dt, interval_time)
 
     A2cm = 1e-8  # Angstroms to cm
     ps2s = 1e-12  # picoseconds to seconds
     e2c = 1.60217662e-19  # elementary charge to Coulomb
     kb = 1.38064852e-23  # Boltzmann Constant, J/K
     convert = e2c * e2c / ps2s / A2cm * 1000
-    T = 333  # K
     v = (run.dimensions[0]) ** 3.0
 
-    t = (slope_plusplus + slope_minusminus - 2 * slope_plusminus) / 6 / kb / T / v * convert
+    t = (slope_plusplus + slope_minusminus - 2 * slope_plusminus) / 6 / kb / T / v * convert   # mS/cm
 
     return t
 
