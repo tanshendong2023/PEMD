@@ -167,7 +167,7 @@ def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
     os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
-    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM']
+    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM', 'PEO']
 
     # Process each type of compound if present in model_info
     keys_list = [key for key in model_info.keys() if key != 'polymer']
@@ -241,11 +241,11 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
     slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
     slurm.add_cmd(f'gmx_mpi grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr')
-    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm em')
+    slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
     slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
-    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm nvt')
+    slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr')
-    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm npt_anneal')
+    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr')
     slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm npt_eq')
 
@@ -260,15 +260,15 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
             print("MD simulation not finish, waiting...")
             time.sleep(10)
 
-    PEMD_lib.extract_volume(edr_file='npt_eq.edr', output_file='volume.xvg', option_id='21')
+    PEMD_lib.extract_volume(module_soft, edr_file='npt_eq.edr', output_file='volume.xvg', option_id='21')
 
     volumes_path = os.path.join(MD_dir, 'volume.xvg')
     volumes = PEMD_lib.read_volume_data(volumes_path)
 
     average_volume, frame_time = PEMD_lib.analyze_volume(volumes, start=4000, dt_collection=5)
 
-    PEMD_lib.extract_structure(tpr_file='npt_eq.tpr', xtc_file='npt_eq.xtc', save_gro_file= f'{output_str}.gro',
-                               frame_time=frame_time)
+    PEMD_lib.extract_structure(module_soft, tpr_file='npt_eq.tpr', xtc_file='npt_eq.xtc',
+                               save_gro_file=f'{output_str}.gro', frame_time=frame_time)
 
     os.chdir(current_path)
 
@@ -383,9 +383,9 @@ def run_gmx_tg(out_dir, input_str, out_str, partition,top_filename='topol.top', 
 
     slurm.add_cmd(f'module load {module_soft}')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_heating.mdp -c {input_str}.gro -p {top_filename} -o npt_heating.tpr')
-    slurm.add_cmd('mpirun gmx_mpi mdrun -v -deffnm npt_heating')
+    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_heating')
     slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal_tg.mdp -c npt_heating.gro -p {top_filename} -o {out_str}.tpr')
-    slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {out_str}')
+    slurm.add_cmd(f'gmx_mpi mdrun -v -deffnm {out_str}')
 
     job_id = slurm.sbatch()
 

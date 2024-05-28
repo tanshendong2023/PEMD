@@ -5,8 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/PEMD/analysis/conductivity.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/analysis/msd.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/analysis/residence_time.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/analysis/transfer number.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/workflow/M1.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LigParGenPEMD/CreatZmat.py" beforeDir="false" afterPath="$PROJECT_DIR$/LigParGenPEMD/CreatZmat.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/analysis/prop.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/prop.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/model/PEMD_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/PEMD_lib.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/sim/MD.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/sim/MD.py" afterDir="false" />

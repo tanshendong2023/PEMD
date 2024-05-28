@@ -1003,13 +1003,23 @@ def print_compounds(info_dict, key_name):
     return compounds
 
 
-def extract_volume(edr_file, output_file='volume.xvg', option_id='21'):
+def extract_volume(module_soft, edr_file, output_file='volume.xvg', option_id='21'):
     """
-    使用GROMACS的gmx_mpi energy工具提取体积数据。
+    使用GROMACS的gmx_mpi energy工具提取体积数据。此函数加载必要的模块，执行gmx_mpi命令，并处理输出。
     """
-    command = f"gmx_mpi energy -f {edr_file} -o {output_file}"
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
-    output, error = process.communicate(input=f'{option_id}\n')
+    # 构建命令字符串
+    command = f"module load {module_soft} && echo {option_id} | gmx_mpi energy -f {edr_file} -o {output_file}"
+
+    # 使用subprocess.run执行命令，由于这里使用bash -c，所以stdin的传递方式需要调整
+    try:
+        # Capture_output=True来捕获输出，而不是使用PIPE
+        process = subprocess.run(['bash', '-c', command], capture_output=True, text=True, check=True)
+        # 检查输出，无需单独检查returncode，因为check=True时如果命令失败会抛出异常
+        print(f"Output: {process.stdout}")
+        return process.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing command: {e.stderr}")
+        return None
 
 
 def read_volume_data(volume_file):
@@ -1045,19 +1055,31 @@ def analyze_volume(volumes, start, dt_collection):
     return average_volume, closest_index
 
 
-def extract_structure(tpr_file, xtc_file, save_gro_file, frame_time):
+def extract_structure(module_soft, tpr_file, xtc_file, save_gro_file, frame_time):
     """
     使用 GROMACS 的 gmx trjconv 工具从轨迹文件中提取特定时间点的结构。
 
     参数:
+    - module_soft: 需要加载的模块名称。
     - tpr_file: TPR 输入文件路径。
     - xtc_file: XTC 轨迹文件路径。
     - save_gro_file: 输出的 GRO 文件路径。
     - frame_time: 需要提取的帧对应的时间（单位ps）。
     """
-    command = f"gmx_mpi trjconv -s {tpr_file} -f {xtc_file} -o {save_gro_file} -dump {frame_time} -quiet"
-    process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
-    output, error = process.communicate('0\n')  # Assuming the selection of the system, change if needed
+    # 构建完整的命令字符串
+    command = (f"module load {module_soft} && echo 0 | gmx_mpi trjconv -s {tpr_file} -f {xtc_file} -o {save_gro_file} "
+               f"-dump {frame_time} -quiet")
+
+    # 使用 subprocess.run 执行命令，以更安全地处理外部命令
+    try:
+        # 使用 subprocess.run，避免使用shell=True以增强安全性
+        process = subprocess.run(['bash', '-c', command], capture_output=True, text=True, check=True)
+        print(f"Output: {process.stdout}")
+        return process.stdout
+    except subprocess.CalledProcessError as e:
+        # 错误处理：打印错误输出并返回None
+        print(f"Error executing command: {e.stderr}")
+        return None
 
 
 

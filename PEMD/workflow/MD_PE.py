@@ -102,7 +102,7 @@ if __name__ == '__main__':
 
     # Run gromacs for production simulation, 200 ns
     MD.run_gmx_prod(out_dir='MD_dir', core=64, partition='interactive', T_target=333, input_str='pre_eq',
-                    top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', nstep_ns=200, output_str='nvt_prod',)
+                    top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', nstep_ns=400, output_str='nvt_prod',)
 
     # post-analysis for the production simulation
 
