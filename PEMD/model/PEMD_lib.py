@@ -1003,12 +1003,15 @@ def print_compounds(info_dict, key_name):
     return compounds
 
 
-def extract_volume(module_soft, edr_file, output_file='volume.xvg', option_id='21'):
+def extract_volume(partition, module_soft, edr_file, output_file='volume.xvg', option_id='21'):
     """
     使用GROMACS的gmx_mpi energy工具提取体积数据。此函数加载必要的模块，执行gmx_mpi命令，并处理输出。
     """
     # 构建命令字符串
-    command = f"module load {module_soft} && echo {option_id} | gmx_mpi energy -f {edr_file} -o {output_file}"
+    if partition == 'gpu':
+        command = f"module load {module_soft} && echo {option_id} | gmx energy -f {edr_file} -o {output_file}"
+    else:
+        command = f"module load {module_soft} && echo {option_id} | gmx_mpi energy -f {edr_file} -o {output_file}"
 
     # 使用subprocess.run执行命令，由于这里使用bash -c，所以stdin的传递方式需要调整
     try:
@@ -1055,7 +1058,7 @@ def analyze_volume(volumes, start, dt_collection):
     return average_volume, closest_index
 
 
-def extract_structure(module_soft, tpr_file, xtc_file, save_gro_file, frame_time):
+def extract_structure(partition, module_soft, tpr_file, xtc_file, save_gro_file, frame_time):
     """
     使用 GROMACS 的 gmx trjconv 工具从轨迹文件中提取特定时间点的结构。
 
@@ -1067,8 +1070,12 @@ def extract_structure(module_soft, tpr_file, xtc_file, save_gro_file, frame_time
     - frame_time: 需要提取的帧对应的时间（单位ps）。
     """
     # 构建完整的命令字符串
-    command = (f"module load {module_soft} && echo 0 | gmx_mpi trjconv -s {tpr_file} -f {xtc_file} -o {save_gro_file} "
-               f"-dump {frame_time} -quiet")
+    if partition == 'gpu':
+        command = (f"module load {module_soft} && echo 0 | gmx trjconv -s {tpr_file} -f {xtc_file} -o {save_gro_file} "
+                   f"-dump {frame_time} -quiet")
+    else:
+        command = (f"module load {module_soft} && echo 0 | gmx_mpi trjconv -s {tpr_file} -f {xtc_file} -o {save_gro_file} "
+                   f"-dump {frame_time} -quiet")
 
     # 使用 subprocess.run 执行命令，以更安全地处理外部命令
     try:

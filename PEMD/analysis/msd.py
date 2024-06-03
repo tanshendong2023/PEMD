@@ -7,35 +7,6 @@ import matplotlib.pyplot as plt
 
 def get_position(work_dir, data_tpr_file, dcd_xtc_file, select_cations, select_anions, dt, dt_collection, run_start,
                  nsteps, format='GROMACS'):
-    """
-    Calculate the positions of ions in a molecular dynamics simulation.
-
-    Parameters:
-    work_dir : str
-        The working directory where files are stored.
-    data_tpr_file : str
-        The topology file for the simulation (GROMACS TPR file).
-    dcd_xtc_file : str
-        The trajectory file for the simulation (DCD or XTC file).
-    select_cations : str
-        Selection string for cations.
-    select_anions : str
-        Selection string for anions.
-    dt : float
-        Time step of the simulation.
-    dt_collection : int
-        Interval of steps for collecting data.
-    run_start : int
-        The starting step of data collection to skip initial equilibration.
-    nsteps : int
-        Total number of steps in the simulation.
-    format : str, optional
-        Specifies the simulation software used ('GROMACS' or 'LAMMPS'). Default is 'GROMACS'.
-
-    Returns:
-    tuple
-        Contains the simulation universe, cation and anion residue groups, lists of cation and anion atoms, and the times array.
-    """
 
     # Construct full paths to the data and trajectory files
     data_tpr_file_path = os.path.join(work_dir, data_tpr_file)
@@ -67,27 +38,6 @@ def get_position(work_dir, data_tpr_file, dcd_xtc_file, select_cations, select_a
 
 
 def create_position_arrays(run, cations_list, anions_list, times, run_start, dt_collection):
-    """
-    Generates arrays of position data for cations and anions relative to the center of mass of the system.
-
-    Parameters:
-    run : MDA.Universe
-        The simulation data loaded with MDAnalysis.
-    cations_list : list
-        List of cation residue groups.
-    anions_list : list
-        List of anion residue groups.
-    times : np.array
-        Array of time steps at which positions are recorded.
-    run_start : int
-        Starting step of the simulation from which to begin data collection.
-    dt_collection : float
-        The time step interval at which data is collected.
-
-    Returns:
-    tuple
-        Two numpy arrays containing the positions of cations and anions across the specified times.
-    """
 
     # Initialize the time counter to zero
     time = 0
@@ -248,25 +198,6 @@ def compute_slope_msd(msd, times, dt_collection, dt, interval_time=5000): # 5ns
 
 
 def compute_self_diffusion(atom_positions, times, dt_collection, dt, interval_time):
-    """
-    Calculate the self-diffusion coefficient for a set of atoms based on their mean squared displacements (MSD).
-
-    Parameters:
-    atom_positions : np.array
-        An array containing the positions of atoms over time.
-    times : np.array
-        An array of time points corresponding to the positions in `atom_positions`.
-    dt_collection : int
-        The time interval between data collection points.
-    dt : float
-        The simulation time step.
-    interval_time : int
-        Time interval over which to calculate the slope of the MSD.
-
-    Returns:
-    tuple
-        Returns the mean squared displacement (msd), the self-diffusion coefficient (D), and the time range used for slope calculation.
-    """
 
     # Calculate the number of atoms from the dimensions of the atom_positions array
     n_atoms = np.shape(atom_positions)[1]

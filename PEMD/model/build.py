@@ -279,8 +279,8 @@ def gen_packmol_input(model_info, density, add_length, out_dir, packinp_name='pa
 
     current_path = os.getcwd()
 
-    unit_name = model_info['polymer']['compound']
-    length = model_info['polymer']['length'][1]
+    # unit_name = model_info['polymer']['compound']
+    # length = model_info['polymer']['length'][1]
 
     MD_dir = os.path.join(current_path, out_dir)
     PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
@@ -292,11 +292,11 @@ def gen_packmol_input(model_info, density, add_length, out_dir, packinp_name='pa
 
     pdb_files = []
     for com in compounds:
-        if com == model_info['polymer']['compound']:
-            ff_dir = os.path.join(current_path, f'{unit_name}_N{length}', 'ff_dir')
-            filepath = os.path.join(ff_dir, f"{com}.pdb")
-        else:
-            filepath = os.path.join(MD_dir, f"{com}.pdb")
+        # if com == model_info['polymer']['compound']:
+        #     ff_dir = os.path.join(current_path, f'{unit_name}_N{length}', 'ff_dir')
+        #     filepath = os.path.join(ff_dir, f"{com}.pdb")
+        # else:
+        filepath = os.path.join(MD_dir, f"{com}.pdb")
         pdb_files.append(filepath)
 
     box_length = calculate_box_size(numbers, pdb_files, density) + add_length  # add 10 Angstroms to each side

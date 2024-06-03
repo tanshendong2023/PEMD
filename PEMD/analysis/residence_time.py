@@ -7,10 +7,10 @@ from MDAnalysis.analysis import distances
 from MDAnalysis.lib.distances import distance_array
 
 
-def distance(x0,x1,box_length):
+def distance(x0, x1, box_length):
+    """Calculate minimum image distances in a periodic system."""
     delta = x1 - x0
-    delta = np.where(delta > 0.5 * box_length, delta - box_length, delta)
-    delta = np.where(delta < -0.5 * box_length, delta + box_length, delta)
+    delta -= box_length * np.round(delta / box_length)
     return delta
 
 
@@ -95,6 +95,23 @@ def get_ether_oxygen_position(data_tpr_file, dcd_xtc_file, run_start, dt, nsteps
         time += 1
 
     return atom_positions, times
+
+
+
+def store_bound_o(u, run_start, run_end, ):
+    rc = 3.575
+    li_atoms = u.select_atoms('resname LIP and name Li')
+    oe_atoms = u.select_atoms('resname MOL and name O')
+
+    for ts in tqdm(u.trajectory[run_start: run_end], desc='processing'):
+
+        for li in li_atoms:
+            distances_vec = distance(oe_atoms.positions, li.positions, u.dimensions[0])
+            distances = np.linalg.norm(distances_vec, axis=1)
+            close_o_indices = np.where(distances < rc)[0]
+
+
+
 
 
 

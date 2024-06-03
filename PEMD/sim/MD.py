@@ -19,62 +19,86 @@ from PEMD.model import build, PEMD_lib
 import importlib.resources as pkg_resources
 
 
-def gen_gmx_oplsaa(model_info):
+def gen_gmx_oplsaa(model_info, out_dir,):
 
+    data_ff = ['PEO',]
     unit_name = model_info['polymer']['compound']
     length = model_info['polymer']['length'][1]
 
     current_path = os.getcwd()
-    out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
-    relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
+    MD_dir = os.path.join(current_path, out_dir)
+    PEMD_lib.build_dir(MD_dir)
 
-    # mol2_filename = None
-    file_base = f'{unit_name}_N{length}'
-    xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.xyz")
-    pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
-    mol2_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.mol2")
+    if unit_name in data_ff:
+        files_to_copy = [
+            f"pdb/{unit_name}.pdb",
+            f"itp/{unit_name}_bonded.itp",
+            f"itp/{unit_name}_nonbonded.itp"
+        ]
+        for file_path in files_to_copy:
+            try:
+                resource_dir = pkg_resources.files('PEMD.forcefields')
+                resource_path = resource_dir.joinpath(file_path)
+                os.makedirs(MD_dir, exist_ok=True)
+                shutil.copy(str(resource_path), MD_dir)
+                print(f"Copied {file_path} to {out_dir} successfully.")
+            except Exception as e:
+                print(f"Failed to copy {file_path}: {e}")
 
-    resname_poly = model_info['polymer']['resname']
-    PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, unit_name, resname_poly)
-    PEMD_lib.convert_xyz_to_mol2(xyz_filename, mol2_filename, unit_name, resname_poly)
+        compound_info = model_info['polymer']
+        corr_factor = compound_info['scale']
+        target_sum_chg = compound_info['charge']
+        filename = os.path.join(MD_dir, f"{unit_name}_bonded.itp")
+        qm.scale_chg_itp(unit_name, out_dir, filename, corr_factor, target_sum_chg)
+        print(f"scale charge successfully.")
 
-    untyped_str = pmd.load_file(mol2_filename, structure=True)
+    else:
+        desc_dir = os.path.join(current_path, f'{unit_name}_N{length}')
+        relax_polymer_lmp_dir = os.path.join(desc_dir, 'relax_polymer_lmp')
 
-    with pkg_resources.path("PEMD.forcefields", "oplsaa.xml") as oplsaa_path:
-        oplsaa = Forcefield(forcefield_files=str(oplsaa_path))
-    typed_str = oplsaa.apply(untyped_str)
+        # mol2_filename = None
+        file_base = f'{unit_name}_N{length}'
+        xyz_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.xyz")
+        pdb_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.pdb")
+        mol2_filename = os.path.join(relax_polymer_lmp_dir, f"{file_base}_gmx.mol2")
 
-    # build directory
-    ff_dir =  os.path.join(out_dir, 'ff_dir')
-    PEMD_lib.build_dir(ff_dir)
+        resname_poly = model_info['polymer']['resname']
+        PEMD_lib.convert_xyz_to_pdb(xyz_filename, pdb_filename, unit_name, resname_poly)
+        PEMD_lib.convert_xyz_to_mol2(xyz_filename, mol2_filename, unit_name, resname_poly)
 
-    top_filename = os.path.join(ff_dir, f"{file_base}.top")
-    gro_filename = os.path.join(ff_dir, f"{file_base}.gro")
+        untyped_str = pmd.load_file(mol2_filename, structure=True)
 
-    # Save to any format supported by ParmEd
-    typed_str.save(top_filename)
-    typed_str.save(gro_filename)
+        with pkg_resources.path("PEMD.forcefields", "oplsaa.xml") as oplsaa_path:
+            oplsaa = Forcefield(forcefield_files=str(oplsaa_path))
+        typed_str = oplsaa.apply(untyped_str)
 
-    compound_poly = model_info['polymer']['compound']
-    shutil.copyfile(pdb_filename, os.path.join(ff_dir, f'{compound_poly}.pdb'))
-    nonbonditp_filename = os.path.join(ff_dir, f'{unit_name}_nonbonded.itp')
-    bonditp_filename = os.path.join(ff_dir, f'{unit_name}_bonded.itp')
+        top_filename = os.path.join(MD_dir, f"{file_base}.top")
+        gro_filename = os.path.join(MD_dir, f"{file_base}.gro")
 
-    PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
+        # Save to any format supported by ParmEd
+        typed_str.save(top_filename)
+        typed_str.save(gro_filename)
 
-    PEMD_lib.extract_from_top(top_filename, bonditp_filename, nonbonded=False, bonded=True)
+        compound_poly = model_info['polymer']['compound']
+        shutil.copyfile(pdb_filename, os.path.join(MD_dir, f'{compound_poly}.pdb'))
+        nonbonditp_filename = os.path.join(MD_dir, f'{unit_name}_nonbonded.itp')
+        bonditp_filename = os.path.join(MD_dir, f'{unit_name}_bonded.itp')
 
-    try:
-        os.remove(top_filename)
-    except Exception:
-        pass  # 忽略任何异常
+        PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
 
-    try:
-        os.remove(gro_filename)
-    except Exception:
-        pass  # 忽略任何异常
+        PEMD_lib.extract_from_top(top_filename, bonditp_filename, nonbonded=False, bonded=True)
 
-    return nonbonditp_filename, bonditp_filename
+        try:
+            os.remove(top_filename)
+        except Exception:
+            pass  # 忽略任何异常
+
+        try:
+            os.remove(gro_filename)
+        except Exception:
+            pass  # 忽略任何异常
+
+        return nonbonditp_filename, bonditp_filename
 
 
 def gen_ff_from_smiles(compound_info, out_dir):
@@ -167,9 +191,10 @@ def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
     os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
-    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM', 'PEO']
+    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM',]
 
     # Process each type of compound if present in model_info
+
     keys_list = [key for key in model_info.keys() if key != 'polymer']
     for compound_key in keys_list:
         process_compound(compound_key, model_info, data_ff, out_dir, epsilon)
@@ -180,8 +205,8 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
 
     current_path = os.getcwd()
 
-    unit_name = model_info['polymer']['compound']
-    length = model_info['polymer']['length'][1]
+    # unit_name = model_info['polymer']['compound']
+    # length = model_info['polymer']['length'][1]
 
     MD_dir = os.path.join(current_path, out_dir)
     os.chdir(MD_dir)
@@ -192,15 +217,15 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
 
     pdb_files = []
     for com in compounds:
-        if com == model_info['polymer']['compound']:
-            ff_dir = os.path.join(current_path, f'{unit_name}_N{length}', 'ff_dir')
-            filepath = os.path.join(ff_dir, f"{com}.pdb")
-            nonbonditp_filepath = os.path.join(ff_dir, f'{com}_nonbonded.itp')
-            bonditp_filepath = os.path.join(ff_dir, f'{com}_bonded.itp')
-            shutil.copy(nonbonditp_filepath, MD_dir)
-            shutil.copy(bonditp_filepath, MD_dir)
-        else:
-            filepath = os.path.join(MD_dir, f"{com}.pdb")
+        # if com == model_info['polymer']['compound']:
+        #     ff_dir = os.path.join(current_path, f'{unit_name}_N{length}', 'ff_dir')
+        #     filepath = os.path.join(ff_dir, f"{com}.pdb")
+        #     nonbonditp_filepath = os.path.join(ff_dir, f'{com}_nonbonded.itp')
+        #     bonditp_filepath = os.path.join(ff_dir, f'{com}_bonded.itp')
+        #     shutil.copy(nonbonditp_filepath, MD_dir)
+        #     shutil.copy(bonditp_filepath, MD_dir)
+        # else:
+        filepath = os.path.join(MD_dir, f"{com}.pdb")
         pdb_files.append(filepath)
 
     box_length = (build.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
@@ -231,23 +256,43 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
                      file_name = 'npt_eq.mdp',)
 
     # generation slurm file
-    slurm = Slurm(J='gromacs',
-                  N=1,
-                  n=f'{core}',
-                  p=f'{partition}',
-                  output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
-                  )
+    if partition=='gpu':
+        slurm = Slurm(J='gmx-gpu',
+                      cpus_per_gpu=f'{core}',
+                      gpus=1,
+                      p=f'{partition}',
+                      output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      )
 
-    slurm.add_cmd(f'module load {module_soft}')
-    slurm.add_cmd(f'gmx_mpi editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
-    slurm.add_cmd(f'gmx_mpi grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
-    slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
-    slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr')
-    slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
-    slurm.add_cmd(f'gmx_mpi grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr')
-    slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm npt_eq')
+        slurm.add_cmd(f'module load {module_soft}')
+        slurm.add_cmd(f'gmx editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
+        slurm.add_cmd(f'gmx grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr -maxwarn 1')
+        slurm.add_cmd(f'gmx mdrun -ntmpi 1 -ntomp {core} -v -deffnm em')
+        slurm.add_cmd(f'gmx grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr -maxwarn 1')
+        slurm.add_cmd(f'gmx mdrun -ntmpi 1 -ntomp {core} -v -deffnm nvt')
+        slurm.add_cmd(f'gmx grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr -maxwarn 1')
+        slurm.add_cmd(f'gmx mdrun -ntmpi 1 -ntomp {core} -v -deffnm npt_anneal')
+        slurm.add_cmd(f'gmx grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr -maxwarn 1')
+        slurm.add_cmd(f'gmx mdrun -ntmpi 1 -ntomp {core} -v -deffnm npt_eq')
+
+    else:
+        slurm = Slurm(J='gmx',
+                      N=1,
+                      n=f'{core}',
+                      p=f'{partition}',
+                      output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      )
+
+        slurm.add_cmd(f'module load {module_soft}')
+        slurm.add_cmd(f'gmx_mpi editconf -f {packout_name} -o conf.gro -box {box_length} {box_length} {box_length}')
+        slurm.add_cmd(f'gmx_mpi grompp -f em.mdp -c conf.gro -p {top_filename} -o em.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
+        slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr')
+        slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr')
+        slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm npt_eq')
 
     job_id = slurm.sbatch()
 
@@ -260,14 +305,14 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
             print("MD simulation not finish, waiting...")
             time.sleep(10)
 
-    PEMD_lib.extract_volume(module_soft, edr_file='npt_eq.edr', output_file='volume.xvg', option_id='21')
+    PEMD_lib.extract_volume(partition, module_soft, edr_file='npt_eq.edr', output_file='volume.xvg', option_id='21')
 
     volumes_path = os.path.join(MD_dir, 'volume.xvg')
     volumes = PEMD_lib.read_volume_data(volumes_path)
 
     average_volume, frame_time = PEMD_lib.analyze_volume(volumes, start=4000, dt_collection=5)
 
-    PEMD_lib.extract_structure(module_soft, tpr_file='npt_eq.tpr', xtc_file='npt_eq.xtc',
+    PEMD_lib.extract_structure(partition, module_soft, tpr_file='npt_eq.tpr', xtc_file='npt_eq.xtc',
                                save_gro_file=f'{output_str}.gro', frame_time=frame_time)
 
     os.chdir(current_path)
@@ -287,16 +332,28 @@ def run_gmx_prod(out_dir, core, partition, T_target, input_str, top_filename, mo
                      file_name='nvt_prod.mdp',)
 
     # generation slurm file
-    slurm = Slurm(J='gromacs',
-                  N=1,
-                  n=f'{core}',
-                  p=f'{partition}',
-                  output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
-                  )
+    if partition == 'gpu':
+        slurm = Slurm(J='gmx-gpu',
+                      cpus_per_gpu=f'{core}',
+                      gpus=1,
+                      p=f'{partition}',
+                      output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      )
 
-    slurm.add_cmd(f'module load {module_soft}')
-    slurm.add_cmd(f'gmx_mpi grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr')
-    slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {output_str}')
+        slurm.add_cmd(f'module load {module_soft}')
+        slurm.add_cmd(f'gmx grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr -maxwarn 1')
+        slurm.add_cmd(f'gmx mdrun -ntmpi 1 -ntomp {core} -v -deffnm {output_str}')
+    else:
+        slurm = Slurm(J='gmx',
+                      N=1,
+                      n=f'{core}',
+                      p=f'{partition}',
+                      output=f'{MD_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      )
+
+        slurm.add_cmd(f'module load {module_soft}')
+        slurm.add_cmd(f'gmx_mpi grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr')
+        slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {output_str}')
 
     job_id = slurm.sbatch()
 

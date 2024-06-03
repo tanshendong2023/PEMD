@@ -303,7 +303,7 @@ def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=
     return df
 
 
-def apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg=0):
+def apply_chg_topoly(model_info, out_dir, end_repeating=2, method='resp2', target_sum_chg=0):
 
     current_path = os.getcwd()
     unit_name = model_info['polymer']['compound']
@@ -372,7 +372,7 @@ def apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg
     corr_factor = model_info['polymer']['scale']
     charge_update_df_cor = charge_neutralize_scale(charge_update_df, target_sum_chg, corr_factor)
 
-    itp_filepath = os.path.join(out_dir_MD, 'ff_dir', f'{unit_name}_bonded.itp')
+    itp_filepath = os.path.join(current_path, out_dir, f'{unit_name}_bonded.itp')
 
     # 读取.itp文件
     with open(itp_filepath, 'r') as file:
@@ -404,7 +404,7 @@ def apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg
             charge_index += 1
 
     # save the updated itp file
-    new_itp_filepath = os.path.join(out_dir_MD, 'ff_dir',f'{unit_name}_bonded.itp')
+    new_itp_filepath = os.path.join(current_path, out_dir, f'{unit_name}_bonded.itp')
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 

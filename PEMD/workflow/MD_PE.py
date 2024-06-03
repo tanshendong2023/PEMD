@@ -79,10 +79,10 @@ if __name__ == '__main__':
     build.gen_poly_3D(model_info, smiles_MD, core = 32,)
 
     # Generate the topology and itp files
-    nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(model_info,)
+    MD.gen_gmx_oplsaa(model_info, out_dir='MD_dir')
 
     # Apply RESP charge to the polymer chain
-    qm.apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg=0,)
+    qm.apply_chg_topoly(model_info, out_dir='MD_dir', end_repeating=2, method='resp2', target_sum_chg=0,)
 
     # 3. production the force filed for the small molecules
     MD.gen_oplsaa_ff_molecule(model_info, out_dir='MD_dir', epsilon=5)
