@@ -343,6 +343,9 @@ def run_gmx_prod(out_dir, core, partition, T_target, input_str, top_filename, mo
         slurm.add_cmd(f'module load {module_soft}')
         slurm.add_cmd(f'gmx grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr -maxwarn 1')
         slurm.add_cmd(f'gmx mdrun -ntmpi 1 -ntomp {core} -v -deffnm {output_str}')
+        slurm.add_cmd(f'echo 0 | gmx trjconv -s {output_str}.tpr -f {output_str}.xtc -o {output_str}_unwrap.xtc -pbc '
+                      f'nojump -ur compact')
+
     else:
         slurm = Slurm(J='gmx',
                       N=1,
@@ -354,6 +357,8 @@ def run_gmx_prod(out_dir, core, partition, T_target, input_str, top_filename, mo
         slurm.add_cmd(f'module load {module_soft}')
         slurm.add_cmd(f'gmx_mpi grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr')
         slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {output_str}')
+        slurm.add_cmd(f'echo 0 | gmx_mpi trjconv -s {output_str}.tpr -f {output_str}.xtc -o {output_str}_unwrap.xtc '
+                      f'-pbc nojump -ur compact')
 
     job_id = slurm.sbatch()
 
