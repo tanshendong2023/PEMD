@@ -15,14 +15,17 @@ u = coordination.load_md_trajectory(work_dir, data_tpr_file, dcd_xtc_file)
 li_atoms = u.select_atoms('resname LIP and name Li')
 peo_atoms = u.select_atoms('resname MOL and name O')
 tfsi_atoms = u.select_atoms('resname NSC and name OBT')
+sn_atoms = u.select_atoms('resname SN and name N')
 
 # Perform RDF and coordination number calculation
 bins_peo, rdf_peo, coord_num_peo = coordination.calculate_rdf_and_coordination(u, li_atoms, peo_atoms)
 bins_tfsi, rdf_tfsi, coord_num_tfsi = coordination.calculate_rdf_and_coordination(u, li_atoms, tfsi_atoms)
+bins_sn, rdf_sn, coord_num_sn = coordination.calculate_rdf_and_coordination(u, li_atoms, sn_atoms)
 
 # obtain the coordination number and first solvation shell distance
 r_li_peo, y_rdf_peo, y_coord_peo = coordination.obtain_rdf_coord(bins_peo, rdf_peo, coord_num_peo)
 r_li_tfsi, y_rdf_tfsi, y_coord_tfsi = coordination.obtain_rdf_coord(bins_tfsi, rdf_tfsi, coord_num_tfsi)
+r_li_sn, y_rdf_sn, y_coord_sn = coordination.obtain_rdf_coord(bins_sn, rdf_sn, coord_num_sn)
 
 # Example usage of the function
 run_start = 0
@@ -32,12 +35,14 @@ run_end = 80001
 target_groups = {
     'PEO': peo_atoms,
     'TFSI': tfsi_atoms,
+    'SN': sn_atoms,
 }
 
 # setting the first solvation shell distance
 cutoff_radii = {
     'PEO': r_li_peo,
     'TFSI': r_li_tfsi,
+    'SN': r_li_sn,
 }
 
 # analysis the coordination for targed compound

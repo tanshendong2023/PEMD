@@ -305,6 +305,7 @@ def gen_packmol_input(model_info, density, add_length, out_dir, packinp_name='pa
     file_contents += f"add_box_sides 1.2\n"
     file_contents += f"output {packout_name}\n"
     file_contents += "filetype pdb\n\n"
+    file_contents += f"seed {random.randint(1, 100000)}\n\n"  # Add random seed for reproducibility
 
     # 循环遍历每种分子的数量和对应的 PDB 文件
     for num, file in zip(numbers, pdb_files):

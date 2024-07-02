@@ -44,9 +44,10 @@ def obtain_rdf_coord(bins, rdf, coord_numbers):
     first_min_index = min_after_peak_index[0]
 
     # 极小点处的坐标和配位数
-    x_val = bins[first_min_index]
-    y_rdf = rdf[first_min_index]
-    y_coord = np.interp(x_val, bins, coord_numbers)
+    x_val = round(float(bins[first_min_index]), 3)  # 显式转换为 float 后四舍五入至三位小数
+    y_rdf = round(float(rdf[first_min_index]), 3)   # 显式转换为 float 后四舍五入至三位小数
+    y_coord = round(float(np.interp(x_val, bins, coord_numbers)), 3)  # 显式转换为 float 后四舍五入至三位小数
+
     return x_val, y_rdf, y_coord
 
 

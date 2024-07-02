@@ -96,9 +96,14 @@ def combine_counts(counts_list):
     return combined_counts
 
 
-def calculate_cluster_frequencies(cluster_counts, total_frames):
-    """计算团簇的频率"""
-    return {k: v / total_frames for k, v in cluster_counts.items()}
+# def calculate_cluster_frequencies(cluster_counts, total_frames):
+#     """计算团簇的频率"""
+#     return {k: v / total_frames for k, v in cluster_counts.items()}
+
+def calculate_cluster_frequencies(cluster_counts):
+    """计算基于所有团簇出现总次数的团簇频率"""
+    total_clusters = sum(cluster_counts.values())  # 计算所有团簇的出现总次数
+    return {k: v / total_clusters for k, v in cluster_counts.items()}  # 计算每种团簇类型的频率
 
 
 def process_trajectory_parallel(universe, run_start, run_end, cutoff=3.25, num_workers=52):
@@ -111,7 +116,7 @@ def process_trajectory_parallel(universe, run_start, run_end, cutoff=3.25, num_w
         results = list(tqdm(pool.imap(process_frame_range, frame_ranges), total=num_workers))
 
     combined_counts = combine_counts(results)
-    cluster_frequencies = calculate_cluster_frequencies(combined_counts, num_frames)
+    cluster_frequencies = calculate_cluster_frequencies(combined_counts,)
 
     return cluster_frequencies
 
