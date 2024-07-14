@@ -110,12 +110,6 @@ def load_data_traj(work_dir, data_tpr_file, dcd_xtc_file, select_atoms, run_star
     return oe_ave_n, poly_n, bound_o_n, oe_positions, times
 
 
-def distance(x0, x1, box_length):
-    delta = x1 - x0
-    delta = np.where(delta > 0.5 * box_length, delta - box_length, delta)
-    delta = np.where(delta < -0.5 * box_length, delta + box_length, delta)
-    return delta
-
 def ms_endtoend_distance(work_dir, data_tpr_file, dcd_xtc_file, run_start, dt_collection, chains, select_atoms):
     # Load the trajectory
     data_tpr_file_path = os.path.join(work_dir, data_tpr_file)
@@ -157,9 +151,7 @@ def compute_msd_for_dt(dt, threshold=0.85):
 
     for t in range(run_start, run_end - dt):
         delta_n = oe_positions[t + dt] - oe_positions[t]
-        delta_n_square = np.square(delta_n)
-
-        # i = np.where((poly_n[dt + t] == poly_n[t]) & (poly_n[t] != 0))[0]
+        delta_n_square = np.sum(np.square(delta_n), axis=1)
 
         i = np.where((np.abs(oe_ave_n[dt + t] - oe_ave_n[t]) <= 1) & (oe_ave_n[t] != 0))[0]
 

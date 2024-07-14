@@ -1,5 +1,5 @@
 """
-Polymer model building tools.
+Polymer model MD tools.
 
 Developed by: Tan Shendong
 Date: 2024.03.26
@@ -160,12 +160,9 @@ def process_compound(compound_key, model_info, data_ff, out_dir, epsilon):
             structures = qm.conformer_search_xtb(model_info, smiles, epsilon, core=32, polymer=False, work_dir=out_dir,
                                                  max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, )
 
-            sorted_df = qm.conformer_search_gaussian(structures, model_info, polymer=False, work_dir=out_dir, charge=0,
-                                                     multiplicity=1, core = 32, memory= '64GB', chk=True,
-                                                     opt_method='B3LYP', opt_basis='6-311+g(d,p)',
-                                                     dispersion_corr='em=GD3BJ', freq='freq',
-                                                     solv_model='scrf=(pcm,solvent=generic,read)',
-                                                     custom_solv=f'eps={epsilon} \nepsinf=2.1', )
+            sorted_df = qm.conformer_search_gaussian(structures, model_info, polymer=False, work_dir=out_dir,
+                                                     core = 32, memory= '64GB', function='B3LYP', basis_set='6-311+g(d,p)',
+                                                     dispersion_corr='em=GD3BJ', )
 
             qm.calc_resp_gaussian(sorted_df, model_info, epsilon, epsinf=2.1, polymer=False, work_dir=out_dir,
                                   numconf=5, core=32, memory='64GB', method='resp2', )
@@ -201,7 +198,8 @@ def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
 
 
 def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, partition, T_target,
-                top_filename='topol.top', module_soft='GROMACS', output_str='pre_eq'):
+                T_high_increase=500, anneal_rate=0.05, top_filename='topol.top', module_soft='GROMACS',
+                output_str='pre_eq'):
 
     current_path = os.getcwd()
 
@@ -241,13 +239,18 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
                      nvt_temperature=f'{T_target}',
                      file_name='nvt.mdp', )
 
-    # generation npt anneal mdp file, anneal rate 0.05K/ps
-    T_high = T_target + 500
-    gen_npt_anneal_mdp_file(nsteps_annealing=22000000,
+    # Setup annealing
+    T_high = T_target + T_high_increase
+    annealing_time_steps = int((T_high - T_target) / anneal_rate)  # Calculating number of steps for annealing process
+    nsteps_annealing = (1000 * 2 + 2 * annealing_time_steps) * 1000
+    annealing_time = f'0 1000 {1000 + 1 * annealing_time_steps} {1000 + 2 * annealing_time_steps} {1000 * 2 + 2 * annealing_time_steps}'
+    annealing_temp = f'{T_target} {T_target} {T_high} {T_target} {T_target}'
+
+    gen_npt_anneal_mdp_file(nsteps_annealing=nsteps_annealing,
                             npt_temperature=f'{T_target}',
                             annealing_npoints=5,
-                            annealing_time='0 1000 11000 21000 22000',
-                            annealing_temp=f'{T_target} {T_target} {T_high} {T_target} {T_target}',
+                            annealing_time=annealing_time,
+                            annealing_temp=annealing_temp,
                             file_name='npt_anneal.mdp', )
 
     # generation nvt mdp file

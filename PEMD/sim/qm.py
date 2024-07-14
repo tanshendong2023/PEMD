@@ -16,11 +16,10 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from simple_slurm import Slurm
 from PEMD.model import PEMD_lib
-from PEMD.sim_API import gaussian
 from PEMD.analysis import prop
 
 
-def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf=10, core= 32, ):
+def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf = 10, core= 32, ):
 
     out_dir = out_dir + '/'
     PEMD_lib.build_dir(out_dir)
@@ -156,10 +155,8 @@ def conformer_search_xtb(model_info, smiles, epsilon, core, polymer=False, work_
     return order_structures
 
 
-def conformer_search_gaussian(structures, model_info, polymer, work_dir=None, charge=0, multiplicity=1, core = 32,
-                              memory= '64GB', chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
-                              dispersion_corr='em=GD3BJ', freq='freq', solv_model='scrf=(pcm,solvent=generic,read)',
-                              custom_solv='eps=5.0 \nepsinf=2.1', ):
+def conformer_search_gaussian(structures, model_info, polymer, work_dir = None, core = 32, memory= '64GB',
+                              function='B3LYP', basis_set='6-311+g(d,p)', dispersion_corr='em=GD3BJ', ):
 
     current_path = os.getcwd()
     if polymer:
@@ -178,27 +175,26 @@ def conformer_search_gaussian(structures, model_info, polymer, work_dir=None, ch
 
     for i, structure in enumerate(structures):
 
+        # RESP template
+        file_contents = f"nprocshared={core}\n"
+        file_contents += f"%mem={memory}\n"
+        file_contents += f"%chk={structure_directory}/conf_{i+1}.chk\n"
+        file_contents += f"# opt freq {function} {basis_set} {dispersion_corr}\n\n"
+
+        file_contents += 'conformer search\n\n'  # 默认总电荷和多重度
+
+        file_contents += '0 1\n'  # 默认总电荷和多重度
+
+        for atom in structure[2:]:  # Include atomic coordinates in the Gaussian input file
+            file_contents += f"{atom.split()[0]:<2} {atom.split()[1]:>15} {atom.split()[2]:>15} {atom.split()[3]:>15}\n"
+
+        file_contents += '\n\n'
+
         # create xyz file
-        file_path = os.path.join(structure_directory, f"conf_{i + 1}.xyz")
+        file_path = os.path.join(structure_directory, f"conf_{i + 1}.gjf")
 
         with open(file_path, 'w') as file:
-            for line in structure:
-                file.write(f"{line}\n")
-
-        gaussian.gaussian(files=file_path,
-                          charge=f'{charge}',
-                          mult=f'{multiplicity}',
-                          suffix='',
-                          prefix='',
-                          program='gaussian',
-                          mem=f'{memory}',
-                          nprocs=f'{core}',
-                          chk=chk,
-                          qm_input=f'opt {freq} {opt_method} {opt_basis} {dispersion_corr} {solv_model}',
-                          qm_end=f'{custom_solv}',
-                          chk_path=structure_directory,
-                          destination=structure_directory,
-                          )
+            file.write(file_contents)
 
         slurm = Slurm(J='g16',
                       N=1,
@@ -256,7 +252,7 @@ def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=
         file_contents += f"%mem={memory}\n"
         file_contents += f"%oldchk={chk_name}\n"
         file_contents += f"%chk={resp_dir}/SP_gas_conf_{i}.chk\n"
-        file_contents += "# B3LYP/def2TZVP em=GD3BJ geom=allcheck\n\n"
+        file_contents += f"# B3LYP/def2TZVP em=GD3BJ geom=allcheck\n\n"
 
         file_contents += "--link1--\n"
         file_contents += f"nprocshared={core}\n"
