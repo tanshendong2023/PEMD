@@ -5,10 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PEMD/analysis/test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PEMD/workflow/polymer_motion.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,11 +53,11 @@
       <recent name="$PROJECT_DIR$/PEMD/sim_API" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/PEMD/workflow" />
       <recent name="$PROJECT_DIR$/PEMD" />
       <recent name="$PROJECT_DIR$/PEMD/analysis" />
       <recent name="$PROJECT_DIR$/PEMD/model" />
       <recent name="$PROJECT_DIR$/PEMD/poss_proc" />
-      <recent name="$PROJECT_DIR$/PEMD/sim" />
     </key>
   </component>
   <component name="RunManager" selected="Python.PolyElecMD">

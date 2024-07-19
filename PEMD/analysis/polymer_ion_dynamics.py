@@ -101,7 +101,7 @@ class PolymerIonDynamics:
                 distances_oe_vec = self.distance(self.polymer_atoms_unwrap.positions, li.position,
                                                  self.box_size)
                 distances_oe = np.linalg.norm(distances_oe_vec, axis=1)
-                close_oe_index = np.where(distances_oe <= 3.575)[0]
+                close_oe_index = np.where(distances_oe <= self.cutoff_radius)[0]
 
                 if len(close_oe_index) > 0:
                     o_resids = self.polymer_atoms_unwrap[close_oe_index].resids
@@ -121,6 +121,7 @@ class PolymerIonDynamics:
                      :] - oe_in_onechain.center_of_mass()
 
         return poly_o_ave_n, poly_n, bound_o_n, poly_o_positions
+    
     def calculate_tau3(self, ):
         t_max = (self.run_end - self.run_start) * self.dt_collection * self.dt / 1000  # Convert to ns
         backjump_threshold = 100 / (self.dt_collection * self.dt)  # 100 ps within jumps considered transient
