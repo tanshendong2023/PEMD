@@ -23,17 +23,17 @@ class PEMDAnalysis:
         self.anions_wrap = run_wrap.select_atoms(self.anion_name)
 
     @classmethod
-    def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrapped_xtc_file, cation_name, anion_name, run_start,
-                     dt, dt_collection):
+    def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrap_xtc_file, cation_name, anion_name, run_start,
+                     dt, dt_collection, temperature):
 
         tpr_path = os.path.join(work_dir, tpr_file)
         wrap_xtc_path = os.path.join(work_dir, wrap_xtc_file)
-        unwrapped_xtc_path = os.path.join(work_dir, unwrapped_xtc_file)
+        unwrap_xtc_path = os.path.join(work_dir, unwrap_xtc_file)
 
         run_wrap = mda.Universe(tpr_path, wrap_xtc_path)
-        run_unwrap = mda.Universe(tpr_path, unwrapped_xtc_path)
+        run_unwrap = mda.Universe(tpr_path, unwrap_xtc_path)
 
-        return cls(run_wrap, run_unwrap, cation_name, anion_name, run_start, dt, dt_collection)
+        return cls(run_wrap, run_unwrap, cation_name, anion_name, run_start, dt, dt_collection, temperature)
 
     def times_range(self, end_time):
         t_total = end_time - self.run_start
@@ -69,11 +69,3 @@ class PEMDAnalysis:
         v = (run.dimensions[0]) ** 3.0
         slope, time_range = self.get_slope_msd(self.times_range(1000000), self.get_cond_array())
         return calculate_conductivity(slope, v, self.temp)
-
-
-
-
-
-
-
-
