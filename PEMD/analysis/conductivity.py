@@ -3,7 +3,7 @@ from tqdm.auto import tqdm
 from PEMD.analysis import msd
 
 
-def calc_cond_msd(run, cations, anions, run_start, dt_collection, ):
+def calc_cond_msd(run, cations, anions, run_start, ):
 
     # Split atoms into lists by residue for cations and anions
     cations_list = cations.atoms.split("residue")
@@ -11,7 +11,7 @@ def calc_cond_msd(run, cations, anions, run_start, dt_collection, ):
 
     # compute sum over all charges and positions
     qr = []
-    for _ts in tqdm(run.trajectory[int(run_start / dt_collection):]):
+    for _ts in tqdm(run.trajectory[run_start:], desc='Calculating conductivity'):
         qr_temp = np.zeros(3)
         for cation in cations_list:
             qr_temp += cation.center_of_mass() * int(1)

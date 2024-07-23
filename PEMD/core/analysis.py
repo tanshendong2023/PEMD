@@ -7,24 +7,24 @@ from PEMD.analysis.conductivity import calc_cond_msd, calculate_slope_msd, calcu
 
 class PEMDAnalysis:
 
-    def __init__(self, run_wrap, run_unwrap, cation_name, anion_name, run_start, dt, dt_collection, temperature):
+    def __init__(self, run_wrap, run_unwrap, cation_name, anion_name, run_start, run_end, dt, dt_collection,
+                 temperature):
         self.run_wrap = run_wrap
         self.run_unwrap = run_unwrap
-
         self.run_start = run_start
+        self.run_end = run_end
         self.dt = dt
         self.dt_collection = dt_collection
         self.temp = temperature
-
+        self.times = self.times_range(run_end)
         self.cation_name = cation_name
         self.anion_name = anion_name
-
         self.cations_wrap = run_wrap.select_atoms(self.cation_name)
         self.anions_wrap = run_wrap.select_atoms(self.anion_name)
 
     @classmethod
     def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrap_xtc_file, cation_name, anion_name, run_start,
-                     dt, dt_collection, temperature):
+                     run_end, dt, dt_collection, temperature):
 
         tpr_path = os.path.join(work_dir, tpr_file)
         wrap_xtc_path = os.path.join(work_dir, wrap_xtc_file)
@@ -33,7 +33,7 @@ class PEMDAnalysis:
         run_wrap = mda.Universe(tpr_path, wrap_xtc_path)
         run_unwrap = mda.Universe(tpr_path, unwrap_xtc_path)
 
-        return cls(run_wrap, run_unwrap, cation_name, anion_name, run_start, dt, dt_collection, temperature)
+        return cls(run_wrap, run_unwrap, cation_name, anion_name, run_start, run_end, dt, dt_collection, temperature,)
 
     def times_range(self, end_time):
         t_total = end_time - self.run_start
@@ -47,7 +47,6 @@ class PEMDAnalysis:
             self.cations_wrap,
             self.anions_wrap,
             self.run_start,
-            self.dt_collection,
         )
 
     def get_slope_msd(self, times_array, msd_array, interval_time=5000, step_size=20):
@@ -63,9 +62,8 @@ class PEMDAnalysis:
 
         return slope, time_range
 
-    def get_conductivity(self, ):
+    def get_conductivity(self,):
 
-        run = self.run_unwrap
-        v = (run.dimensions[0]) ** 3.0
-        slope, time_range = self.get_slope_msd(self.times_range(1000000), self.get_cond_array())
+        v = (self.run_unwrap.dimensions[0]) ** 3.0
+        slope, time_range = self.get_slope_msd(self.times, self.get_cond_array())
         return calculate_conductivity(slope, v, self.temp)
