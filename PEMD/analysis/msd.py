@@ -160,6 +160,44 @@ def compute_all_Lij(cation_positions, anion_positions, times):
     return msds_all
 
 
+
+def compute_slope_msd(msd, times, dt_collection, dt, interval_time=5000): # 5ns
+    log_time = np.log(times[1:])
+    log_msd = np.log(msd[1:])
+
+    dt_ = dt_collection * dt
+    interval_msd = int(interval_time / dt_)
+    small_interval = 200 # 1ns
+
+    average_slopes = []  # 存储每个大间隔的平均斜率
+    x_ranges = []  # 存储每个大间隔的x坐标范围
+    closest_slope = float('inf')
+    time_range = (None, None)
+
+    for i in range(0, len(log_time) - interval_msd, interval_msd):
+        slopes_log = []
+        for j in range(i, i + interval_msd - small_interval, small_interval):
+            delta_y = log_msd[j + small_interval] - log_msd[j]
+            delta_x = log_time[j + small_interval] - log_time[j]
+            if delta_x != 0:
+                slope_log = delta_y / delta_x
+                slopes_log.append(slope_log)
+
+        # 计算当前大间隔内的平均斜率
+        if slopes_log:
+            average_slope = np.mean(slopes_log)
+            average_slopes.append(average_slope)
+            x_ranges.append((times[i], times[i + interval_msd]))
+
+            # 更新最接近1的平均斜率及其范围
+            if abs(average_slope - 1) < abs(closest_slope - 1):
+                closest_slope = average_slope
+                time_range = (times[i], times[i + interval_msd])
+
+    slope = (msd[int(time_range[1] / dt_)] - msd[int(time_range[0] / dt_)]) / (time_range[1] - time_range[0])
+    return slope, time_range
+
+
 def compute_self_diffusion(atom_positions, times, dt_collection, dt, interval_time):
 
     # Calculate the number of atoms from the dimensions of the atom_positions array

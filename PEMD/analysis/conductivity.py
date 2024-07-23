@@ -39,8 +39,8 @@ def calculate_slope_msd(times_array, msd_array, dt_collection, dt, interval_time
         if i + interval_msd > len(log_time):  # 确保不越界
             break
         # 使用 polyfit 计算一阶线性拟合的斜率
-        coeffs = np.gradient(log_msd[i:i + interval_msd], log_time[i:i + interval_msd])
-        slope = np.mean(coeffs[1:-1])
+        coeffs = np.polyfit(log_time[i:i + interval_msd], log_msd[i:i + interval_msd], 1)
+        slope = coeffs[0]  # 斜率是返回系数的第一个元素
         average_slopes.append(slope)
 
         # 更新最接近1的平均斜率及其范围
@@ -49,10 +49,7 @@ def calculate_slope_msd(times_array, msd_array, dt_collection, dt, interval_time
             time_range = (times_array[i], times_array[i + interval_msd])
 
     # 计算最终斜率
-    if time_range[0] is not None and time_range[1] is not None:
-        final_slope = (msd_array[int(time_range[1] / dt_)] - msd_array[int(time_range[0] / dt_)]) / (time_range[1] - time_range[0])
-    else:
-        final_slope = None  # 无法计算斜率
+    final_slope = (msd_array[int(time_range[1] / dt_)] - msd_array[int(time_range[0] / dt_)]) / (time_range[1] - time_range[0])
 
     return final_slope, time_range
 

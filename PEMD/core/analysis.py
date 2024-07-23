@@ -19,8 +19,8 @@ class PEMDAnalysis:
         self.times = self.times_range(run_end)
         self.cation_name = cation_name
         self.anion_name = anion_name
-        self.cations_wrap = run_wrap.select_atoms(self.cation_name)
-        self.anions_wrap = run_wrap.select_atoms(self.anion_name)
+        self.cations_unwrap = run_unwrap.select_atoms(self.cation_name)
+        self.anions_unwrap = run_unwrap.select_atoms(self.anion_name)
 
     @classmethod
     def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrap_xtc_file, cation_name, anion_name, run_start,
@@ -44,8 +44,8 @@ class PEMDAnalysis:
         run = self.run_unwrap
         return calc_cond_msd(
             run,
-            self.cations_wrap,
-            self.anions_wrap,
+            self.cations_unwrap,
+            self.anions_unwrap,
             self.run_start,
         )
 
