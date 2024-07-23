@@ -5,7 +5,7 @@ from PEMD.analysis import residence_time, coordination
 
 work_dir = './'
 data_tpr_file = 'nvt_prod.tpr'
-dcd_xtc_file = 'unwrapped_traj.xtc'
+dcd_xtc_file = 'nvt_prod_unwrap.xtc'
 
 select_atoms = {
     'cation': 'resname LIP and name Li',

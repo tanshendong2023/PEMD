@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 class PolymerIonDynamics:
 
     def __init__(self, work_dir, tpr_file, xtc_wrap_file, xtc_unwrap_file, cation_atoms, anion_atoms, polymer_atoms,
-                 run_start, run_end, dt, dt_collection, time_window_M1, time_window_M2):
+                 run_start, run_end, dt, dt_collection, ):
         self.work_dir = work_dir
         self.tpr_file = tpr_file
         self.xtc_wrap_file = xtc_wrap_file
@@ -21,8 +21,6 @@ class PolymerIonDynamics:
         self.run_end = run_end
         self.dt = dt
         self.dt_collection = dt_collection
-        self.time_window_M1 = time_window_M1
-        self.time_window_M2 = time_window_M2
 
         self.u_wrap = self.load_trajectory(self.xtc_wrap_file)
         self.u_unwrap = self.load_trajectory(self.xtc_unwrap_file)
@@ -40,10 +38,6 @@ class PolymerIonDynamics:
         self.num_chain = len(np.unique(self.polymer_atoms_unwrap.resids))
         self.num_o_chain = int(self.num_o_polymer // self.num_chain)
 
-        self.times_M1 = self.times_range(self.time_window_M1)
-        self.times_M2 = self.times_range(self.time_window_M2)
-        self.times_MR = self.times_range(self.run_end - self.run_start)
-
         self.initialize_simulation()
 
     def load_trajectory(self, xtc_file):
@@ -55,10 +49,6 @@ class PolymerIonDynamics:
         self.box_size = self.u_unwrap.dimensions[0]
         self.cutoff_radius = self.calculate_cutoff_radius()
         self.poly_o_ave_n, self.poly_n, self.bound_o_n, self.poly_o_positions= self.process_traj()
-        self.msd_M1 = self.calculate_msd_parallel(self.calculate_delta_n_square, self.time_window_M1)
-        self.re_all = self.ms_endtoend_distance()
-        self.msd_oe = self.calculate_oe_msd()
-        self.msd_M2 = self.calculate_msd_parallel(self.calculate_msd_M2, self.time_window_M2)
 
     def calculate_cutoff_radius(self, nbins=200, range_rdf=(0.0, 10.0)):
 
@@ -90,10 +80,11 @@ class PolymerIonDynamics:
 
     def process_traj(self,):
 
-        poly_o_ave_n = np.zeros((len(self.times_MR), self.num_cations))  # Initialize array
-        poly_n = np.zeros((len(self.times_MR), self.num_cations))  # Initialize array
-        bound_o_n = np.full((len(self.times_MR), self.num_cations, 10), -1, dtype=int)  # 初始化bound氧的索引
-        poly_o_positions = np.zeros((len(self.times_MR), self.num_o_polymer, 3))  # 初始化氧坐标的数组
+        times = self.times_range(self.run_end - self.run_start)
+        poly_o_ave_n = np.zeros((len(times), self.num_cations))  # Initialize array
+        poly_n = np.zeros((len(times), self.num_cations))  # Initialize array
+        bound_o_n = np.full((len(times), self.num_cations, 10), -1, dtype=int)  # 初始化bound氧的索引
+        poly_o_positions = np.zeros((len(times), self.num_o_polymer, 3))  # 初始化氧坐标的数组
 
         for ts in tqdm(self.u_unwrap.trajectory[self.run_start: self.run_end], desc='Processing trajectory'):
 
@@ -121,7 +112,7 @@ class PolymerIonDynamics:
                      :] - oe_in_onechain.center_of_mass()
 
         return poly_o_ave_n, poly_n, bound_o_n, poly_o_positions
-    
+
     def calculate_tau3(self, ):
         t_max = (self.run_end - self.run_start) * self.dt_collection * self.dt / 1000  # Convert to ns
         backjump_threshold = 100 / (self.dt_collection * self.dt)  # 100 ps within jumps considered transient
@@ -180,10 +171,10 @@ class PolymerIonDynamics:
 
         return np.mean(msd_in_dt) if msd_in_dt else 0
 
-    def extrapolate_msd(self, tau3,):
-        valid_indices = (self.times_M1 > 0) & (self.msd_M1 > 0)
-        times_filtered = self.times_M1[valid_indices]
-        msd_filtered = self.msd_M1[valid_indices]
+    def extrapolate_msd(self, tau3, times_M1, msd_M1,):
+        valid_indices = (times_M1 > 0) & (msd_M1 > 0)
+        times_filtered = times_M1[valid_indices]
+        msd_filtered = msd_M1[valid_indices]
 
         log_times = np.log(times_filtered)
         log_msd = np.log(msd_filtered)
@@ -226,9 +217,9 @@ class PolymerIonDynamics:
         times = np.arange(0, t_end * self.dt * self.dt_collection, self.dt * self.dt_collection, dtype=int)
         return times
 
-    def calculate_oe_msd(self,):
+    def calculate_oe_msd(self, times_MR):
         n_atoms = np.shape(self.poly_o_positions)[1]
-        msd_oe = msd.calc_Lii_self(self.poly_o_positions, self.times_MR) / n_atoms
+        msd_oe = msd.calc_Lii_self(self.poly_o_positions, times_MR) / n_atoms
         return msd_oe
 
     def calculate_msd_M2(self, dt):
@@ -270,12 +261,12 @@ class PolymerIonDynamics:
 
     def rouse_model(self, t, tau, Re_square,):
         """计算 Rouse 模型的理论值，用于拟合 MSD 数据。"""
-        sum_part = sum([(1 - np.exp(-p ** 2 * t / tau)) / p ** 2 for p in range(1, self.num_chain - 1)])
+        sum_part = sum([(1 - np.exp(-p ** 2 * t / tau)) / p ** 2 for p in range(1, self.num_o_chain - 1)])
         return (2 * Re_square / np.pi ** 2) * sum_part
 
-    def fit_rouse_model(self, times, msd):
+    def fit_rouse_model(self, re_all, times, msd):
         """计算 Rouse 时间常数并拟合 MSD 数据。"""
-        Re_square = np.mean(self.re_all)  # 平均平方端到端距离
+        Re_square = np.mean(re_all)  # 平均平方端到端距离
         tau,_ = curve_fit(lambda t, tau: self.rouse_model(t, tau, Re_square), times, msd)
         return tau[0] / 1000
 

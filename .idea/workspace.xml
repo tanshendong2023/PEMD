@@ -5,8 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/PEMD/core/analysis.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/conductivity.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/conductivity.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/msd.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/msd.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/residence_time.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/residence_time.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/workflow/M1-M3.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/M1-M3.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/workflow/M2.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/M2.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/workflow/MR.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/MR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/workflow/polymer_motion.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/polymer_motion.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/workflow/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

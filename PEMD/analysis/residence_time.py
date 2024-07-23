@@ -47,11 +47,11 @@ def load_data_traj(work_dir, data_tpr_file, dcd_xtc_file, select_atoms, run_star
 
             distances_oe_vec = distance(oe_atoms.positions, li.position, box_size)
             distances_oe = np.linalg.norm(distances_oe_vec, axis=1)
-            close_oe_index = np.where(distances_oe < cutoff_radii['PEO'])[0]
+            close_oe_index = np.where(distances_oe <= cutoff_radii['PEO'])[0]
 
             distances_tfsi_vec = distance(tfsi_atoms.positions, li.position, box_size)
             distances_tfsi = np.linalg.norm(distances_tfsi_vec, axis=1)
-            close_tfsi_index = np.where(distances_tfsi < cutoff_radii['TFSI'])[0]
+            close_tfsi_index = np.where(distances_tfsi <= cutoff_radii['TFSI'])[0]
 
             if len(close_oe_index) > 0:  # 确保选择的Li都和醚氧相互作用
                 o_resids = oe_atoms[close_oe_index].resids  # 找到醚氧所在的链

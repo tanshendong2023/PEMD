@@ -10,7 +10,7 @@ from PEMD.analysis import residence_time, coordination
 
 work_dir = './'
 data_tpr_file = 'nvt_prod.tpr'
-dcd_xtc_file = 'unwrapped_traj.xtc'
+dcd_xtc_file = 'nvt_prod_unwrap.xtc'
 
 select_atoms = {
     'cation': 'resname LIP and name Li',
@@ -49,7 +49,7 @@ dt_collection = 5000 # step
 num_li = 50
 num_oe = 50
 chains = 20
-time_window = 2001
+time_window = 501
 
 
 def distance(x0, x1, box_length):
@@ -91,7 +91,7 @@ def load_data_traj(work_dir, data_tpr_file, dcd_xtc_file, select_atoms, run_star
 
             distances_oe_vec = distance(oe_atoms.positions, li.position, box_size)
             distances_oe = np.linalg.norm(distances_oe_vec, axis=1)
-            close_oe_index = np.where(distances_oe < cutoff_radii['PEO'])[0]
+            close_oe_index = np.where(distances_oe <= cutoff_radii['PEO'])[0]
 
             if len(close_oe_index) > 0:  # 确保选择的Li都和醚氧相互作用
                 o_resids = oe_atoms[close_oe_index].resids  # 找到醚氧所在的链
@@ -211,7 +211,7 @@ if __name__ == '__main__':
 
     # Write results to a text file
     with open(results_file_path, 'w') as file:
-        file.write(f"Calculated τR: {tau2:.2f} ns\n")
+        file.write(f"Calculated τ2: {tau2:.2f} ns\n")
 
     print(f"Results saved to {results_file_path}")
 

@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 work_dir = './'
 data_tpr_file = 'nvt_prod.tpr'
-dcd_xtc_file = 'unwrapped_traj.xtc'
+dcd_xtc_file = 'nvt_prod_unwrap.xtc'
 
 select_atoms = {
     'cation': 'resname LIP and name Li',
@@ -81,7 +81,7 @@ def load_data_traj(work_dir, data_tpr_file, dcd_xtc_file, select_atoms, run_star
 
             distances_oe_vec = distance(oe_atoms.positions, li.position, box_size)
             distances_oe = np.linalg.norm(distances_oe_vec, axis=1)
-            close_oe_index = np.where(distances_oe < cutoff_radii['PEO'])[0]
+            close_oe_index = np.where(distances_oe <= cutoff_radii['PEO'])[0]
 
             if len(close_oe_index) > 0:  # 确保选择的Li都和醚氧相互作用
                 o_resids = oe_atoms[close_oe_index].resids  # 找到醚氧所在的链
@@ -119,7 +119,6 @@ def compute_delta_n_square(dt, oe_ave_n, poly_n, run_start, run_end, threshold):
             msd_in_dt.append(np.mean(delta_n_square_filtered))
 
     return np.mean(msd_in_dt) if msd_in_dt else 0
-
 
 def compute_dn_msd_parallel(oe_ave_n, poly_n, run_start, run_end, time_window, dt, dt_collection, threshold=0.05):
     times = np.arange(0, time_window * dt * dt_collection, dt * dt_collection, dtype=int)
