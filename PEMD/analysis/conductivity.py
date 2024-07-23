@@ -40,7 +40,7 @@ def calculate_slope_msd(times_array, msd_array, dt_collection, dt, interval_time
             break
         # 使用 polyfit 计算一阶线性拟合的斜率
         coeffs = np.gradient(log_msd[i:i + interval_msd], log_time[i:i + interval_msd])
-        slope = np.mean(coeffs)
+        slope = np.mean(coeffs[1:-1])
         average_slopes.append(slope)
 
         # 更新最接近1的平均斜率及其范围
