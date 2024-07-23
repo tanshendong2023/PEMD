@@ -47,7 +47,6 @@ class PEMDAnalysis:
             self.cations_wrap,
             self.anions_wrap,
             self.run_start,
-            self.run_end,
         )
 
     def get_slope_msd(self, times_array, msd_array, interval_time=5000, step_size=20):
