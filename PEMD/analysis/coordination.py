@@ -1,3 +1,8 @@
+
+# ****************************************************************************** #
+#        The module implements functions to calculate the coordination           #
+# ****************************************************************************** #
+
 import os
 import numpy as np
 import MDAnalysis as mda
@@ -5,28 +10,18 @@ from tqdm.auto import tqdm
 from MDAnalysis.analysis import rdf
 
 
-def calculate_rdf_and_coordination(u, group1, group2, nbins=200, range_rdf=(0.0, 10.0)):
+def calc_rdf_coord(group1, group2, v, nbins=200, range_rdf=(0.0, 10.0)):
     # Initialize RDF analysis
     rdf_analysis = rdf.InterRDF(group1, group2, nbins=nbins, range=range_rdf)
     rdf_analysis.run()
 
     # Calculate coordination numbers
-    volume = u.coord.volume
-    rho = group2.n_atoms / volume  # Density of the second group
-
+    rho = group2.n_atoms / v  # Density of the second group
     bins = rdf_analysis.results.bins
     rdf_values = rdf_analysis.results.rdf
     coord_numbers = np.cumsum(4 * np.pi * bins**2 * rdf_values * np.diff(np.append(0, bins)) * rho)
 
     return bins, rdf_values, coord_numbers
-
-
-def load_md_trajectory(work_dir, tpr_filename='nvt_prod.tpr', xtc_filename='nvt_prod.xtc'):
-    data_tpr_file = os.path.join(work_dir, tpr_filename)
-    data_xtc_file = os.path.join(work_dir, xtc_filename)
-    u = mda.Universe(data_tpr_file, data_xtc_file)
-    return u
-
 
 def obtain_rdf_coord(bins, rdf, coord_numbers):
     # 计算一阶导数的符号变化
@@ -45,10 +40,20 @@ def obtain_rdf_coord(bins, rdf, coord_numbers):
 
     # 极小点处的坐标和配位数
     x_val = round(float(bins[first_min_index]), 3)  # 显式转换为 float 后四舍五入至三位小数
-    y_rdf = round(float(rdf[first_min_index]), 3)   # 显式转换为 float 后四舍五入至三位小数
+    # y_rdf = round(float(rdf[first_min_index]), 3)   # 显式转换为 float 后四舍五入至三位小数
     y_coord = round(float(np.interp(x_val, bins, coord_numbers)), 3)  # 显式转换为 float 后四舍五入至三位小数
 
-    return x_val, y_rdf, y_coord
+    return x_val, y_coord
+
+
+def load_md_trajectory(work_dir, tpr_filename='nvt_prod.tpr', xtc_filename='nvt_prod.xtc'):
+    data_tpr_file = os.path.join(work_dir, tpr_filename)
+    data_xtc_file = os.path.join(work_dir, xtc_filename)
+    u = mda.Universe(data_tpr_file, data_xtc_file)
+    return u
+
+
+
 
 
 def distance(x0, x1, box_length):

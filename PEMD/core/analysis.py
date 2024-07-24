@@ -4,6 +4,7 @@ import numpy as np
 import MDAnalysis as mda
 from PEMD.analysis.conductivity import calc_cond_msd, calc_conductivity
 from PEMD.analysis.transfer_number import calc_transfer_number
+from PEMD.analysis.coordination import calc_rdf_coord, obtain_rdf_coord
 from PEMD.analysis.msd import (
     calc_slope_msd,
     create_position_arrays,
@@ -29,7 +30,7 @@ class PEMDAnalysis:
         self.anion_name = anion_name
         self.cations_unwrap = run_unwrap.select_atoms(self.cation_name)
         self.anions_unwrap = run_unwrap.select_atoms(self.anion_name)
-        self.volume = self.run_unwrap.dimensions[0] ** 3.0
+        self.volume = self.run_unwrap.coord.volume
 
     @classmethod
     def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrap_xtc_file, cation_name, anion_name, run_start,
@@ -110,7 +111,7 @@ class PEMDAnalysis:
 
     def get_Lii_array(self, ion_type):
         ions_positions = self.get_ions_positions_array(ion_type)
-        return calc_Lii(ions_positions, self.times)
+        return calc_Lii(ions_positions)
 
     def get_transfer_number(self):
 
@@ -131,6 +132,28 @@ class PEMDAnalysis:
             self.volume,
             self.get_conductivity()
         )
+
+    def get_rdf_coordination_array(self, group1_name, group2_name):
+
+        group1 = self.run_wrap.select_atoms(group1_name)
+        group2 = self.run_wrap.select_atoms(group2_name)
+        bins, rdf, coord_number = calc_rdf_coord(
+            group1,
+            group2,
+            self.volume
+        )
+        return bins, rdf, coord_number
+
+    def get_coordination_number(self, group1_name, group2_name):
+
+        bins, rdf, coord_number = self.get_rdf_coordination_array(group1_name, group2_name)
+        y_coord = obtain_rdf_coord(bins, rdf, coord_number)[1]
+
+        return y_coord
+
+
+
+
 
 
 
