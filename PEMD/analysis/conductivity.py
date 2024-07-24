@@ -1,3 +1,9 @@
+
+# ****************************************************************************** #
+#      The module implements functions to calculate the ionic conductivity       #
+# ****************************************************************************** #
+
+
 import numpy as np
 from tqdm.auto import tqdm
 from PEMD.analysis import msd
@@ -20,41 +26,8 @@ def calc_cond_msd(run, cations, anions, run_start, ):
         qr.append(qr_temp)
     return msd.msd_fft(np.array(qr))
 
-def calculate_slope_msd(times_array, msd_array, dt_collection, dt, interval_time=5000, step_size=20):
-    # 对数变换
-    log_time = np.log(times_array[1:])
-    log_msd = np.log(msd_array[1:])
-
-    # 计算时间间隔
-    dt_ = dt_collection * dt
-    interval_msd = int(interval_time / dt_)
-
-    # 初始化列表存储每个大间隔的平均斜率
-    average_slopes = []
-    closest_slope = float('inf')
-    time_range = (None, None)
-
-    # 使用滑动窗口计算每个大间隔的平均斜率
-    for i in range(0, len(log_time) - interval_msd, step_size):
-        if i + interval_msd > len(log_time):  # 确保不越界
-            break
-        # 使用 polyfit 计算一阶线性拟合的斜率
-        coeffs = np.polyfit(log_time[i:i + interval_msd], log_msd[i:i + interval_msd], 1)
-        slope = coeffs[0]  # 斜率是返回系数的第一个元素
-        average_slopes.append(slope)
-
-        # 更新最接近1的平均斜率及其范围
-        if abs(slope - 1) < abs(closest_slope - 1):
-            closest_slope = slope
-            time_range = (times_array[i], times_array[i + interval_msd])
-
-    # 计算最终斜率
-    final_slope = (msd_array[int(time_range[1] / dt_)] - msd_array[int(time_range[0] / dt_)]) / (time_range[1] - time_range[0])
-
-    return final_slope, time_range
-
-def calculate_conductivity(slope, v, T):
-    # 从斜率计算电导率
+def calc_conductivity(slope, v, T):
+    # Calculate conductivity from the slope
     A2cm = 1e-8  # Angstroms to cm
     ps2s = 1e-12  # picoseconds to seconds
     e2c = 1.60217662e-19  # elementary charge to Coulomb
@@ -64,8 +37,3 @@ def calculate_conductivity(slope, v, T):
     cond = slope / 6 / kb / T / v * convert   # "mS/cm"
 
     return cond
-
-
-
-
-

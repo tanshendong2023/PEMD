@@ -2,7 +2,15 @@
 import os
 import numpy as np
 import MDAnalysis as mda
-from PEMD.analysis.conductivity import calc_cond_msd, calculate_slope_msd, calculate_conductivity
+from PEMD.analysis.conductivity import calc_cond_msd, calc_conductivity
+from PEMD.analysis.transfer_number import calc_transfer_number
+from PEMD.analysis.msd import (
+    calc_slope_msd,
+    create_position_arrays,
+    calc_Lii_self,
+    calc_Lii,
+    calc_self_diffusion_coeff,
+)
 
 
 class PEMDAnalysis:
@@ -21,6 +29,7 @@ class PEMDAnalysis:
         self.anion_name = anion_name
         self.cations_unwrap = run_unwrap.select_atoms(self.cation_name)
         self.anions_unwrap = run_unwrap.select_atoms(self.anion_name)
+        self.volume = self.run_unwrap.dimensions[0] ** 3.0
 
     @classmethod
     def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrap_xtc_file, cation_name, anion_name, run_start,
@@ -51,7 +60,7 @@ class PEMDAnalysis:
 
     def get_slope_msd(self, times_array, msd_array, interval_time=5000, step_size=20):
 
-        slope, time_range = calculate_slope_msd(
+        slope, time_range = calc_slope_msd(
             times_array,
             msd_array,
             self.dt_collection,
@@ -62,8 +71,69 @@ class PEMDAnalysis:
 
         return slope, time_range
 
-    def get_conductivity(self,):
+    def get_conductivity(self):
 
-        v = (self.run_unwrap.dimensions[0]) ** 3.0
-        slope, time_range = self.get_slope_msd(self.times, self.get_cond_array())
-        return calculate_conductivity(slope, v, self.temp)
+        slope, time_range = self.get_slope_msd(
+            self.times,
+            self.get_cond_array()
+        )
+
+        return calc_conductivity(slope, self.volume, self.temp)
+
+    def get_ions_positions_array(self, ion_type):
+
+        if ion_type not in ['cations', 'anions']:
+            raise ValueError("ion_type must be 'cations' or 'anions'")
+        ions = self.cations_unwrap if ion_type == 'cations' else self.anions_unwrap
+
+        return create_position_arrays(
+            self.run_unwrap,
+            ions,
+            self.times,
+            self.run_start,
+        )
+
+    def get_Lii_self_array(self, ion_type):
+
+        ions_positions = self.get_ions_positions_array(ion_type)
+        n_atoms = np.shape(ions_positions)[1]
+        return calc_Lii_self(ions_positions, self.times) / n_atoms
+
+    def get_self_diffusion_coefficient(self, ion_type='cations'):
+
+        slope, time_range = self.get_slope_msd(
+            self.times,
+            self.get_Lii_self_array(ion_type)
+        )
+
+        return calc_self_diffusion_coeff(slope,)
+
+    def get_Lii_array(self, ion_type):
+        ions_positions = self.get_ions_positions_array(ion_type)
+        return calc_Lii(ions_positions, self.times)
+
+    def get_transfer_number(self):
+
+        slope_plusplus, time_range_plusplus = self.get_slope_msd(
+            self.times,
+            self.get_Lii_array('cations')
+        )
+
+        slope_minusminus, time_range_minusminus = self.get_slope_msd(
+            self.times,
+            self.get_Lii_array('anions')
+        )
+
+        return calc_transfer_number(
+            slope_plusplus,
+            slope_minusminus,
+            self.temp,
+            self.volume,
+            self.get_conductivity()
+        )
+
+
+
+
+
+
