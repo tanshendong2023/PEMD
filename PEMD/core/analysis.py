@@ -111,7 +111,7 @@ class PEMDAnalysis:
 
         cations_positions, anions_positions = self.get_ions_positions_array()
         slope_plusplus, time_range_plusplus = self.get_slope_msd(calc_Lii(cations_positions))
-        slope_minusminus, time_range_minusminus = self.get_slope_msd(self.times, calc_Lii(anions_positions))
+        slope_minusminus, time_range_minusminus = self.get_slope_msd(calc_Lii(anions_positions))
 
         return calc_transfer_number(
             slope_plusplus,
