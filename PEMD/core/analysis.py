@@ -74,7 +74,7 @@ class PEMDAnalysis:
 
         return slope, time_range
 
-    # @lru_cache(maxsize=128)
+    @lru_cache(maxsize=128)
     def get_conductivity(self):
 
         slope, time_range = self.get_slope_msd(self.get_cond_array())
