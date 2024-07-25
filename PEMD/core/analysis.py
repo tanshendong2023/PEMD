@@ -2,6 +2,8 @@
 import os
 import numpy as np
 import MDAnalysis as mda
+from typing import Tuple
+from functools import lru_cache
 from PEMD.analysis.conductivity import calc_cond_msd, calc_conductivity
 from PEMD.analysis.transfer_number import calc_transfer_number
 from PEMD.analysis.coordination import calc_rdf_coord, obtain_rdf_coord
@@ -25,7 +27,7 @@ class PEMDAnalysis:
         self.dt = dt
         self.dt_collection = dt_collection
         self.temp = temperature
-        self.times = self.times_range(run_end)
+        self.times = self.times_range(self.run_end)
         self.cation_name = cation_name
         self.anion_name = anion_name
         self.cations_unwrap = run_unwrap.select_atoms(self.cation_name)
@@ -59,10 +61,10 @@ class PEMDAnalysis:
             self.run_start,
         )
 
-    def get_slope_msd(self, times_array, msd_array, interval_time=5000, step_size=20):
+    def get_slope_msd(self, msd_array, interval_time=5000, step_size=20):
 
         slope, time_range = calc_slope_msd(
-            times_array,
+            self.times,
             msd_array,
             self.dt_collection,
             self.dt,
@@ -74,56 +76,42 @@ class PEMDAnalysis:
 
     def get_conductivity(self):
 
-        slope, time_range = self.get_slope_msd(
-            self.times,
-            self.get_cond_array()
-        )
+        slope, time_range = self.get_slope_msd(self.get_cond_array())
 
         return calc_conductivity(slope, self.volume, self.temp)
 
-    def get_ions_positions_array(self, ion_type):
+    @lru_cache(maxsize=128)
+    def get_ions_positions_array(self):
 
-        if ion_type not in ['cations', 'anions']:
-            raise ValueError("ion_type must be 'cations' or 'anions'")
-        ions = self.cations_unwrap if ion_type == 'cations' else self.anions_unwrap
-
-        return create_position_arrays(
+        cations_positions, anions_positions = create_position_arrays(
             self.run_unwrap,
-            ions,
+            self.cations_unwrap,
+            self.anions_unwrap,
             self.times,
             self.run_start,
         )
+        return cations_positions, anions_positions
 
-    def get_Lii_self_array(self, ion_type):
+    def get_Lii_self_array(self, atom_positions):
+        n_atoms = np.shape(atom_positions)[1]
+        return calc_Lii_self(atom_positions, self.times) / n_atoms
 
-        ions_positions = self.get_ions_positions_array(ion_type)
-        n_atoms = np.shape(ions_positions)[1]
-        return calc_Lii_self(ions_positions, self.times) / n_atoms
+    def get_self_diffusion_coefficient(self) -> Tuple[float, float]:
 
-    def get_self_diffusion_coefficient(self, ion_type='cations'):
+        cations_positions, anions_positions = self.get_ions_positions_array()
+        slope_cations, time_range_cations = self.get_slope_msd(self.get_Lii_self_array(cations_positions))
+        slope_anions, time_range_anions = self.get_slope_msd(self.get_Lii_self_array(anions_positions))
 
-        slope, time_range = self.get_slope_msd(
-            self.times,
-            self.get_Lii_self_array(ion_type)
-        )
+        D_cations = calc_self_diffusion_coeff(slope_cations)
+        D_anions = calc_self_diffusion_coeff(slope_anions)
 
-        return calc_self_diffusion_coeff(slope,)
-
-    def get_Lii_array(self, ion_type):
-        ions_positions = self.get_ions_positions_array(ion_type)
-        return calc_Lii(ions_positions)
+        return D_cations, D_anions
 
     def get_transfer_number(self):
 
-        slope_plusplus, time_range_plusplus = self.get_slope_msd(
-            self.times,
-            self.get_Lii_array('cations')
-        )
-
-        slope_minusminus, time_range_minusminus = self.get_slope_msd(
-            self.times,
-            self.get_Lii_array('anions')
-        )
+        cations_positions, anions_positions = self.get_ions_positions_array()
+        slope_plusplus, time_range_plusplus = self.get_slope_msd(calc_Lii(cations_positions))
+        slope_minusminus, time_range_minusminus = self.get_slope_msd(self.times, calc_Lii(anions_positions))
 
         return calc_transfer_number(
             slope_plusplus,
@@ -150,13 +138,3 @@ class PEMDAnalysis:
         y_coord = obtain_rdf_coord(bins, rdf, coord_number)[1]
 
         return y_coord
-
-
-
-
-
-
-
-
-
-
