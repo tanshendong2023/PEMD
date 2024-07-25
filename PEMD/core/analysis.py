@@ -32,7 +32,7 @@ class PEMDAnalysis:
         self.anion_name = anion_name
         self.cations_unwrap = run_unwrap.select_atoms(self.cation_name)
         self.anions_unwrap = run_unwrap.select_atoms(self.anion_name)
-        self.volume = run_unwrap.dimensions[0] ** 3.0
+        self.volume = self.run_unwrap.coord.volume
 
     @classmethod
     def from_gromacs(cls, work_dir, tpr_file, wrap_xtc_file, unwrap_xtc_file, cation_name, anion_name, run_start,
@@ -74,7 +74,7 @@ class PEMDAnalysis:
 
         return slope, time_range
 
-    @lru_cache(maxsize=128)
+    # @lru_cache(maxsize=128)
     def get_conductivity(self):
 
         slope, time_range = self.get_slope_msd(self.get_cond_array())
