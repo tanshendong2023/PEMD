@@ -67,14 +67,14 @@ class PEMDAnalysis:
                    temperature,)
 
     def times_range(self, end_time):
+
         t_total = end_time - self.run_start
         return np.arange(0, t_total * self.dt * self.dt_collection, self.dt * self.dt_collection, dtype=int)
 
     def get_cond_array(self):
 
-        run = self.run_unwrap
         return calc_cond_msd(
-            run,
+            self.run_unwrap,
             self.cations_unwrap,
             self.anions_unwrap,
             self.run_start,
@@ -90,15 +90,16 @@ class PEMDAnalysis:
             interval_time,
             step_size
         )
-
         return slope, time_range
 
     @lru_cache(maxsize=128)
     def get_conductivity(self):
 
-        slope, time_range = self.get_slope_msd(self.get_cond_array())
-
-        return calc_conductivity(slope, self.volume, self.temp)
+        return calc_conductivity(
+            self.get_slope_msd(self.get_cond_array())[0],
+            self.volume,
+            self.temp
+        )
 
     @lru_cache(maxsize=128)
     def get_ions_positions_array(self):
@@ -113,6 +114,7 @@ class PEMDAnalysis:
         return cations_positions, anions_positions
 
     def get_Lii_self_array(self, atom_positions):
+
         n_atoms = np.shape(atom_positions)[1]
         return calc_Lii_self(atom_positions, self.times) / n_atoms
 
@@ -124,7 +126,6 @@ class PEMDAnalysis:
 
         D_cations = calc_self_diffusion_coeff(slope_cations)
         D_anions = calc_self_diffusion_coeff(slope_anions)
-
         return D_cations, D_anions
 
     def get_transfer_number(self):
@@ -132,7 +133,6 @@ class PEMDAnalysis:
         cations_positions, anions_positions = self.get_ions_positions_array()
         slope_plusplus, time_range_plusplus = self.get_slope_msd(calc_Lii(cations_positions))
         slope_minusminus, time_range_minusminus = self.get_slope_msd(calc_Lii(anions_positions))
-
         return calc_transfer_number(
             slope_plusplus,
             slope_minusminus,
@@ -159,6 +159,7 @@ class PEMDAnalysis:
 
         return y_coord
 
+    @lru_cache(maxsize=128)
     def get_cutoff_radius(self, group1_name, group2_name):
 
         bins, rdf, coord_number = self.get_rdf_coordination_array(group1_name, group2_name)
@@ -187,14 +188,13 @@ class PEMDAnalysis:
     @lru_cache(maxsize=128)
     def get_tau3(self):
 
-        poly_n = self.get_poly_array()[1]
         return calc_tau3(
             self.dt,
             self.dt_collection,
             self.num_cation,
             self.run_start,
             self.run_end,
-            poly_n
+            self.get_poly_array()[1]
         )
 
     def get_delta_n_square_array(self, time_window,):
@@ -234,8 +234,9 @@ class PEMDAnalysis:
 
     def get_oe_msd_array(self):
 
-        poly_o_positions = self.get_poly_array()[3]
-        return self.get_Lii_self_array(poly_o_positions)
+        return self.get_Lii_self_array(
+            self.get_poly_array()[3]
+        )
 
     def get_tauR(self):
 

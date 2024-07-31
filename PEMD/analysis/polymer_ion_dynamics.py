@@ -126,7 +126,7 @@ def calc_tau1(tau3, times_M1, msd_M1, num_cations):
 def ms_endtoend_distance(run, num_chain, polymers_unwrap, box_size, run_start, run_end,):
 
     re_all = []
-    for ts in tqdm(run.trajectory[run_start: run_end], desc="Processing"):
+    for ts in tqdm(run.trajectory[run_start: run_end], desc="Calculating end-to-end distance"):
         ts_vectors = []
 
         for mol_id in range(1, int(num_chain) + 1):  # Assuming 20 molecules
