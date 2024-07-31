@@ -4,7 +4,9 @@ import numpy as np
 import MDAnalysis as mda
 from typing import Tuple
 from tqdm.auto import tqdm
+from functools import partial
 from functools import lru_cache
+from multiprocessing import Pool
 from PEMD.analysis.conductivity import calc_cond_msd, calc_conductivity
 from PEMD.analysis.transfer_number import calc_transfer_number
 from PEMD.analysis.coordination import calc_rdf_coord, obtain_rdf_coord
@@ -221,6 +223,7 @@ class PEMDAnalysis:
             self.num_cation
         )
 
+    @lru_cache(maxsize=128)
     def get_ms_endtoend_distance_array(self):
 
         return ms_endtoend_distance(
@@ -249,19 +252,16 @@ class PEMDAnalysis:
 
     def get_msd_M2_array(self, time_window):
 
-        msd = []
         poly_o_n = self.get_poly_array()[0]
         bound_o_n = self.get_poly_array()[2]
         poly_o_positions = self.get_poly_array()[3]
-        with ProcessPoolExecutor() as executor:
-            futures = {executor.submit(calc_msd_M2, dt, poly_o_positions, poly_o_n, bound_o_n, self.run_start,
-                                       self.run_end): dt for dt in range(time_window)}
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Calculating MSD of M2"):
-                dt = futures[future]
-                msd_result = future.result()
-                msd.append((dt, msd_result))
-        msd.sort(key=lambda x: x[0])
-        return np.array([result for _, result in msd])
+
+        params = (poly_o_positions, poly_o_n, bound_o_n, self.run_start, self.run_end)
+        partial_calc_msd_M2 = partial(calc_msd_M2, params=params)
+
+        with Pool() as pool:
+            msd = list(tqdm(pool.imap(partial_calc_msd_M2, range(time_window)), total=time_window))
+        return np.array(msd)
 
     def get_tau2(self, time_window):
 
@@ -272,8 +272,6 @@ class PEMDAnalysis:
             self.num_o_chain
         )
 
-    def new(self):
-        pass
 
 
 
