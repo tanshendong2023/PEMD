@@ -272,6 +272,9 @@ class PEMDAnalysis:
             self.num_o_chain
         )
 
+    def new(self):
+        pass
+
 
 
 
