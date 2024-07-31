@@ -256,8 +256,8 @@ class PEMDAnalysis:
         bound_o_n = self.get_poly_array()[2]
         poly_o_positions = self.get_poly_array()[3]
 
-        params = (poly_o_positions, poly_o_n, bound_o_n, self.run_start, self.run_end)
-        partial_calc_msd_M2 = partial(calc_msd_M2, params=params)
+        partial_calc_msd_M2 = partial(calc_msd_M2, poly_o_positions=poly_o_positions, poly_o_n=poly_o_n,
+                                      bound_o_n=bound_o_n, run_start=self.run_start, run_end=self.run_end)
 
         with Pool() as pool:
             msd = list(tqdm(pool.imap(partial_calc_msd_M2, range(time_window)), total=time_window))
