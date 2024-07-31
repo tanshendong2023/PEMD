@@ -171,7 +171,6 @@ def compute_msd_for_dt(dt, threshold=0.85):
 
     return np.mean(msd_in_t) if msd_in_t else 0
 
-
 def compute_tR(re_all, times, num_oe, msd_oe):
     """计算 Rouse 时间常数并拟合 MSD 数据。"""
     Re_square = np.mean(re_all)  # 平均平方端到端距离

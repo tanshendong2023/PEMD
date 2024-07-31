@@ -130,10 +130,15 @@ def calc_slope_msd(times_array, msd_array, dt_collection, dt, interval_time=5000
     for i in range(0, len(log_time) - interval_msd, step_size):
         if i + interval_msd > len(log_time):  # Ensure not to go out of bounds
             break
-        # Use polyfit to calculate the slope of the first-order linear fit
-        coeffs = np.polyfit(log_time[i:i + interval_msd], log_msd[i:i + interval_msd], 1)
-        slope = coeffs[0]  # The slope is the first element of the returned coefficients
+        # 使用 np.gradient 计算斜率
+        local_slope = np.gradient(log_msd[i:i + interval_msd], log_time[i:i + interval_msd])
+        slope = np.mean(local_slope)
         average_slopes.append(slope)
+
+        # # Use polyfit to calculate the slope of the first-order linear fit
+        # coeffs = np.polyfit(log_time[i:i + interval_msd], log_msd[i:i + interval_msd], 1)
+        # slope = coeffs[0]  # The slope is the first element of the returned coefficients
+        # average_slopes.append(slope)
 
         # Update the average slope closest to 1 and its range
         if abs(slope - 1) < abs(closest_slope - 1):
