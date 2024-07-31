@@ -201,18 +201,26 @@ class PEMDAnalysis:
 
     def get_delta_n_square_array(self, time_window,):
 
-        msd = []
+        # msd = []
         poly_o_n = self.get_poly_array()[0]
         poly_n = self.get_poly_array()[1]
-        with ProcessPoolExecutor() as executor:
-            futures = {executor.submit(calc_delta_n_square, dt, poly_o_n, poly_n, self.run_start, self.run_end): dt for
-                       dt in range(time_window)}
-            for future in tqdm(as_completed(futures), total=len(futures), desc="Calculating MSD of M1"):
-                dt = futures[future]
-                msd_result = future.result()
-                msd.append((dt, msd_result))
-        msd.sort(key=lambda x: x[0])
-        return np.array([result for _, result in msd])
+
+        partial_calc_delta_n_square = partial(calc_delta_n_square, poly_o_n=poly_o_n, poly_n=poly_n,
+                                              run_start=self.run_start, run_end=self.run_end)
+
+        with Pool() as pool:
+            msd = list(tqdm(pool.imap(partial_calc_delta_n_square, range(time_window)), total=time_window))
+        return np.array(msd)
+
+        # with ProcessPoolExecutor() as executor:
+        #     futures = {executor.submit(calc_delta_n_square, dt, poly_o_n, poly_n, self.run_start, self.run_end): dt for
+        #                dt in range(time_window)}
+        #     for future in tqdm(as_completed(futures), total=len(futures), desc="Calculating MSD of M1"):
+        #         dt = futures[future]
+        #         msd_result = future.result()
+        #         msd.append((dt, msd_result))
+        # msd.sort(key=lambda x: x[0])
+        # return np.array([result for _, result in msd])
 
     def get_tau1(self, time_window):
 
