@@ -81,7 +81,7 @@ class PEMDAnalysis:
             self.run_start,
         )
 
-    def get_slope_msd(self, msd_array, interval_time=5000, step_size=20):
+    def get_slope_msd(self, msd_array, interval_time=10000, step_size=10):
 
         slope, time_range = calc_slope_msd(
             self.times,

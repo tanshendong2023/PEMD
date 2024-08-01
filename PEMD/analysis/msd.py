@@ -112,7 +112,7 @@ def create_position_arrays(run, cations, anions, times, run_start,):
 
     return cation_positions, anion_positions
 
-def calc_slope_msd(times_array, msd_array, dt_collection, dt, interval_time=5000, step_size=20):
+def calc_slope_msd(times_array, msd_array, dt_collection, dt, interval_time=10000, step_size=10):
     # Log transformation
     log_time = np.log(times_array[1:])
     log_msd = np.log(msd_array[1:])
