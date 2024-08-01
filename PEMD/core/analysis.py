@@ -10,7 +10,6 @@ from multiprocessing import Pool
 from PEMD.analysis.conductivity import calc_cond_msd, calc_conductivity
 from PEMD.analysis.transfer_number import calc_transfer_number
 from PEMD.analysis.coordination import calc_rdf_coord, obtain_rdf_coord
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from PEMD.analysis.msd import (
     calc_slope_msd,
     create_position_arrays,
