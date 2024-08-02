@@ -217,7 +217,7 @@ class PEMDAnalysis:
             self.get_tau3(),
             self.times_range(time_window),
             self.get_delta_n_square_array(time_window),
-            self.num_cation
+            self.num_o_chain
         )
 
     @lru_cache(maxsize=128)

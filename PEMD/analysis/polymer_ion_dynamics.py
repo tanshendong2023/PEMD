@@ -105,7 +105,7 @@ def calc_delta_n_square(dt, poly_o_n, poly_n, run_start, run_end):
 
     return np.mean(msd_in_dt) if msd_in_dt else 0
 
-def calc_tau1(tau3, times_M1, msd_M1, num_cations):
+def calc_tau1(tau3, times_M1, msd_M1, num_o_chain):
     valid_indices = (times_M1 > 0) & (msd_M1 > 0)
     times_filtered = times_M1[valid_indices]
     msd_filtered = msd_M1[valid_indices]
@@ -119,7 +119,7 @@ def calc_tau1(tau3, times_M1, msd_M1, num_cations):
 
     slope_at_t_extrap = np.exp(intercept) * 0.8 * t_extrap ** (0.8 - 1)
     D1 = slope_at_t_extrap / 2
-    tau1 = ((num_cations - 1) ** 2) / (math.pi ** 2 * D1) / 1000
+    tau1 = ((num_o_chain - 1) ** 2) / (math.pi ** 2 * D1) / 1000
 
     return tau1
 
