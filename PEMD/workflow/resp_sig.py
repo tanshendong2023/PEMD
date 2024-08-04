@@ -10,8 +10,7 @@ Date: 2024-03-30
 
 
 from PEMD.model import poly
-from PEMD.sim import qm
-
+from PEMD.core import qm
 
 unit_name = 'PEO'
 repeating_unit = '[*]CCO[*]'

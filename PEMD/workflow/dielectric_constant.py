@@ -7,9 +7,9 @@ Author: Shendong Tan
 Date: 2024-04-22
 """
 
-
+from PEMD.core import MD, qm
 from PEMD.model import build
-from PEMD.sim import qm, MD
+
 # from PEMD.analysis import prop
 
 

@@ -11,11 +11,11 @@ import time
 import shutil
 import subprocess
 import parmed as pmd
-from PEMD.sim import qm
+from PEMD.core import qm
 from foyer import Forcefield
 from simple_slurm import Slurm
 from LigParGenPEMD import Converter
-from PEMD.model import build, PEMD_lib
+from PEMD.model import PEMD_lib, build
 import importlib.resources as pkg_resources
 
 
@@ -177,7 +177,7 @@ def process_compound(compound_key, model_info, data_ff, out_dir, epsilon):
             PEMD_lib.extract_from_top(top_filename, bonditp_filename, nonbonded=False, bonded=True)
             print(f"{compound_key} generated from SMILES by ligpargen successfully.")
 
-            qm.apply_chg_tomole(compound_name, out_dir, corr_factor, method='resp2', target_sum_chg=0,)
+            qm.apply_chg_tomole(compound_name, out_dir, corr_factor, method='resp2', target_sum_chg=0, )
             print("apply charge to molecule force field successfully.")
     else:
         print(f"{compound_key} not found in model_info.")
@@ -226,7 +226,7 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
         filepath = os.path.join(MD_dir, f"{com}.pdb")
         pdb_files.append(filepath)
 
-    box_length = (build.calculate_box_size(numbers, pdb_files, density) + add_length)/10  # A to nm
+    box_length = (build.calculate_box_size(numbers, pdb_files, density) + add_length) / 10  # A to nm
 
     # generate top file
     gen_top_file(compounds, resnames, numbers, top_filename)

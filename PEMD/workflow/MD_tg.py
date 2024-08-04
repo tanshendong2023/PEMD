@@ -7,9 +7,8 @@ Author: Shendong Tan
 Date: 2024-04-01
 """
 
-
+from PEMD.core import MD, qm
 from PEMD.model import build
-from PEMD.sim import qm, MD
 from PEMD.analysis import prop
 
 
@@ -46,18 +45,18 @@ if __name__ == '__main__':
     smiles_MD= build.gen_poly_smiles(model_info, resp=False)
 
     # Build polymer chain
-    build.gen_poly_3D(model_info, smiles_MD, core = 32,)
+    build.gen_poly_3D(model_info, smiles_MD, core = 32, )
 
     # Generate the topology and itp files
-    nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(model_info,)
+    nonbonditp_filename, bonditp_filename = MD.gen_gmx_oplsaa(model_info, )
 
     # Apply RESP charge to the polymer chain
-    qm.apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg=0,)
+    qm.apply_chg_topoly(model_info, end_repeating=2, method='resp2', target_sum_chg=0, )
 
     # 3. start MD simulation for amorphous polymer system
     # Generate the packmol input file
     build.gen_packmol_input(model_info, density=0.8, add_length=25, out_dir='MD_dir', packinp_name='pack.inp',
-                            packout_name='pack_cell.pdb',)
+                            packout_name='pack_cell.pdb', )
 
     # Run packmol
     build.run_packmol(out_dir='MD_dir', input_file='pack.inp', output_file='pack.out', )

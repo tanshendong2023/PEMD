@@ -7,11 +7,10 @@ Author: Shendong Tan
 Date: 2024-04-22
 """
 
-
+from PEMD.core import MD, qm
 from PEMD.model import build
-from PEMD.sim import qm, MD
-# from PEMD.analysis import prop
 
+# from PEMD.analysis import prop
 
 # Define the model information for simulation system
 model_info = {
@@ -76,13 +75,13 @@ if __name__ == '__main__':
     smiles_MD= build.gen_poly_smiles(model_info, resp=False)
 
     # Build polymer chain
-    build.gen_poly_3D(model_info, smiles_MD, core = 32,)
+    build.gen_poly_3D(model_info, smiles_MD, core = 32, )
 
     # Generate the topology and itp files
     MD.gen_gmx_oplsaa(model_info, out_dir='MD_dir')
 
     # Apply RESP charge to the polymer chain
-    qm.apply_chg_topoly(model_info, out_dir='MD_dir', end_repeating=2, method='resp2', target_sum_chg=0,)
+    qm.apply_chg_topoly(model_info, out_dir='MD_dir', end_repeating=2, method='resp2', target_sum_chg=0, )
 
     # 3. production the force filed for the small molecules
     MD.gen_oplsaa_ff_molecule(model_info, out_dir='MD_dir', epsilon=5)
@@ -90,7 +89,7 @@ if __name__ == '__main__':
     # 4. start MD simulation for amorphous polymer system
     # Generate the packmol input file
     build.gen_packmol_input(model_info, density=0.8, add_length=25, out_dir='MD_dir', packinp_name='pack.inp',
-                            packout_name='pack_cell.pdb',)
+                            packout_name='pack_cell.pdb', )
 
     # Run packmol
     build.run_packmol(out_dir='MD_dir', input_file='pack.inp', output_file='pack.out', )
@@ -98,11 +97,11 @@ if __name__ == '__main__':
     # Pre-run gromacs
     MD.pre_run_gmx(model_info, density=0.8, add_length=25, out_dir='MD_dir', packout_name='pack_cell.pdb', core=64,
                    partition='interactive', T_target=333, top_filename='topol.top',
-                   module_soft='GROMACS/2021.7-ompi', output_str='pre_eq',)
+                   module_soft='GROMACS/2021.7-ompi', output_str='pre_eq', )
 
     # Run gromacs for production simulation, 200 ns
     MD.run_gmx_prod(out_dir='MD_dir', core=64, partition='interactive', T_target=333, input_str='pre_eq',
-                    top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', nstep_ns=400, output_str='nvt_prod',)
+                    top_filename='topol.top', module_soft='GROMACS/2021.7-ompi', nstep_ns=400, output_str='nvt_prod', )
 
     # post-analysis for the production simulation
 

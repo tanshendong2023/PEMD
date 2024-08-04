@@ -1,3 +1,10 @@
+# Copyright (c) 2024. PEMD developers. All rights reserved.
+# Distributed under the terms of the MIT License.
+
+# ******************************************************************************
+# core.analysis module
+# ******************************************************************************
+
 
 import os
 import numpy as np

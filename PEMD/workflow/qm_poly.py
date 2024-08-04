@@ -10,7 +10,7 @@ Date: 2024-03-30
 
 
 from PEMD.model import poly
-from PEMD.sim import qm
+from PEMD.core import qm
 from PEMD.analysis import prop
 
 
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # Perform second conformation search using Gaussian
     sorted_df = qm.conformer_search_gaussian(out_dir, structures, unit_name, charge=0, multiplicity=1, core=32,
                                              memory='64GB', chk=True, opt_method='B3LYP', opt_basis='6-311+g(d,p)',
-                                             dispersion_corr='em=GD3BJ',freq='freq',
+                                             dispersion_corr='em=GD3BJ', freq='freq',
                                              solv_model='scrf=(pcm,solvent=generic,read)', custom_solv='', )
 
     # obtain the HOMO and LUMO property

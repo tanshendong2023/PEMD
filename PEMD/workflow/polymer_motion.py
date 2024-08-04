@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from PEMD.core.polymer_ion_dynamics import PolymerIonDynamics
+from PEMD.workflow.polymer_ion_dynamics import PolymerIonDynamics
 
 work_dir="./"
 tpr_file="nvt_prod.tpr"
