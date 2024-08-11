@@ -5,15 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/PEMD/workflow/distance_li_poly.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PEMD/workflow/transport_pattern.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/analysis/coordination.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/coordination.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/core/MD.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/core/MD.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/model/build.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/coordination.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/coordination.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/msd_M1.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/msd_M1.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/msd_M2.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/msd_M2.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

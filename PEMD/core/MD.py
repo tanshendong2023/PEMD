@@ -15,8 +15,7 @@ from PEMD.core import qm
 from foyer import Forcefield
 from simple_slurm import Slurm
 from LigParGenPEMD import Converter
-from PEMD.model import PEMD_lib
-from PEMD.core import build
+from PEMD.model import PEMD_lib, build
 import importlib.resources as pkg_resources
 
 
