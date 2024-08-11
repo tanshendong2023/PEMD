@@ -15,7 +15,8 @@ from PEMD.core import qm
 from foyer import Forcefield
 from simple_slurm import Slurm
 from LigParGenPEMD import Converter
-from PEMD.model import PEMD_lib, build
+from PEMD.model import PEMD_lib
+from PEMD.core import build
 import importlib.resources as pkg_resources
 
 
@@ -188,7 +189,7 @@ def gen_oplsaa_ff_molecule(model_info, out_dir, epsilon):
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
     os.makedirs(MD_dir, exist_ok=True)  # Ensure the directory exists
-    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM',]
+    data_ff = ['Li', 'TFSI','SN','BMIM', 'EMIM', 'FSI', 'NO3']
 
     # Process each type of compound if present in model_info
 
