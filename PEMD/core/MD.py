@@ -170,7 +170,7 @@ def process_compound(compound_key, model_info, data_ff, out_dir, epsilon):
             print(f"Resp charge fitting for small moelcule successfully.")
 
             gen_ff_from_smiles(compound_info, out_dir)
-            top_filename = os.path.join(MD_dir, f"{compound_name}.top")
+            top_filename = os.path.join(MD_dir, f"{compound_name}.itp")
             nonbonditp_filename = os.path.join(MD_dir, f'{compound_name}_nonbonded.itp')
             bonditp_filename = os.path.join(MD_dir, f'{compound_name}_bonded.itp')
             PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
