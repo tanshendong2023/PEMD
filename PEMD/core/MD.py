@@ -170,9 +170,9 @@ def process_compound(compound_key, model_info, data_ff, out_dir, epsilon):
             print(f"Resp charge fitting for small moelcule successfully.")
 
             gen_ff_from_smiles(compound_info, out_dir)
-            top_filename = f"{compound_name}.itp"
-            nonbonditp_filename = f'{compound_name}_nonbonded.itp'
-            bonditp_filename = f'{compound_name}_bonded.itp'
+            top_filename = f"{MD_dir}/{compound_name}.itp"
+            nonbonditp_filename = f'{MD_dir}/{compound_name}_nonbonded.itp'
+            bonditp_filename = f'{MD_dir}/{compound_name}_bonded.itp'
             PEMD_lib.extract_from_top(top_filename, nonbonditp_filename, nonbonded=True, bonded=False)
             PEMD_lib.extract_from_top(top_filename, bonditp_filename, nonbonded=False, bonded=True)
             print(f"{compound_key} generated from SMILES by ligpargen successfully.")
