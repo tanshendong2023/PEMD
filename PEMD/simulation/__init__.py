@@ -2,20 +2,5 @@
 # Distributed under the terms of the MIT License.
 
 # ******************************************************************************
-# core.build Module
+# Module Docstring
 # ******************************************************************************
-
-
-class Build:
-    def __init__(self):
-        pass
-
-    def gen_poly_smiles(self, model_info, resp):
-        """
-        Generate polymer monomer from smiles
-        """
-        pass
-
-
-
-

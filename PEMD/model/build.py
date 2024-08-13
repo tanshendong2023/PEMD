@@ -15,7 +15,7 @@ from rdkit import Chem
 from pathlib import Path
 from shutil import which
 from openbabel import pybel
-from PEMD.model import PEMD_lib
+from PEMD.model import build_lib
 from rdkit.Chem import Descriptors
 from LigParGenPEMD import Converter
 
@@ -33,7 +33,6 @@ def calc_poly_chains(num_Li_salt , conc_Li_salt, mass_per_chain):
     num_chains = (total_mass_polymer*avogadro_number) / mass_per_chain  # no unit; mass_per_chain input unit g/mol
 
     return int(num_chains)
-
 
 def calc_poly_length(total_mass_polymer, smiles_repeating_unit, smiles_leftcap, smiles_rightcap, ):
     # remove [*] from the repeating unit SMILES, add hydrogens, and calculate the molecular weight
@@ -56,78 +55,47 @@ def calc_poly_length(total_mass_polymer, smiles_repeating_unit, smiles_leftcap, 
 
     return length
 
+def gen_poly_smiles(poly_name, repeating_unit, leftcap, rightcap, length, ):
 
-def gen_poly_smiles(model_info, resp=False):
+    (
+        dum1,
+        dum2,
+        atom1,
+        atom2,
+        neigh_atoms_info,
+        oligo_list,
+        dum,
+        unit_dis,
+    ) = build_lib.Init_info(
+        poly_name,
+        repeating_unit,
+        length,
+    )
 
-    unit_name = model_info['polymer']['compound']
-    repeating_unit = model_info['polymer']['repeating_unit']
-    leftcap = model_info['polymer']['terminal_cap']
-    rightcap = model_info['polymer']['terminal_cap']
+    smiles_poly = build_lib.gen_oligomer_smiles(
+        poly_name,
+        dum1,
+        dum2,
+        atom1,
+        atom2,
+        repeating_unit,
+        length,
+        leftcap,
+        rightcap,
+    )
 
-    if resp:
-        length = model_info['polymer']['length'][0]
-    else:
-        length = model_info['polymer']['length'][1]
-
-    input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
-    df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
-
-    # Extract cap SMILES if available
-    smiles_LCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'LeftCap'].values[0]
-    LCap_ = not pd.isna(smiles_LCap_)
-
-    smiles_RCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'RightCap'].values[0]
-    RCap_ = not pd.isna(smiles_RCap_)
-
-    # Get repeating unit SMILES
-    smiles_mid = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
-
-    smiles_poly = None
-    if length == 1:
-
-        if not LCap_ and not RCap_:
-            mol = Chem.MolFromSmiles(smiles_mid)
-            mol_new = Chem.DeleteSubstructs(mol, Chem.MolFromSmarts('[#0]'))
-            smiles_poly = Chem.MolToSmiles(mol_new)
-
-        else:
-            (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
-            # Join end caps
-            smiles_poly = (
-                PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
-                                             smiles_LCap_, smiles_RCap_, LCap_, RCap_, )
-            )
-
-    elif length > 1:
-        # smiles_each = copy.copy(smiles_each_copy)
-        (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-            = PEMD_lib.Init_info(unit_name, smiles_mid, length, )
-
-        smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_mid,
-                                                   length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
-
-    # Delete intermediate XYZ file if exists
-    xyz_file_path = unit_name + '.xyz'
-    if os.path.exists(xyz_file_path):
-        os.remove(xyz_file_path)
-
-    # mol = Chem.MolFromSmiles(smiles_poly)
-    # if mol is None:
-    #     raise ValueError(f"Invalid SMILES string generated: {smiles_poly}")
+    if os.path.exists(poly_name + '.xyz'):
+        os.remove(poly_name + '.xyz')             # Delete intermediate XYZ file if exists
 
     return smiles_poly
 
 
-def gen_poly_3D(model_info, smiles, core, atom_typing_ = 'pysimm', ):
-
-    unit_name = model_info['polymer']['compound']
-    length = model_info['polymer']['length'][1]
+def gen_poly_3D(poly_name, length, smiles, core = 32, atom_typing_ = 'pysimm', ):
 
     # build directory
     current_path = os.getcwd()
-    out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
-    PEMD_lib.build_dir(out_dir)
+    out_dir = os.path.join(current_path, f'{poly_name}_N{length}')
+    os.makedirs(out_dir, exist_ok=True)
 
     relax_polymer_lmp_dir = os.path.join(out_dir, 'relax_polymer_lmp')
     os.makedirs(relax_polymer_lmp_dir, exist_ok=True)
@@ -137,6 +105,7 @@ def gen_poly_3D(model_info, smiles, core, atom_typing_ = 'pysimm', ):
     mol.addh()
     mol.make3D()
     obmol = mol.OBMol
+
     angle_range = (0, 0.5)
     for obatom in pybel.ob.OBMolAtomIter(obmol):
         for bond in pybel.ob.OBAtomBondIter(obatom):
@@ -150,8 +119,7 @@ def gen_poly_3D(model_info, smiles, core, atom_typing_ = 'pysimm', ):
     mol.localopt()
 
     # 构建文件名基础，这样可以避免重复拼接字符串
-    unit_name = model_info['polymer']['compound']
-    file_base = f"{unit_name}_N{length}"
+    file_base = f"{poly_name}_N{length}"
 
     # 使用os.path.join构建完整的文件路径，确保路径在不同操作系统上的兼容性
     pdb_file = os.path.join(relax_polymer_lmp_dir, f"{file_base}.pdb")
@@ -162,110 +130,17 @@ def gen_poly_3D(model_info, smiles, core, atom_typing_ = 'pysimm', ):
     mol.write("xyz", xyz_file, overwrite=True)
     mol.write("mol2", mol_file, overwrite=True)
 
-    # # Generate OPLS parameter file
-    # if opls is True:
-    #     print(unit_name, ": Generating OPLS parameter file ...")
-    #
-    #     if os.path.exists(f"{unit_name}_N{length}.xyz"):
-    #         try:
-    #             Converter.convert(
-    #                 pdb=pdb_file,
-    #                 resname=unit_name,
-    #                 charge=0,
-    #                 opt=0,
-    #                 outdir= out_dir,
-    #                 ln = length,
-    #             )
-    #             print(unit_name, ": OPLS parameter file generated.")
-    #         except BaseException:
-    #             print('problem running LigParGen for {}.pdb.'.format(pdb_file))
+    print("\n", poly_name, ": Performing a short MD simulation using LAMMPS...\n", )
 
-    print("\n", unit_name, ": Performing a short MD simulation using LAMMPS...\n", )
-
-    PEMD_lib.get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing=atom_typing_)
-    PEMD_lib.relax_polymer_lmp(unit_name, length, relax_polymer_lmp_dir, core)
+    build_lib.get_gaff2(poly_name, length, relax_polymer_lmp_dir, mol, atom_typing=atom_typing_)
+    build_lib.relax_polymer_lmp(poly_name, length, relax_polymer_lmp_dir, core)
 
 
-def F_poly_gen(unit_name, repeating_unit, leftcap, rightcap, length, ):
-
-    input_data = [[unit_name, repeating_unit, leftcap, rightcap]]
-    df_smiles = pd.DataFrame(input_data, columns=['ID', 'SMILES', 'LeftCap', 'RightCap'])
-    smiles_mid = df_smiles.loc[df_smiles['ID'] == unit_name, 'SMILES'].values[0]
-
-    # Extract cap SMILES if available
-    smiles_LCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'RightCap'].values[0]
-    LCap_ = not pd.isna(smiles_LCap_)
-
-    smiles_RCap_ = df_smiles.loc[df_smiles['ID'] == unit_name, 'LeftCap'].values[0]
-    RCap_ = not pd.isna(smiles_RCap_)
-
-    # 初始分子定义
-    mol = Chem.MolFromSmiles(smiles_mid)
-    mol = Chem.AddHs(mol)
-
-    # 获取所有氢原子的索引
-    hydrogen_atoms = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetSymbol() == 'H']
-
-    # 存储所有生成的分子及其图表示
-    graphs = []
-    mol_poly_list = []
-    smiles_poly_list = []
-    smiles_poly = None
-
-    # 逐步替换氢原子为氟原子
-    for num_replacements in range(1, len(hydrogen_atoms) + 1):
-        for hydrogen_idxs in itertools.combinations(hydrogen_atoms, num_replacements):
-            modified_mol = Chem.RWMol(mol)
-            for idx in hydrogen_idxs:
-                modified_mol.ReplaceAtom(idx, Chem.Atom('F'))
-            # Chem.SanitizeMol(modified_mol)
-
-            # 检查是否有同构的分子已经存在
-            modified_mol_graph = PEMD_lib.mol_to_nx(modified_mol)
-            if not any(PEMD_lib.is_isomorphic(modified_mol_graph, graph) for graph in graphs):
-                # molecules.append(modified_mol)
-                graphs.append(modified_mol_graph)
-                # remove the H atoms
-                # mol_noHs = Chem.RemoveHs(modified_mol)
-
-                smiles = Chem.MolToSmiles(modified_mol)
-                smiles_noH = smiles.replace('([H])', '')
-
-                # replace Cl with [*]
-                # smiles_noCl = smiles_noH.replace('Cl', '[*]')
-
-                (unit_name, dum1, dum2, atom1, atom2, m1, smiles_each, neigh_atoms_info, oligo_list, dum, unit_dis, flag,) \
-                    = PEMD_lib.Init_info(unit_name, smiles_noH, length, )
-                # print(dum1, dum2, atom1, atom2, dum)
-
-                if length == 1:
-                    # Join end caps
-                    smiles_poly = PEMD_lib.gen_smiles_with_cap(unit_name, dum1, dum2, atom1, atom2, smiles_noH,
-                                                     smiles_LCap_, smiles_RCap_, LCap_, RCap_, )
-
-                elif length > 1:
-                    smiles_poly = PEMD_lib.gen_oligomer_smiles(unit_name, dum1, dum2, atom1, atom2, smiles_noH,
-                                                           length, smiles_LCap_, LCap_, smiles_RCap_, RCap_, )
-
-                # print(smiles_poly)
-                smiles_poly_list.append(smiles_poly)
-                mol2 = Chem.MolFromSmiles(smiles_poly)
-                mol_poly_list.append(mol2)
-
-    # Delete intermediate XYZ file if exists
-    xyz_file_path = unit_name + '.xyz'
-    if os.path.exists(xyz_file_path):
-        os.remove(xyz_file_path)
-
-    return smiles_poly_list, mol_poly_list
-
-
-# 根据密度和分子数量计算盒子大小
 def calculate_box_size(numbers, pdb_files, density):
     total_mass = 0
     for num, file in zip(numbers, pdb_files):
 
-        molecular_weight = PEMD_lib.calc_mol_weight(file)  # in g/mol
+        molecular_weight = build_lib.calc_mol_weight(file)  # in g/mol
         total_mass += molecular_weight * num / 6.022e23  # accumulate mass of each molecule in grams
 
     total_volume = total_mass / density  # volume in cm^3
@@ -283,12 +158,13 @@ def gen_packmol_input(model_info, density, add_length, out_dir, packinp_name='pa
     # length = model_info['polymer']['length'][1]
 
     MD_dir = os.path.join(current_path, out_dir)
-    PEMD_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
+    os.mkdir(MD_dir)
+    # build_lib.build_dir(MD_dir)  # 确保这个函数可以正确创建目录
 
     packinp_path = os.path.join(MD_dir, packinp_name)
 
-    numbers = PEMD_lib.print_compounds(model_info,'numbers')
-    compounds = PEMD_lib.print_compounds(model_info,'compound')
+    numbers = build_lib.print_compounds(model_info,'numbers')
+    compounds = build_lib.print_compounds(model_info,'compound')
 
     pdb_files = []
     for com in compounds:

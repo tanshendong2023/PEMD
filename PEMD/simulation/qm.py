@@ -15,14 +15,13 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from simple_slurm import Slurm
-from PEMD.model import PEMD_lib
+from PEMD.model import build_lib
 from PEMD.analysis import prop
 
 
 def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf = 10, core= 32, ):
 
-    out_dir = out_dir + '/'
-    PEMD_lib.build_dir(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
 
     mol2 = Chem.AddHs(mol)
     NAttempt = 100000
@@ -62,10 +61,10 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf = 10, c
     time.sleep(10)
 
     while True:
-        status = PEMD_lib.get_slurm_job_status(job_id)
+        status = build_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
-            order_structures = PEMD_lib.orderxyz_energy_crest('crest_conformers.xyz', numconf)
+            order_structures = build_lib.orderxyz_energy_crest('crest_conformers.xyz', numconf)
             break
         else:
             print("crest conformer search not finish, waiting...")
@@ -75,37 +74,29 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf = 10, c
     return order_structures
 
 
-def conformer_search_xtb(model_info, smiles, epsilon, core, polymer=False, work_dir=None, max_conformers=1000,
-                         top_n_MMFF=100, top_n_xtb=10, ):
+def conformer_search_xtb(name, smiles, epsilon, core, max_conformers=1000, top_n_MMFF=100, top_n_xtb=10, ):
 
     current_path = os.getcwd()
-    if polymer:
-        unit_name = model_info['polymer']['compound']
-        length = model_info['polymer']['length'][0]
-        out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
-    else:
-        if work_dir is None:
-            raise ValueError("work_dir must be specified when polymer is False")
-        out_dir = os.path.join(current_path, work_dir)
-    PEMD_lib.build_dir(out_dir)
+    out_dir = os.path.join(current_path, f'{name}_conformer_search')
+    os.makedirs(out_dir, exist_ok=True)
 
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         raise ValueError(f"Invalid SMILES string generated: {smiles}")
-
     mol = Chem.AddHs(mol)
+
     # generate multiple conformers
     ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
     props = AllChem.MMFFGetMoleculeProperties(mol)
 
-    # 对每个构象进行能量最小化，并收集能量值
+    # minimize the energy of each conformer and store the energy
     minimized_conformers = []
     for conf_id in ids:
         ff = AllChem.MMFFGetMoleculeForceField(mol, props, confId=conf_id)
         energy = ff.Minimize()
         minimized_conformers.append((conf_id, energy))
 
-    # 按能量排序并选择前 top_n_MMFF 个构象
+    # sort the conformers by energy and select the top N conformers
     minimized_conformers.sort(key=lambda x: x[1])
     top_conformers = minimized_conformers[:top_n_MMFF]
 
@@ -116,9 +107,8 @@ def conformer_search_xtb(model_info, smiles, epsilon, core, polymer=False, work_
     for conf_id, _ in top_conformers:
         xyz_filename = f'conf_{conf_id}.xyz'
         output_filename = f'conf_{conf_id}_xtb.xyz'
-        PEMD_lib.mol_to_xyz(mol, conf_id, xyz_filename)
+        build_lib.mol_to_xyz(mol, conf_id, xyz_filename)
 
-        # try:
         slurm = Slurm(J='xtb',
                       N=1,
                       n=f'{core}',
@@ -128,46 +118,36 @@ def conformer_search_xtb(model_info, smiles, epsilon, core, polymer=False, work_
         job_id = slurm.sbatch(f'xtb {xyz_filename} --opt --gbsa={epsilon} --ceasefiles')
 
         while True:
-            status = PEMD_lib.get_slurm_job_status(job_id)
+            status = build_lib.get_slurm_job_status(job_id)
             if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
                 print("one xtb finish, executing the next xtb...")
                 os.rename('xtbopt.xyz', output_filename)
-                PEMD_lib.std_xyzfile(output_filename)
+                build_lib.std_xyzfile(output_filename)
                 break
             else:
                 print("xtb not finish, waiting...")
                 time.sleep(30)
 
     print('all xtb finish, merging the xyz files...')
-    # 匹配当前目录下所有后缀为xtb.xyz的文件
+
     filenames = glob.glob('*_xtb.xyz')
-    # 输出文件名
     output_filename = 'merged_xtb.xyz'
-    # 合并文件
     with open(output_filename, 'w') as outfile:
         for fname in filenames:
             with open(fname) as infile:
-                # 读取并写入文件内容
                 outfile.write(infile.read())
-    order_structures = PEMD_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
+    order_structures = build_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
 
     os.chdir(current_path)
     return order_structures
 
 
-def conformer_search_gaussian(structures, model_info, polymer, work_dir = None, core = 32, memory= '64GB',
-                              function='B3LYP', basis_set='6-311+g(d,p)', dispersion_corr='em=GD3BJ', ):
+def conformer_search_gaussian(structures, name, core = 32, memory = '64GB', function='B3LYP',
+                              basis_set='6-311+g(d,p)', dispersion_corr='em=GD3BJ', ):
 
     current_path = os.getcwd()
-    if polymer:
-        unit_name = model_info['polymer']['compound']
-        length = model_info['polymer']['length'][0]
-        out_dir = os.path.join(current_path, f'{unit_name}_N{length}')
-    else:
-        if work_dir is None:
-            raise ValueError("work_dir must be specified when polymer is False")
-        out_dir = os.path.join(current_path, work_dir)
-    PEMD_lib.build_dir(out_dir)
+    out_dir = os.path.join(current_path, f'{name}_conformer_search')
+    os.makedirs(out_dir, exist_ok=True)
 
     job_ids = []
     structure_directory = os.path.join(out_dir, 'conf_g16_work')
@@ -210,20 +190,19 @@ def conformer_search_gaussian(structures, model_info, polymer, work_dir = None, 
     while True:
         all_completed = True
         for job_id in job_ids:
-            status = PEMD_lib.get_slurm_job_status(job_id)
+            status = build_lib.get_slurm_job_status(job_id)
             if status not in ['COMPLETED', 'FAILED', 'CANCELLED']:
                 all_completed = False
                 break
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             # order the structures by energy calculated by gaussian
-            sorted_df = PEMD_lib.orderlog_energy_gaussian(structure_directory)
+            sorted_df = build_lib.orderlog_energy_gaussian(structure_directory)
             break
         else:
             print("g16 conformer search not finish, waiting...")
             time.sleep(10)  # wait for 30 seconds
     return sorted_df
-
 
 def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=False, work_dir=None, numconf=5,
                        core=16, memory='64GB', method='resp2',):
@@ -237,7 +216,7 @@ def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=
         if work_dir is None:
             raise ValueError("work_dir must be specified when polymer is False")
         out_dir = os.path.join(current_path, work_dir)
-    PEMD_lib.build_dir(out_dir)
+    build_lib.build_dir(out_dir)
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -283,7 +262,7 @@ def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=
     while True:
         all_completed = True
         for job_id in job_ids:
-            status = PEMD_lib.get_slurm_job_status(job_id)
+            status = build_lib.get_slurm_job_status(job_id)
             if status not in ['COMPLETED', 'FAILED', 'CANCELLED']:
                 all_completed = False
                 break
@@ -315,12 +294,12 @@ def apply_chg_topoly(model_info, out_dir, end_repeating=2, method='resp2', targe
     repeating_unit = model_info['polymer']['repeating_unit']
 
     (top_N_noH_df, tail_N_noH_df, mid_ave_chg_noH_df, top_N_H_df, tail_N_H_df, mid_ave_chg_H_df) = (
-        PEMD_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating,))
+        build_lib.ave_chg_to_df(resp_chg_df, repeating_unit, end_repeating,))
 
     # read the xyz file
     relax_polymer_lmp_dir = os.path.join(out_dir_MD, 'relax_polymer_lmp')
     xyz_file_path = os.path.join(relax_polymer_lmp_dir, f'{unit_name}_N{length_MD}_gmx.xyz')
-    atoms_chg_df = PEMD_lib.xyz_to_df(xyz_file_path)
+    atoms_chg_df = build_lib.xyz_to_df(xyz_file_path)
 
     # deal with the mid non-H atoms
     atoms_chg_noH_df = atoms_chg_df[atoms_chg_df['atom'] != 'H']
@@ -452,7 +431,6 @@ def apply_chg_tomole(name, out_dir, corr_factor, method, target_sum_chg=0,):
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 
-
 def scale_chg_itp(name, out_dir, filename, corr_factor, target_sum_chg):
     # 标记开始读取数据
     start_reading = False
@@ -513,7 +491,6 @@ def scale_chg_itp(name, out_dir, filename, corr_factor, target_sum_chg):
     with open(new_itp_filepath, 'w') as file:
         file.writelines(lines)
 
-
 def charge_neutralize_scale(df, target_total_charge, correction_factor):
     current_total_charge = df['charge'].sum()  # calculate the total charge of the current system
     charge_difference = target_total_charge - current_total_charge
@@ -522,22 +499,5 @@ def charge_neutralize_scale(df, target_total_charge, correction_factor):
     df['charge'] = (df['charge'] + charge_adjustment_per_atom) * correction_factor
 
     return df
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

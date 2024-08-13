@@ -11,7 +11,7 @@ import time
 import shutil
 import subprocess
 import parmed as pmd
-from PEMD.core import qm
+from PEMD.simulation import qm
 from foyer import Forcefield
 from simple_slurm import Slurm
 from LigParGenPEMD import Converter

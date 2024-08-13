@@ -10,7 +10,7 @@ Date: 2024-03-30
 
 
 from PEMD.model import poly
-from PEMD.core import qm
+from PEMD.simulation import qm
 from PEMD.analysis import prop
 
 
