@@ -58,7 +58,7 @@ def get_slurm_job_status(job_id):
         return 'RUNNING'
 
 
-def orderxyz_energy_crest(file_path, numconf):
+def orderxyz_energy_xtb(file_path, numconf):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 

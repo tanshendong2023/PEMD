@@ -7,10 +7,8 @@ Date: 2024.01.18
 
 
 import os
-import re
 import time
 import glob
-import subprocess
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -56,7 +54,13 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf = 10, c
 
     xyz_file_path = os.path.join(origin_dir, xyz_file)
 
-    slurm = Slurm(J='crest', N=1, n=f'{core}', output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out')
+    slurm = Slurm(
+        J='crest',
+        N=1,
+        n=f'{core}',
+        output='slurm.%A.out'
+    )
+
     job_id = slurm.sbatch(f'crest {xyz_file_path} --gfn2 --T {core} --niceprint')
     time.sleep(10)
 
@@ -64,7 +68,7 @@ def unit_conformer_search_crest(mol, unit_name, out_dir, length, numconf = 10, c
         status = build_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
-            order_structures = build_lib.orderxyz_energy_crest('crest_conformers.xyz', numconf)
+            order_structures = build_lib.orderxyz_energy_xtb('crest_conformers.xyz', numconf)
             break
         else:
             print("crest conformer search not finish, waiting...")
@@ -86,7 +90,7 @@ def conformer_search_xtb(name, smiles, epsilon, core, max_conformers=1000, top_n
     mol = Chem.AddHs(mol)
 
     # generate multiple conformers
-    ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
+    ids = AllChem.EmbedMultipleConfs(mol, numConfs = max_conformers, randomSeed = 1)
     props = AllChem.MMFFGetMoleculeProperties(mol)
 
     # minimize the energy of each conformer and store the energy
@@ -100,6 +104,7 @@ def conformer_search_xtb(name, smiles, epsilon, core, max_conformers=1000, top_n
     minimized_conformers.sort(key=lambda x: x[1])
     top_conformers = minimized_conformers[:top_n_MMFF]
 
+    # create xtb_work directory
     xtb_dir = os.path.join(out_dir, 'xtb_work')
     os.makedirs(xtb_dir, exist_ok=True)
     os.chdir(xtb_dir)
@@ -109,11 +114,12 @@ def conformer_search_xtb(name, smiles, epsilon, core, max_conformers=1000, top_n
         output_filename = f'conf_{conf_id}_xtb.xyz'
         build_lib.mol_to_xyz(mol, conf_id, xyz_filename)
 
-        slurm = Slurm(J='xtb',
-                      N=1,
-                      n=f'{core}',
-                      output=f'slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
-                      )
+        slurm = Slurm(
+            J='xtb',
+            N=1,
+            n=f'{core}',
+            output='slurm.%A.out'
+        )
 
         job_id = slurm.sbatch(f'xtb {xyz_filename} --opt --gbsa={epsilon} --ceasefiles')
 
@@ -136,8 +142,8 @@ def conformer_search_xtb(name, smiles, epsilon, core, max_conformers=1000, top_n
         for fname in filenames:
             with open(fname) as infile:
                 outfile.write(infile.read())
-    order_structures = build_lib.orderxyz_energy_crest(output_filename, top_n_xtb)
 
+    order_structures = build_lib.orderxyz_energy_xtb(output_filename, top_n_xtb)
     os.chdir(current_path)
     return order_structures
 
@@ -179,7 +185,7 @@ def conformer_search_gaussian(structures, name, core = 32, memory = '64GB', func
         slurm = Slurm(J='g16',
                       N=1,
                       n=f'{core}',
-                      output=f'{structure_directory}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      output=f'{structure_directory}/slurm.%A.out'
                       )
 
         job_id = slurm.sbatch(f'g16 {structure_directory}/conf_{i + 1}.gjf')
@@ -216,7 +222,7 @@ def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=
         if work_dir is None:
             raise ValueError("work_dir must be specified when polymer is False")
         out_dir = os.path.join(current_path, work_dir)
-    build_lib.build_dir(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
 
     resp_dir = os.path.join(out_dir, 'resp_work')
     os.makedirs(resp_dir, exist_ok=True)
@@ -251,7 +257,7 @@ def calc_resp_gaussian(sorted_df, model_info, epsilon=None, epsinf=2.1, polymer=
         slurm = Slurm(J='g16',
                       N=1,
                       n=f'{core}',
-                      output=f'{resp_dir}/slurm.{Slurm.JOB_ARRAY_MASTER_ID}.out'
+                      output=f'{resp_dir}/slurm.%A.out'
                       )
 
         job_id = slurm.sbatch(f'g16 {resp_dir}/resp_conf_{i}.gjf')

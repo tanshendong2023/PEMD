@@ -15,7 +15,7 @@ from PEMD.simulation import qm
 from foyer import Forcefield
 from simple_slurm import Slurm
 from LigParGenPEMD import Converter
-from PEMD.model import PEMD_lib, build
+from PEMD.model import build_lib, build
 import importlib.resources as pkg_resources
 
 
@@ -27,7 +27,7 @@ def gen_gmx_oplsaa(model_info, out_dir,):
 
     current_path = os.getcwd()
     MD_dir = os.path.join(current_path, out_dir)
-    PEMD_lib.build_dir(MD_dir)
+    build_lib.build_dir(MD_dir)
 
     if unit_name in data_ff:
         files_to_copy = [
