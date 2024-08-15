@@ -15,7 +15,7 @@ from rdkit import Chem
 from pathlib import Path
 from shutil import which
 from openbabel import pybel
-from PEMD.model import build_lib
+from PEMD.model import model_lib
 from rdkit.Chem import Descriptors
 from LigParGenPEMD import Converter
 
@@ -66,13 +66,13 @@ def gen_poly_smiles(poly_name, repeating_unit, leftcap, rightcap, length, ):
         oligo_list,
         dum,
         unit_dis,
-    ) = build_lib.Init_info(
+    ) = model_lib.Init_info(
         poly_name,
         repeating_unit,
         length,
     )
 
-    smiles_poly = build_lib.gen_oligomer_smiles(
+    smiles_poly = model_lib.gen_oligomer_smiles(
         poly_name,
         dum1,
         dum2,
@@ -132,15 +132,15 @@ def gen_poly_3D(poly_name, length, smiles, core = 32, atom_typing_ = 'pysimm', )
 
     print("\n", poly_name, ": Performing a short MD simulation using LAMMPS...\n", )
 
-    build_lib.get_gaff2(poly_name, length, relax_polymer_lmp_dir, mol, atom_typing=atom_typing_)
-    build_lib.relax_polymer_lmp(poly_name, length, relax_polymer_lmp_dir, core)
+    model_lib.get_gaff2(poly_name, length, relax_polymer_lmp_dir, mol, atom_typing=atom_typing_)
+    model_lib.relax_polymer_lmp(poly_name, length, relax_polymer_lmp_dir, core)
 
 
 def calculate_box_size(numbers, pdb_files, density):
     total_mass = 0
     for num, file in zip(numbers, pdb_files):
 
-        molecular_weight = build_lib.calc_mol_weight(file)  # in g/mol
+        molecular_weight = model_lib.calc_mol_weight(file)  # in g/mol
         total_mass += molecular_weight * num / 6.022e23  # accumulate mass of each molecule in grams
 
     total_volume = total_mass / density  # volume in cm^3
@@ -163,8 +163,8 @@ def gen_packmol_input(model_info, density, add_length, out_dir, packinp_name='pa
 
     packinp_path = os.path.join(MD_dir, packinp_name)
 
-    numbers = build_lib.print_compounds(model_info,'numbers')
-    compounds = build_lib.print_compounds(model_info,'compound')
+    numbers = model_lib.print_compounds(model_info,'numbers')
+    compounds = model_lib.print_compounds(model_info,'compound')
 
     pdb_files = []
     for com in compounds:

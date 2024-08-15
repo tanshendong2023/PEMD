@@ -8,7 +8,10 @@
 
 import os
 import json
-from PEMD.model.build import gen_poly_smiles, gen_poly_3D
+from PEMD.model.build import (
+    gen_poly_smiles,
+    gen_poly_3D,
+)
 
 
 class PEMDModel:

@@ -5,11 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/PEMD/analysis/qm_prop.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/core/run.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PEMD/simulation/sim_lib.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/core/simulation.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/core/simulation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/model/build_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/build_lib.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/simulation/MD.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/simulation/MD.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/prop.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/analysis/visualize.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/core/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/core/model.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/core/simulation.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/core/slurm.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/model/build.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/build.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/model/build_lib.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/model/model_lib.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/simulation/MD.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/simulation/md.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/PEMD/simulation/qm.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/simulation/qm.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PEMD/workflow/MD_PE.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/MD_PE.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -108,7 +117,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="build_lib" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+    <configuration name="model_lib" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="PolymerGo" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -121,7 +130,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/PEMD/model/build_lib.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/PEMD/model/model_lib.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
