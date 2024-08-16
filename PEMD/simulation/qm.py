@@ -1,10 +1,9 @@
-"""
-Polymer model building tools.
+# Copyright (c) 2024. PEMD developers. All rights reserved.
+# Distributed under the terms of the MIT License.
 
-Developed by: Tan Shendong
-Date: 2024.01.18
-"""
-
+# ******************************************************************************
+# simulation.qm module
+# ******************************************************************************
 
 import os
 import time
@@ -17,7 +16,7 @@ from simple_slurm import Slurm
 from PEMD.simulation import sim_lib
 from PEMD.model import model_lib
 from importlib import resources
-
+from PEMD.simulation.xtb import PEMDXtb
 
 def unit_conformer_search_crest(
         mol,
@@ -127,32 +126,13 @@ def conformer_search_xtb(
     os.chdir(xtb_dir)
     for conf_id, _ in top_conformers:
         xyz_filename = f'conf_{conf_id}.xyz'
-        output_filename = f'conf_{conf_id}_xtb.xyz'
+        outfile_headname = f'conf_{conf_id}'
         model_lib.mol_to_xyz(mol, conf_id, xyz_filename)
-
-        slurm = Slurm(
-            J='xtb',
-            N=1,
-            n=f'{core}',
-            output='slurm.%A.out'
-        )
-
-        job_id = slurm.sbatch(f'xtb {xyz_filename} --opt --gbsa={epsilon} --ceasefiles')
-        time.sleep(1)
-
-        while True:
-            status = sim_lib.get_slurm_job_status(job_id)
-            if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
-                print("one xtb finish, executing the next xtb...")
-                os.rename('xtbopt.xyz', output_filename)
-                model_lib.std_xyzfile(output_filename)
-                break
-            else:
-                print("xtb not finish, waiting...")
-                time.sleep(10)
+        PEMDXtb(xtb_dir, xyz_filename, outfile_headname, epsilon,).run_local()
+        time.sleep(10)
 
     print('all xtb finish, merging the xyz files...')
-    filenames = glob.glob('*_xtb.xyz')
+    filenames = glob.glob('*.xtbopt.xyz')
     output_filename = 'merged_xtb.xyz'
     with open(output_filename, 'w') as outfile:
         for fname in filenames:
@@ -598,5 +578,6 @@ def charge_neutralize_scale(df, target_total_charge, correction_factor):
     df['charge'] = (df['charge'] + charge_adjustment_per_atom) * correction_factor
 
     return df
+
 
 
