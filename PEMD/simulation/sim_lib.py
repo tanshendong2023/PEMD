@@ -16,13 +16,11 @@ from PEMD.model import model_lib
 import PEMD.model.MD_lib as MDlib
 from pysimm import system, lmps, forcefield
 
-
 # OpenBabel setup
 obConversion = ob.OBConversion()
 ff = ob.OBForceField.FindForceField('UFF')
 mol = ob.OBMol()
 np.set_printoptions(precision=20)
-
 
 def get_slurm_job_status(job_id):
     command = f'sacct -j {job_id} --format=State --noheader'
@@ -39,8 +37,7 @@ def get_slurm_job_status(job_id):
     else:
         return 'RUNNING'
 
-
-def orderxyz_energy_xtb(file_path, numconf):
+def order_energy_xtb(file_path, numconf):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
@@ -73,7 +70,7 @@ def orderxyz_energy_xtb(file_path, numconf):
     return lowest_energy_structures
 
 
-def orderlog_energy_gaussian(dir_path):
+def order_energy_gaussian(dir_path):
     data = []
     # Traverse all files in the specified folder
     for file in os.listdir(dir_path):

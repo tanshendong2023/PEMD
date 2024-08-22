@@ -76,7 +76,7 @@ def unit_conformer_search_crest(
         status = sim_lib.get_slurm_job_status(job_id)
         if status in ['COMPLETED', 'FAILED', 'CANCELLED']:
             print("crest finish, executing the gaussian task...")
-            order_structures = sim_lib.orderxyz_energy_xtb('crest_conformers.xyz', numconf)
+            order_structures = sim_lib.order_energy_xtb('crest_conformers.xyz', numconf)
             break
         else:
             print("crest conformer search not finish, waiting...")
@@ -85,11 +85,9 @@ def unit_conformer_search_crest(
     os.chdir(origin_dir)
     return order_structures
 
-
 def conformer_search_xtb(
         smiles,
         epsilon,
-        core,
         max_conformers = 1000,
         top_n_MMFF = 100,
         top_n_xtb = 10,
@@ -139,7 +137,7 @@ def conformer_search_xtb(
             with open(fname, 'r') as infile:
                 outfile.write(infile.read())
 
-    ordered_structures = sim_lib.orderxyz_energy_xtb(output_filename, top_n_xtb)
+    ordered_structures = sim_lib.order_energy_xtb(output_filename, top_n_xtb)
     os.chdir(current_path)
     return ordered_structures
 
@@ -203,12 +201,12 @@ def conformer_search_gaussian(
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             # order the structures by energy calculated by gaussian
-            sorted_df = sim_lib.orderlog_energy_gaussian(gaussian_dir)
+            ordered_structures = sim_lib.order_energy_gaussian(gaussian_dir)
             break
         else:
             print("g16 conformer search not finish, waiting...")
             time.sleep(10)  # wait for 10 seconds
-    return sorted_df
+    return ordered_structures
 
 def calc_resp_gaussian(
         sorted_df,

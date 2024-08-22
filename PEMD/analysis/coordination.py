@@ -9,7 +9,6 @@ import MDAnalysis as mda
 from tqdm.auto import tqdm
 from MDAnalysis.analysis import rdf
 
-
 def calc_rdf_coord(group1, group2, v, nbins=200, range_rdf=(0.0, 10.0)):
     # Initialize RDF analysis
     rdf_analysis = rdf.InterRDF(group1, group2, nbins=nbins, range=range_rdf)

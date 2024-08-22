@@ -13,7 +13,6 @@ from PEMD.model.build import (
     gen_poly_3D,
 )
 
-
 class PEMDModel:
     def __init__(self, poly_name, repeating_unit, leftcap, rightcap, length_short, length, ):
         self.poly_name = poly_name
