@@ -33,6 +33,7 @@ from PEMD.analysis.polymer_ion_dynamics import (
     fit_rouse_model,
     calc_msd_M2
 )
+from PEMD.analysis.residence_time import calc_neigh_corr
 
 
 class PEMDAnalysis:
@@ -274,6 +275,24 @@ class PEMDAnalysis:
             self.times_range(time_window),
             self.get_msd_M2_array(time_window),
             self.num_o_chain
+        )
+
+    def get_neighbor_corr(
+        self,
+        distance_dict,
+        select_dict,
+        run_start,
+        run_end,
+        center_atom,
+    ):
+
+        return calc_neigh_corr(
+            self.run_wrap,
+            distance_dict,
+            select_dict,
+            run_start,
+            run_end,
+            center_atom,
         )
 
 
