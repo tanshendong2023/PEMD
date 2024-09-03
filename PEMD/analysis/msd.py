@@ -3,10 +3,42 @@
 #     The module implements functions to calculate the mean square distance      #
 # ****************************************************************************** #
 
+import os
 import numpy as np
+import MDAnalysis as mda
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 
+def get_position(work_dir, data_tpr_file, dcd_xtc_file, select_cations, select_anions, dt, dt_collection, run_start,
+                 nsteps, format='GROMACS'):
+
+    # Construct full paths to the data and trajectory files
+    data_tpr_file_path = os.path.join(work_dir, data_tpr_file)
+    dcd_xtc_file_path = os.path.join(work_dir, dcd_xtc_file)
+
+    # Load the simulation data
+    run = mda.Universe(data_tpr_file_path, dcd_xtc_file_path)
+
+    # Select cations and anions based on user-defined criteria
+    cations = run.select_atoms(select_cations).residues
+    anions = run.select_atoms(select_anions).residues
+
+    # Split atoms into lists by residue for cations and anions
+    cations_list = cations.atoms.split("residue")
+    anions_list = anions.atoms.split("residue")
+
+    # Calculate total number of steps to analyze, after accounting for initial equilibration
+    t_total = nsteps - run_start
+
+    # Initialize time array for data collection based on the format and collection interval
+    times = None
+    if format == 'GROMACS':
+        times = np.arange(0, t_total * dt + 1, dt * dt_collection, dtype=int)
+    elif format == 'LAMMPS':
+        times = np.arange(0, t_total * dt, dt * dt_collection, dtype=int)
+
+    # Return all collected data
+    return run, cations, cations_list, anions, anions_list, times
 
 def autocorrFFT(x):
 
