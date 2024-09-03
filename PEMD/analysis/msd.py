@@ -114,14 +114,14 @@ def compute_all_Lij(cation_positions, anion_positions, times):
     msds_all = [msd_cation, msd_self_cation, msd_anion, msd_self_anion, msd_distinct_catAn]
     return msds_all
 
-def create_position_arrays(run, cations_list, anions_list, times, run_start, dt_collection):
+def create_position_arrays(run, cations_list, anions_list, times, run_start):
 
     time = 0
 
     cation_positions = np.zeros((len(times), len(cations_list), 3))
     anion_positions = np.zeros((len(times), len(anions_list), 3))
 
-    for ts in enumerate(tqdm(run.trajectory[int(run_start / dt_collection):])):
+    for ts in enumerate(tqdm(run.trajectory[int(run_start):])):
         system_com = run.atoms.center_of_mass(wrap=True)
         for index, cation in enumerate(cations_list):
             cation_positions[time, index, :] = cation.center_of_mass() - system_com
