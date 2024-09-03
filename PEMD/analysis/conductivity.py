@@ -1,18 +1,13 @@
-
-# ****************************************************************************** #
-#      The module implements functions to calculate the ionic conductivity       #
-# ****************************************************************************** #
-
-
 import numpy as np
 from tqdm.auto import tqdm
 from PEMD.analysis import msd as msd_module
+
 
 def compute_conductivity(run, run_start, dt_collection, cations_list, anions_list, times, dt, T, interval_time=5000):
 
     # compute sum over all charges and positions
     qr = []
-    for _ts in tqdm(run.trajectory[int(run_start):]):
+    for _ts in tqdm(run.trajectory[int(run_start / dt_collection):]):
         qr_temp = np.zeros(3)
         for cation in cations_list:
             qr_temp += cation.center_of_mass() * int(1)
@@ -22,7 +17,7 @@ def compute_conductivity(run, run_start, dt_collection, cations_list, anions_lis
     msd = msd_module.msd_fft(np.array(qr))
 
     # Utilize the common slope calculation function
-    slope, time_range = msd_module.calc_slope_msd(times, msd, dt_collection, dt, interval_time)
+    slope, time_range = msd_module.compute_slope_msd(msd, times, dt_collection, dt, interval_time)
 
     A2cm = 1e-8  # Angstroms to cm
     ps2s = 1e-12  # picoseconds to seconds
@@ -34,4 +29,8 @@ def compute_conductivity(run, run_start, dt_collection, cations_list, anions_lis
     cond = slope / 6 / kb / T / v * convert   # "mS/cm"
 
     return msd, cond, time_range
+
+
+
+
 
