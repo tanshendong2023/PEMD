@@ -12,7 +12,7 @@ def compute_conductivity(run, run_start, dt_collection, cations_list, anions_lis
 
     # compute sum over all charges and positions
     qr = []
-    for _ts in tqdm(run.trajectory[int(run_start / dt_collection):]):
+    for _ts in tqdm(run.trajectory[int(run_start):]):
         qr_temp = np.zeros(3)
         for cation in cations_list:
             qr_temp += cation.center_of_mass() * int(1)
