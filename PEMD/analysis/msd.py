@@ -126,20 +126,19 @@ def compute_all_Lij(cation_positions, anion_positions, times):
     msds_all = [msd_cation, msd_self_cation, msd_anion, msd_self_anion, msd_distinct_catAn]
     return msds_all
 
-def create_position_arrays(run, cations, anions, times, run_start,):
+def create_position_arrays(run, cations_list, anions_list, times, run_start, dt_collection):
+
     time = 0
-    # Split atoms into lists by residue for cations and anions
-    cations_list = cations.atoms.split("residue")
-    anions_list = anions.atoms.split("residue")
+
     cation_positions = np.zeros((len(times), len(cations_list), 3))
     anion_positions = np.zeros((len(times), len(anions_list), 3))
 
-    for ts in enumerate(tqdm(run.trajectory[int(run_start):])):
+    for ts in enumerate(tqdm(run.trajectory[int(run_start / dt_collection):])):
         system_com = run.atoms.center_of_mass(wrap=True)
-        for index, ion in enumerate(cations_list):
-            cation_positions[time, index, :] = ion.center_of_mass() - system_com
-        for index, ion in enumerate(anions_list):
-            anion_positions[time, index, :] = ion.center_of_mass() - system_com
+        for index, cation in enumerate(cations_list):
+            cation_positions[time, index, :] = cation.center_of_mass() - system_com
+        for index, anion in enumerate(anions_list):
+            anion_positions[time, index, :] = anion.center_of_mass() - system_com
         time += 1
 
     return cation_positions, anion_positions
