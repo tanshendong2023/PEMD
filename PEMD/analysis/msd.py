@@ -166,11 +166,6 @@ def calc_slope_msd(times_array, msd_array, dt_collection, dt, interval_time=5000
         slope = np.mean(local_slope)
         average_slopes.append(slope)
 
-        # # Use polyfit to calculate the slope of the first-order linear fit
-        # coeffs = np.polyfit(log_time[i:i + interval_msd], log_msd[i:i + interval_msd], 1)
-        # slope = coeffs[0]  # The slope is the first element of the returned coefficients
-        # average_slopes.append(slope)
-
         # Update the average slope closest to 1 and its range
         if abs(slope - 1) < abs(closest_slope - 1):
             closest_slope = slope
@@ -181,17 +176,20 @@ def calc_slope_msd(times_array, msd_array, dt_collection, dt, interval_time=5000
 
     return final_slope, time_range
 
-def calc_self_diffusion_coeff(slope,):
+def compute_self_diffusion(atom_positions, times, dt_collection, dt, interval_time, step_size):
 
-    # Constants for unit conversion from Angstroms squared to centimeters squared, and picoseconds to seconds
+    n_atoms = np.shape(atom_positions)[1]
+    msd = calc_Lii_self(atom_positions, times) / n_atoms  # mean for particle
+
+    # Utilize the common slope calculation function
+    slope, time_range = calc_slope_msd(times, msd, dt_collection, dt, interval_time, step_size)
+
     A2cm = 1e-8  # Angstroms to cm
     ps2s = 1e-12  # picoseconds to seconds
-    convert = (A2cm ** 2) / ps2s   # conversion factor for cm^2/s
+    convert = (A2cm ** 2) / ps2s   # cm^2/s
+    D = slope * convert / 6
 
-    # Calculate the self-diffusion coefficient, D, using the slope of the MSD curve
-    D = slope * convert / 6  # factor of 6 for three-dimensional diffusion
-
-    return D
+    return msd, D, time_range
 
 def plot_msd(msd_data, times, time_ranges, dt_collection, dt, labels, save_file):
     font_list = {"title": 20, "label": 18, "legend": 16, "ticket": 18, "data": 14}
