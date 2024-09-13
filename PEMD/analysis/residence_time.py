@@ -27,7 +27,6 @@ def calc_neigh_corr(run, distance_dict, select_dict, run_start, run_end):
             assert distance is not None
             bool_values = {}
             for time_count, _ts in enumerate(run.trajectory[run_start:run_end:]):
-
                 if kw in select_dict:
                     selection = (
                             "("
@@ -41,7 +40,6 @@ def calc_neigh_corr(run, distance_dict, select_dict, run_start, run_end):
                     shell = run.select_atoms(selection)
                 else:
                     raise ValueError("Invalid species selection")
-
                 # 获取这些原子所属的分子ID
                 mols = set(atom.residue for atom in shell)
 
@@ -49,6 +47,11 @@ def calc_neigh_corr(run, distance_dict, select_dict, run_start, run_end):
                     if str(mol.resid) not in bool_values:
                         bool_values[str(mol.resid)] = np.zeros(int((run_end - run_start) / 1))
                     bool_values[str(mol.resid)][time_count] = 1
+
+                # for shell_atom in shell.atoms:
+                #     if str(shell_atom.id) not in bool_values:
+                #         bool_values[str(shell_atom.id)] = np.zeros(int((run_end - run_start) / 1))
+                #     bool_values[str(shell_atom.id)][time_count] = 1
 
             acfs = calc_acf(bool_values)
             acf_all.extend(list(acfs))
