@@ -1,10 +1,15 @@
+# Copyright (c) 2024. PEMD developers. All rights reserved.
+# Distributed under the terms of the MIT License.
+
+# ******************************************************************************
+# Module Docstring
+# ******************************************************************************
+
 import os
 import numpy as np
 import pandas as pd
-from numba import njit
 import MDAnalysis as mda
 from tqdm.auto import tqdm
-from statsmodels.tsa.stattools import acovf
 
 def load_md_trajectory(work_dir, tpr_filename='nvt_prod.tpr', xtc_filename='nvt_prod.xtc'):
     data_tpr_file = os.path.join(work_dir, tpr_filename)
@@ -18,47 +23,71 @@ def times_array(run, run_start, run_end, time_step=5):
         times.append(step * time_step)
     return np.array(times)
 
-def calc_acf(a_values: dict[str, np.ndarray]) -> list[np.ndarray]:
-    acfs = []
-    for neighbors in a_values.values():  # for _atom_id, neighbors in a_values.items():
-        acfs.append(acovf(neighbors, demean=False, adjusted=True, fft=True))
-    return acfs
+def calc_acf(h_values: dict[str, np.ndarray]) -> np.ndarray:
+    # 获取所有分子的 h_ij(t) 数组，组成一个二维数组
+    h_matrix = np.array(list(h_values.values()))
+    num_mols, num_times = h_matrix.shape
+    max_lag = num_times  # 最大时间滞后
+
+    # 初始化自相关函数数组
+    acf = np.zeros(max_lag)
+
+    # 计算归一化因子
+    h0_squared_mean = np.mean(h_matrix[:, 0] ** 2)
+
+    for lag in range(max_lag):
+        # 对于每个时间滞后，计算 h_ij(t) * h_ij(t + lag)
+        products = []
+        for h_ij in h_matrix:
+            if num_times - lag > 0:
+                h_t = h_ij[:num_times - lag]
+                h_t_lag = h_ij[lag:]
+                product = h_t * h_t_lag
+                products.extend(product)
+        # 计算平均值并归一化
+        if h0_squared_mean != 0:
+            acf[lag] = np.mean(products) / h0_squared_mean
+        else:
+            acf[lag] = 0
+    return acf
 
 def calc_neigh_corr(run, distance_dict, select_dict, run_start, run_end):
     acf_avg = {}
     center_atoms = run.select_atoms('resname LIP and name Li')
     for kw in distance_dict:
         acf_all = []
-        for atom in tqdm(center_atoms[::]):
+        for atom in tqdm(center_atoms):
             distance = distance_dict.get(kw)
             assert distance is not None
-            bool_values = {}
-            for time_count, _ts in enumerate(run.trajectory[run_start:run_end:]):
+            h_values = {}
+            for time_count, _ts in enumerate(run.trajectory[run_start:run_end]):
                 if kw in select_dict:
                     selection = (
-                            "("
-                            + select_dict[kw]
-                            + ") and (around "
-                            + str(distance)
-                            + " index "
-                            + str(atom.id - 1)
-                            + ")"
+                        "("
+                        + select_dict[kw]
+                        + ") and (around "
+                        + str(distance)
+                        + " index "
+                        + str(atom.id - 1)
+                        + ")"
                     )
                     shell = run.select_atoms(selection)
                 else:
                     raise ValueError("Invalid species selection")
                 # 获取这些原子所属的分子ID
                 mols = set(atom.residue for atom in shell)
-
                 for mol in mols:
-                    if str(mol.resid) not in bool_values:
-                        bool_values[str(mol.resid)] = np.zeros(int((run_end - run_start) / 1))
-                    bool_values[str(mol.resid)][time_count] = 1
-
-            acfs = calc_acf(bool_values)
-            acf_all.extend(list(acfs))
+                    mol_id = str(mol.resid)
+                    if mol_id not in h_values:
+                        h_values[mol_id] = np.zeros(run_end - run_start)
+                    h_values[mol_id][time_count] = 1
+            # 对于每个锂离子-分子对，计算时间自相关函数
+            acf = calc_acf(h_values)
+            acf_all.append(acf)
+        # 对所有锂离子取平均
         acf_avg[kw] = np.mean(acf_all, axis=0)
     return acf_avg
+
 
 if __name__ == '__main__':
     work_dir = '../'

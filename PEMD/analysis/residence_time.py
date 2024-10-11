@@ -16,7 +16,6 @@ def calc_acf(a_values: dict[str, np.ndarray]) -> list[np.ndarray]:
         acfs.append(acovf(neighbors, demean=False, adjusted=True, fft=True))
     return acfs
 
-
 def calc_neigh_corr(run, distance_dict, select_dict, run_start, run_end):
     acf_avg = {}
     center_atoms = run.select_atoms('resname LIP and name Li')

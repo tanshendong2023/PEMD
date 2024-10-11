@@ -292,9 +292,9 @@ def pre_run_gmx(model_info, density, add_length, out_dir, packout_name, core, pa
         slurm.add_cmd('gmx_mpi mdrun -v -deffnm em')
         slurm.add_cmd(f'gmx_mpi grompp -f nvt.mdp -c em.gro -p {top_filename} -o nvt.tpr')
         slurm.add_cmd('gmx_mpi mdrun -v -deffnm nvt')
-        slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_anneal.mdp -c nvt.gro -p {top_filename} -o npt_anneal.tpr -maxwarn 1')
         slurm.add_cmd('gmx_mpi mdrun -v -deffnm npt_anneal')
-        slurm.add_cmd(f'gmx_mpi grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr')
+        slurm.add_cmd(f'gmx_mpi grompp -f npt_eq.mdp -c npt_anneal.gro -p {top_filename} -o npt_eq.tpr -maxwarn 1')
         slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm npt_eq')
 
     job_id = slurm.sbatch()
@@ -360,8 +360,7 @@ def run_gmx_prod(out_dir, core, partition, T_target, input_str, top_filename, mo
         slurm.add_cmd(f'module load {module_soft}')
         slurm.add_cmd(f'gmx_mpi grompp -f nvt_prod.mdp -c {input_str}.gro -p {top_filename} -o {output_str}.tpr')
         slurm.add_cmd(f'mpirun gmx_mpi mdrun -v -deffnm {output_str}')
-        slurm.add_cmd(f'echo 0 | gmx_mpi trjconv -s {output_str}.tpr -f {output_str}.xtc -o {output_str}_unwrap.xtc '
-                      f'-pbc nojump -ur compact')
+        slurm.add_cmd(f'echo 0 | -')
 
     job_id = slurm.sbatch()
 

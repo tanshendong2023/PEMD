@@ -6,113 +6,132 @@
 # ******************************************************************************
 
 import os
+import time
 import numpy as np
 import pandas as pd
 import MDAnalysis as mda
 from tqdm.auto import tqdm
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from numba import njit, prange
 
 def distance(x0, x1, box_length):
     delta = x1 - x0
-    delta = np.where(delta > 0.5 * box_length, delta - box_length, delta)
-    delta = np.where(delta < -0.5 * box_length, delta + box_length, delta)
+    delta -= box_length * np.round(delta / box_length)
     return delta
 
-def load_data_traj(work_dir, data_tpr_file, dcd_xtc_file, select_atoms, run_start, run_end, dt, dt_collection,
-                   cutoff_radii):
-    data_tpr_file_path = os.path.join(work_dir, data_tpr_file)
-    dcd_xtc_file_path = os.path.join(work_dir, dcd_xtc_file)
+def load_data_traj(work_dir, tpr_file, xtc_wrap_file, xtc_unwrap_file, select_atoms, run_start, run_end, cutoff_radii):
+    tpr_filepath = os.path.join(work_dir, tpr_file)
+    xtc_wrap_filepath = os.path.join(work_dir, xtc_wrap_file)
+    xtc_unwrap_filepath = os.path.join(work_dir, xtc_unwrap_file)
 
-    u = mda.Universe(data_tpr_file_path, dcd_xtc_file_path)
+    run_wrap = mda.Universe(tpr_filepath, xtc_wrap_filepath)
+    run_unwrap = mda.Universe(tpr_filepath, xtc_unwrap_filepath)
 
     # Selections
-    li_atoms = u.select_atoms(select_atoms['cation'])
-    tfsi_atoms = u.select_atoms(select_atoms['anion'])
-    oe_atoms = u.select_atoms(select_atoms['PEO'])
-    sn_atoms = u.select_atoms(select_atoms['SN'])
+    cations_wrap = run_wrap.select_atoms(select_atoms['cation'])
+    cations_unwrap = run_unwrap.select_atoms(select_atoms['cation'])
+    anions_wrap = run_wrap.select_atoms(select_atoms['anion'])
+    PEO_wrap = run_wrap.select_atoms(select_atoms['PEO'])
+    SN_wrap = run_wrap.select_atoms(select_atoms['SN'])
 
-    num_li = int(len(li_atoms))
-    li_positions = np.zeros((run_end - run_start, num_li, 3))
-    li_env = np.zeros((run_end - run_start, num_li))
+    n_cations = len(cations_wrap)
+    total_frames = run_end - run_start
+    li_positions = np.zeros((total_frames, n_cations, 3), dtype=np.float64)
+    li_env = np.zeros((total_frames, n_cations), dtype=np.int32)
 
-    # Trajectory analysis
-    for ts in tqdm(u.trajectory[run_start:run_end], desc='Processing trajectory'):
+    # Trajectory analysis for positions
+    for ts in tqdm(run_unwrap.trajectory[run_start:run_end], desc='Processing positions'):
+        li_positions[ts.frame - run_start] = cations_unwrap.positions.copy()
 
+    # Trajectory analysis for environments
+    for ts in tqdm(run_wrap.trajectory[run_start:run_end], desc='Processing environments'):
         box_size = ts.dimensions[0]
-        li_positions[ts.frame, :, :] = li_atoms.positions[:, :]
 
-        for n, li in enumerate(li_atoms):
-            distances_oe_vec = distance(oe_atoms.positions, li.position, box_size)
-            distances_oe = np.linalg.norm(distances_oe_vec, axis=1)
-            close_oe = np.where(distances_oe < cutoff_radii['PEO'])[0]
+        li_pos = cations_wrap.positions.copy()
+        PEO_pos = PEO_wrap.positions.copy()
+        anions_pos = anions_wrap.positions.copy()
+        SN_pos = SN_wrap.positions.copy()
 
-            distances_tfsi_vec = distance(tfsi_atoms.positions, li.position, box_size)
-            distances_tfsi = np.linalg.norm(distances_tfsi_vec, axis=1)
-            close_tfsi = np.where(distances_tfsi < cutoff_radii['TFSI'])[0]
+        for n in range(n_cations):
+            li = li_pos[n]
 
-            distances_sn_vec = distance(sn_atoms.positions, li.position, box_size)
-            distances_sn = np.linalg.norm(distances_sn_vec, axis=1)
-            close_sn = np.where(distances_sn < cutoff_radii['SN'])[0]
+            distances_oe = np.linalg.norm(distance(PEO_pos, li, box_size), axis=1)
+            close_oe = np.any(distances_oe < cutoff_radii['PEO'])
+
+            distances_tfsi = np.linalg.norm(distance(anions_pos, li, box_size), axis=1)
+            close_tfsi = np.any(distances_tfsi < cutoff_radii['TFSI'])
+
+            distances_sn = np.linalg.norm(distance(SN_pos, li, box_size), axis=1)
+            close_sn = np.any(distances_sn < cutoff_radii['SN'])
 
             # Assign environment type
-            if close_oe.any() and not close_tfsi.any() and not close_sn.any():
-                li_env[ts.frame, n] = 1
-            elif close_oe.any() and (close_tfsi.any() or close_sn.any()):
-                li_env[ts.frame, n] = 2
-            elif not close_oe.any() and (close_tfsi.any() or close_sn.any()):
-                li_env[ts.frame, n] = 3
+            if close_oe and not (close_tfsi or close_sn):
+                li_env[ts.frame - run_start, n] = 1
+            elif close_oe and (close_tfsi or close_sn):
+                li_env[ts.frame - run_start, n] = 2
+            elif not close_oe and (close_tfsi or close_sn):
+                li_env[ts.frame - run_start, n] = 3
 
     return li_positions, li_env
 
-def compute_delta_d_square(dt, li_positions, li_env, env, run_start, run_end, threshold):
-    msd_in_dt = []
-    count_li_dt = []
-    if dt == 0:
-        return 0, 0  # MSD at dt=0 is 0 as Δn would be 0
+@njit(parallel=True)
+def compute_msd(li_positions, li_env, env, time_window, threshold):
+    total_frames, n_cations, _ = li_positions.shape
+    msd_array = np.zeros(time_window)
+    count_li_array = np.zeros(time_window)
+    for dt in prange(1, time_window):
+        msd_sum = 0.0
+        msd_count = 0
+        count_li_sum = 0.0
+        count_li_entries = 0
 
-    for t in range(run_start, run_end - dt):
-        delta_d = li_positions[t + dt] - li_positions[t]
-        delta_d_square = np.square(delta_d)
+        max_t = total_frames - dt
+        for t in range(max_t):
+            delta_d = li_positions[t + dt] - li_positions[t]
+            delta_d_square = np.sum(delta_d ** 2, axis=1)
 
-        i = (li_env[t] == env)  # 确保 t 和 t + dt 都在 li_env 的有效范围内
-        j = (li_env[t + dt] == env)
-        bound_counts = np.sum(np.abs(li_env[t:t + dt] - li_env[t]) < 1, axis=0)
-        h = (bound_counts / dt) >= threshold
-        li_intersection = i & j & h
+            i = li_env[t] == env
+            j = li_env[t + dt] == env
 
-        count_li_dt.append(np.sum(li_intersection))
+            # Calculate how long the Li ion stays in the same environment
+            bound_counts = np.zeros(n_cations, dtype=np.int32)
+            # never_env_3 = np.ones(n_cations, dtype=np.bool_)
 
-        delta_d_square_filtered = delta_d_square[li_intersection]
-        if delta_d_square_filtered.size > 0:
-            msd_in_dt.append(np.mean(delta_d_square_filtered))
+            for k in range(dt):
+                same_env = li_env[t + k] == li_env[t]
+                bound_counts += same_env.astype(np.int32)
 
-    return np.mean(msd_in_dt) if msd_in_dt else 0, np.mean(count_li_dt) if count_li_dt else 0
+                # not_env_3 = li_env[t + k] != 3
+                # never_env_3 &= not_env_3
 
-def compute_msd_parallel(li_positions, li_env, env, run_start, run_end, time_window, dt, dt_collection, threshold=0.95):
-    times = np.arange(0, time_window * dt * dt_collection, dt * dt_collection, dtype=int)
-    msd = []
-    count_li = []
+            h = (bound_counts / dt) >= threshold
 
-    with ProcessPoolExecutor(max_workers=32) as executor:
-        futures = {
-            executor.submit(compute_delta_d_square, dt, li_positions, li_env, env, run_start, run_end, threshold): dt
-            for dt in range(time_window)}
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Calculating MSD"):
-            dt = futures[future]
-            msd_result, count_li_result = future.result()
-            msd.append((dt, msd_result))
-            count_li.append((dt, count_li_result))
+            li_intersection = i & j & h # & never_env_3
 
-    msd.sort(key=lambda x: x[0])
-    count_li.sort(key=lambda x: x[0])
+            count_li = np.sum(li_intersection)
+            if count_li > 0:
+                msd_sum += np.sum(delta_d_square[li_intersection])
+                msd_count += count_li
+                count_li_sum += count_li
+                count_li_entries += 1
 
-    return np.array([result for _, result in msd]), np.array([result for _, result in count_li]), times
+        if msd_count > 0:
+            msd_array[dt] = msd_sum / msd_count
+        else:
+            msd_array[dt] = 0.0
+
+        if count_li_entries > 0:
+            count_li_array[dt] = count_li_sum / count_li_entries
+        else:
+            count_li_array[dt] = 0.0
+
+    return msd_array, count_li_array
 
 if __name__ == '__main__':
-    work_dir = './'
+    work_dir = '../'
 
-    data_tpr_file = 'nvt_prod.tpr'
-    dcd_xtc_file = 'nvt_prod_unwrap.xtc'
+    tpr_file = 'nvt_prod.tpr'
+    xtc_wrap_file = 'nvt_prod.xtc'
+    xtc_unwrap_file = 'nvt_prod_unwrap.xtc'
 
     select_atoms = {
         'cation': 'resname LIP and name Li',
@@ -122,48 +141,62 @@ if __name__ == '__main__':
     }
 
     cutoff_radii = {
-        'PEO': 3.6,
-        'TFSI': 3.2,
+        'PEO': 3.7,
+        'TFSI': 3.5,
         'SN': 3.7,
     }
 
     run_start = 0
-    run_end = 80001  # step
-    dt = 0.001
-    dt_collection = 5000  # step
-    time_window = 10001
+    run_end = 80001  # frames
+    time_step = 0.001  # ps per MD step
+    dt_collection = 5000  # MD steps between frames
+    time_per_frame = time_step * dt_collection  # ps per frame
+    time_window = 2001  # number of dt indices
     env = 1  # 1: PEO  2: PEO/SN/TFSI 3: SN/TFSI
 
-    #  loads and processes trajectory data
-    (
-        li_positions,
-        li_env,
-    ) = load_data_traj(
-        work_dir,
-        data_tpr_file,
-        dcd_xtc_file,
-        select_atoms,
-        run_start,
-        run_end,
-        dt,
-        dt_collection,
-        cutoff_radii,
-    )
+    start_time = time.time()  # 获取当前时间
 
-    (
-        msd,
-        count_li,
-        times
-    ) = compute_msd_parallel(
+    # 文件名
+    li_positions_file = 'li_positions.npy'
+    li_env_file = 'li_env.npy'
+
+    # 检查文件是否存在
+    if os.path.exists(li_positions_file) and os.path.exists(li_env_file):
+        print("加载已有的 li_positions 和 li_env 数据...")
+        li_positions = np.load(li_positions_file)
+        li_env = np.load(li_env_file)
+    else:
+        print("计算 li_positions 和 li_env...")
+        # 加载并处理轨迹数据
+        li_positions, li_env = load_data_traj(
+            work_dir,
+            tpr_file,
+            xtc_wrap_file,
+            xtc_unwrap_file,
+            select_atoms,
+            run_start,
+            run_end,
+            cutoff_radii,
+        )
+        # 保存数据到文件
+        np.save(li_positions_file, li_positions)
+        np.save(li_env_file, li_env)
+        print("li_positions 和 li_env 已保存到文件。")
+
+    # 计算 MSD
+    msd, count_li = compute_msd(
         li_positions,
         li_env,
         env,
-        run_start,
-        run_end,
         time_window,
-        dt,
-        dt_collection
+        threshold=0.95
     )
+
+    # 时间数组
+    times = np.arange(time_window) * time_per_frame
+
+    end_time = time.time()  # 获取当前时间
+    print(f"代码执行时间：{end_time - start_time} 秒")
 
     # 创建包含三个列的DataFrame
     df = pd.DataFrame({
@@ -175,6 +208,8 @@ if __name__ == '__main__':
     # 写入CSV文件
     df.to_csv(f'msd_{env}.csv', index=False)
 
-    # Print success message
+    # 打印成功信息
     print("CSV file has been successfully saved!")
+
+
 

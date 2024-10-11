@@ -5,7 +5,6 @@ import numpy as np
 from tqdm.auto import tqdm
 from scipy.optimize import curve_fit
 
-
 def distance(x0, x1, box_length):
     delta = x1 - x0
     delta = np.where(delta > 0.5 * box_length, delta - box_length, delta)
