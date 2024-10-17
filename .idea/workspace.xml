@@ -5,17 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dd81dad-28a6-410b-aa90-5ffd6c5713e7" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/PEMD/workflow/Residence_time_env.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/PEMD/workflow/lifetime.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/polymer_ion_dynamics.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/analysis/residence_time.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/analysis/residence_time.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/core/MD.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/core/MD.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/D_env.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/D_env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/conductivity_cNE.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/conductivity_cNE.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/ion_cluster.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/ion_cluster.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/residence_time.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/residence_time.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PEMD/workflow/residence_time_2.py" beforeDir="false" afterPath="$PROJECT_DIR$/PEMD/workflow/residence_time_2.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,6 +21,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/PEMD/analysis/residence_time.py" root0="SKIP_INSPECTION" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
