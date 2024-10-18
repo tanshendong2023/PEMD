@@ -9,7 +9,7 @@ import os
 import time
 import subprocess
 import numpy as np
-import pandas as pd
+from rdkit import Chem
 from openbabel import openbabel as ob
 from simple_slurm import Slurm
 from PEMD.model import model_lib
@@ -37,69 +37,154 @@ def get_slurm_job_status(job_id):
     else:
         return 'RUNNING'
 
-def order_energy_xtb(file_path, numconf):
+# Modified order_energy_xtb function
+def order_energy_xtb(file_path, numconf, output_file):
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
     structures = []
-    energies = []
     current_structure = []
-    for line in lines:
-        if line.strip().isdigit() and current_structure:  # 结构的开始
-            energy_line = current_structure[1]  # 第二行是能量
-            energy = float(energy_line.split()[-1])
-            energies.append(energy)
-            structures.append(current_structure)
-            current_structure = [line.strip()]  # 开始新的结构
-        else:
-            current_structure.append(line.strip())
+    is_first_line = True  # Indicates if we are at the start of the file
 
-    # add the last structure to the list
+    for line in lines:
+        line = line.strip()
+        if line.isdigit() and (is_first_line or current_structure):
+            if current_structure and not is_first_line:
+                energy_line = current_structure[1]  # Second line contains energy information
+                try:
+                    energy = float(energy_line.split()[-1])
+                except ValueError:
+                    print(f"Could not parse energy value: {energy_line}")
+                    energy = float('inf')  # Assign infinite energy if parsing fails
+                structures.append((energy, current_structure))
+            current_structure = [line]  # Start a new structure
+            is_first_line = False
+        else:
+            current_structure.append(line)
+
+    # Add the last structure
     if current_structure:
         energy_line = current_structure[1]
-        energy = float(energy_line.split()[-1])
-        energies.append(energy)
-        structures.append(current_structure)
+        try:
+            energy = float(energy_line.split()[-1])
+        except ValueError:
+            print(f"Could not parse energy value: {energy_line}")
+            energy = float('inf')
+        structures.append((energy, current_structure))
 
-    # Get indices of the NumConf lowest energy structures
-    lowest_indices = sorted(range(len(energies)), key=lambda i: energies[i])[:numconf]
+    # Sort structures by energy
+    structures.sort(key=lambda x: x[0])
 
-    # Extract the structures with the lowest energies
-    lowest_energy_structures = [structures[i] for i in lowest_indices]
+    # Select the lowest energy structures
+    selected_structures = structures[:numconf]
 
-    return lowest_energy_structures
+    # Write the selected structures to the output .xyz file
+    with open(output_file, 'w') as outfile:
+        for idx, (energy, structure) in enumerate(selected_structures):
+            for line_num, line in enumerate(structure):
+                if line_num == 1:
+                    # Modify the comment line to include the energy value
+                    outfile.write(f"Energy = {energy}\n")
+                else:
+                    outfile.write(f"{line}\n")
 
+    print(f"The lowest {numconf} energy structures have been written to {output_file}")
 
-def order_energy_gaussian(dir_path):
+def read_xyz_file(file_path):
+    """
+    读取 .xyz 文件，返回一个结构列表。
+    每个结构是一个包含原子数、注释行和原子坐标的字典。
+    """
+    structures = []
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+    i = 0
+    while i < len(lines):
+        num_atoms_line = lines[i].strip()
+        if num_atoms_line.isdigit():
+            num_atoms = int(num_atoms_line)
+            comment_line = lines[i + 1].strip()
+            atoms = []
+            for j in range(i + 2, i + 2 + num_atoms):
+                atom_line = lines[j].strip()
+                atoms.append(atom_line)
+            structure = {
+                'num_atoms': num_atoms,
+                'comment': comment_line,
+                'atoms': atoms
+            }
+            structures.append(structure)
+            i = i + 2 + num_atoms
+        else:
+            i += 1
+    return structures
+
+def read_energy_from_gaussian(log_file_path):
+    """
+    从 Gaussian 输出文件中读取能量（自由能）
+    """
+    with open(log_file_path, 'r') as file:
+        lines = file.readlines()
+    energy = None
+    for line in lines:
+        if 'Sum of electronic and thermal Free Energies=' in line:
+            energy = float(line.strip().split()[-1])
+    return energy
+
+def read_final_structure_from_gaussian(log_file_path):
+    """
+    从 Gaussian 输出文件中提取优化后的结构坐标
+    """
+    with open(log_file_path, 'r') as file:
+        lines = file.readlines()
+    start_idx = None
+    end_idx = None
+    for i, line in enumerate(lines):
+        if 'Standard orientation:' in line:
+            start_idx = i + 5  # 跳过标题行
+        elif start_idx and '---------------------------------------------------------------------' in line:
+            end_idx = i
+            break
+    if start_idx and end_idx:
+        atoms = []
+        for line in lines[start_idx:end_idx]:
+            tokens = line.strip().split()
+            atom_number = int(tokens[1])
+            x = float(tokens[3])
+            y = float(tokens[4])
+            z = float(tokens[5])
+            atom_symbol = Chem.PeriodicTable.GetElementSymbol(Chem.GetPeriodicTable(), atom_number)
+            atoms.append(f"{atom_symbol}   {x}   {y}   {z}")
+        return atoms
+    else:
+        return None
+
+def order_energy_gaussian(dir_path, output_file):
     data = []
     # Traverse all files in the specified folder
     for file in os.listdir(dir_path):
-        if file.endswith(".log"):
+        if file.endswith(".out"):
             log_file_path = os.path.join(dir_path, file)
-            energy = read_G_from_gaussian(log_file_path)
-            if energy is not None:
-                data.append({"File_Path": log_file_path, "Energy": float(energy)})      # 将文件路径、文件名和能量值添加到数据列表中
+            energy = read_energy_from_gaussian(log_file_path)
+            atoms = read_final_structure_from_gaussian(log_file_path)
+            if energy is not None and atoms is not None:
+                data.append({"Energy": energy, "Atoms": atoms})
 
-    df = pd.DataFrame(data)   # 将数据列表转换为DataFrame
-
-    # Find the row corresponding to the structure with the lowest energy
-    if not df.empty:
-        sorted_df = df.sort_values(by='Energy', ascending=True)
-        return sorted_df
+    # Check if data is not empty
+    if data:
+        # Sort the structures by energy
+        sorted_data = sorted(data, key=lambda x: x['Energy'])
+        # Write the sorted structures to an .xyz file
+        with open(output_file, 'w') as outfile:
+            for item in sorted_data:
+                num_atoms = len(item['Atoms'])
+                outfile.write(f"{num_atoms}\n")
+                outfile.write(f"Energy = {item['Energy']}\n")
+                for atom_line in item['Atoms']:
+                    outfile.write(f"{atom_line}\n")
+        print(f"Sorted structures have been saved to {output_file}")
     else:
-        print(f"No sucessful log files found in {dir_path}")
-        return None
-
-
-def read_G_from_gaussian(log_file_path):
-    energy = None
-    with open(log_file_path, 'r') as file:
-        for line in file:
-            if "Sum of electronic and thermal Free Energies=" in line:
-                energy = float(line.split()[-1])
-                break
-    return energy
-
+        print(f"No successful Gaussian output files found in {dir_path}")
 
 def get_gaff2(unit_name, length, relax_polymer_lmp_dir, mol, atom_typing='pysimm'):
     print("\nGenerating GAFF2 parameter file ...\n")

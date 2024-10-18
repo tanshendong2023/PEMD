@@ -100,6 +100,7 @@ class PEMDAnalysis:
         )
         return slope, time_range
 
+    # calculate the conductivity
     @lru_cache(maxsize=128)
     def get_conductivity(self):
 
@@ -126,6 +127,7 @@ class PEMDAnalysis:
         n_atoms = np.shape(atom_positions)[1]
         return calc_Lii_self(atom_positions, self.times) / n_atoms
 
+    # calculate the self diffusion coefficient
     def get_self_diffusion_coefficient(self) -> Tuple[float, float]:
 
         cations_positions, anions_positions = self.get_ions_positions_array()
@@ -136,6 +138,7 @@ class PEMDAnalysis:
         D_anions = calc_self_diffusion_coeff(slope_anions)
         return D_cations, D_anions
 
+    # calculate the transfer number
     def get_transfer_number(self):
 
         cations_positions, anions_positions = self.get_ions_positions_array()
@@ -193,6 +196,7 @@ class PEMDAnalysis:
             self.num_o_chain
         )
 
+    # calculate the tau3
     @lru_cache(maxsize=128)
     def get_tau3(self):
 
@@ -218,6 +222,7 @@ class PEMDAnalysis:
             msd = list(tqdm(pool.imap(partial_calc_delta_n_square, range(time_window)), total=time_window))
         return np.array(msd)
 
+    # calculate the tau1
     def get_tau1(self, time_window):
 
         return calc_tau1(
@@ -245,6 +250,7 @@ class PEMDAnalysis:
             self.get_poly_array()[3]
         )
 
+    # calculate the tauR
     def get_tauR(self):
 
         return fit_rouse_model(
@@ -267,6 +273,7 @@ class PEMDAnalysis:
             msd = list(tqdm(pool.imap(partial_calc_msd_M2, range(time_window)), total=time_window))
         return np.array(msd)
 
+    # calculate the tau2
     def get_tau2(self, time_window):
 
         return fit_rouse_model(
@@ -275,6 +282,8 @@ class PEMDAnalysis:
             self.get_msd_M2_array(time_window),
             self.num_o_chain
         )
+
+
 
 
 

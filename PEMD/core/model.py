@@ -12,15 +12,19 @@ from PEMD.model.build import (
     gen_poly_smiles,
     gen_poly_3D,
 )
+from PEMD.simulation.qm import (
+    conformer_search_xtb,
+    conformer_search_gaussian,
+)
 
 class PEMDModel:
-    def __init__(self, poly_name, repeating_unit, leftcap, rightcap, length_short, length, ):
+    def __init__(self, poly_name, repeating_unit, leftcap, rightcap, length_short, length_poly, ):
         self.poly_name = poly_name
         self.repeating_unit = repeating_unit
         self.leftcap = leftcap
         self.rightcap = rightcap
         self.length_short = length_short
-        self.length = length
+        self.length_poly = length_poly
 
     @classmethod
     def from_json(cls, work_dir, json_file):
@@ -31,12 +35,12 @@ class PEMDModel:
 
         poly_name = model_info['polymer']['compound']
         repeating_unit = model_info['polymer']['repeating_unit']
-        leftcap = model_info['polymer']['terminal_cap']
-        rightcap = model_info['polymer']['terminal_cap']
+        leftcap = model_info['polymer']['left_cap']
+        rightcap = model_info['polymer']['right_cap']
         length_short = model_info['polymer']['length'][0]
-        length = model_info['polymer']['length'][1]
+        length_poly = model_info['polymer']['length'][1]
 
-        return cls(poly_name, repeating_unit, leftcap, rightcap, length, length_short)
+        return cls(poly_name, repeating_unit, leftcap, rightcap, length_short, length_poly)
 
     def gen_poly_smiles(self, short=False):
 
@@ -54,16 +58,18 @@ class PEMDModel:
                 self.repeating_unit,
                 self.leftcap,
                 self.rightcap,
-                self.length,
+                self.length_poly,
             )
 
-    def build_polymer(self,):
+    # def conformer_search
 
-        return  gen_poly_3D(
-            self.poly_name,
-            self.length,
-            self.gen_poly_smiles(),
-        )
+    # def build_polymer(self,):
+    #
+    #     return  gen_poly_3D(
+    #         self.poly_name,
+    #         self.length,
+    #         self.gen_poly_smiles(),
+    #     )
 
 
 

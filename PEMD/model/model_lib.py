@@ -171,143 +171,161 @@ def gen_oligomer_smiles(poly_name, dum1, dum2, atom1, atom2, repeating_unit, len
 
     inti_mol = gen_smiles_with_cap(
         poly_name,
-        0,
-        0,
         first_atom,
         second_atom + (length -1) * monomer_mol.GetNumAtoms(),
         inti_mol,
         smiles_LCap_,
         smiles_RCap_,
-        WithDum=False,
     )
 
     return Chem.MolToSmiles(inti_mol)
 
-def gen_smiles_with_cap(poly_name, dum1, dum2, atom1, atom2, smiles_each, smiles_LCap_, smiles_RCap_, WithDum=True,):
+def gen_smiles_with_cap(poly_name, atom1, atom2, inti_mol, smiles_LCap_, smiles_RCap_):
+
     # Main chain
-    # Check if there are dummy atoms in the chain
-    if WithDum is True:
-        main_mol = Chem.MolFromSmiles(smiles_each)
-        main_edit_m1 = Chem.EditableMol(main_mol)
+    main_mol_noDum = inti_mol
+    first_atom, second_atom = atom1, atom2
+
+    # Left Cap
+    if not smiles_LCap_:
+        # Decide whether to cap with H or CH3
+        first_atom_obj = main_mol_noDum.GetAtomWithIdx(first_atom)
+        atomic_num = first_atom_obj.GetAtomicNum()
+        degree = first_atom_obj.GetDegree()
+        num_implicit_hs = first_atom_obj.GetNumImplicitHs()
+        num_explicit_hs = first_atom_obj.GetNumExplicitHs()
+        total_hs = num_implicit_hs + num_explicit_hs
+
+        if atomic_num == 6 and degree == 2 and total_hs == 2:
+            # It's a -CH2- group, cap with H
+            edmol = Chem.RWMol(main_mol_noDum)
+            h_idx = edmol.AddAtom(Chem.Atom(1))  # Add hydrogen atom
+            edmol.AddBond(first_atom, h_idx, order=Chem.rdchem.BondType.SINGLE)
+            main_mol_noDum = edmol.GetMol()
+        else:
+            # Cap with CH3
+            cap_mol = Chem.MolFromSmiles('C')
+            cap_add = cap_mol.GetNumAtoms()
+            combo = Chem.CombineMols(cap_mol, main_mol_noDum)
+            edcombo = Chem.EditableMol(combo)
+            edcombo.AddBond(0, cap_add + first_atom, order=Chem.rdchem.BondType.SINGLE)
+            main_mol_noDum = edcombo.GetMol()
+    else:
+        # Existing code for handling Left Cap
+        (
+            unit_name,
+            dum_L,
+            atom_L,
+            m1L,
+            neigh_atoms_info_L,
+            flag_L
+        ) = Init_info_Cap(
+            poly_name,
+            smiles_LCap_
+        )
+
+        # Reject if SMILES is not correct
+        if flag_L == 'REJECT':
+            return unit_name, 'REJECT', 0
+
+        # Editable Mol for LeftCap
+        LCap_m1 = Chem.MolFromSmiles(smiles_LCap_)
+        LCap_edit_m1 = Chem.EditableMol(LCap_m1)
 
         # Remove dummy atoms
-        main_edit_m1.RemoveAtom(dum1)
-        if dum1 < dum2:
-            main_edit_m1.RemoveAtom(dum2 - 1)
-        else:
-            main_edit_m1.RemoveAtom(dum2)
+        LCap_edit_m1.RemoveAtom(dum_L)
 
         # Mol without dummy atom
-        main_mol_noDum = main_edit_m1.GetMol()
+        LCap_m1 = LCap_edit_m1.GetMol()
+        LCap_add = LCap_m1.GetNumAtoms()
 
-        # Get linking atoms
-        if atom1 > atom2:
-            atom1, atom2 = atom2, atom1
-
-        if dum1 < atom1 and dum2 < atom1:
-            first_atom = atom1 - 2
-        elif (dum1 < atom1 and dum2 > atom1) or (dum1 > atom1 and dum2 < atom1):
-            first_atom = atom1 - 1
+        # Linking atom
+        if dum_L < atom_L:
+            LCap_atom = atom_L - 1
         else:
-            first_atom = atom1
+            LCap_atom = atom_L
 
-        if dum1 < atom2 and dum2 < atom2:
-            second_atom = atom2 - 2
-        elif (dum1 < atom2 and dum2 > atom2) or (dum1 > atom2 and dum2 < atom2):
-            second_atom = atom2 - 1
-        else:
-            second_atom = atom2
-    else:
-        main_mol_noDum = smiles_each
-        first_atom, second_atom = atom1, atom2
-
-    LCap_add = 0
-    # Left Cap
-    (
-        unit_name,
-        dum_L,
-        atom_L,
-        m1L,
-        neigh_atoms_info_L,
-        flag_L
-    ) = Init_info_Cap(
-        poly_name,
-        smiles_LCap_
-    )
-
-    # Reject if SMILES is not correct
-    if flag_L == 'REJECT':
-        return unit_name, 'REJECT', 0
-
-    # Editable Mol for LeftCap
-    LCap_m1 = Chem.MolFromSmiles(smiles_LCap_)
-    LCap_edit_m1 = Chem.EditableMol(LCap_m1)
-
-    # Remove dummy atoms
-    LCap_edit_m1.RemoveAtom(dum_L)
-
-    # Mol without dummy atom
-    LCap_m1 = LCap_edit_m1.GetMol()
-    LCap_add = LCap_m1.GetNumAtoms()
-
-    # Linking atom
-    if dum_L < atom_L:
-        LCap_atom = atom_L - 1
-    else:
-        LCap_atom = atom_L
-
-    # Join main chain with Left Cap
-    combo = Chem.CombineMols(LCap_m1, main_mol_noDum)
-    edcombo = Chem.EditableMol(combo)
-    edcombo.AddBond(
-        LCap_atom, first_atom + LCap_add, order=Chem.rdchem.BondType.SINGLE
-    )
-    main_mol_noDum = edcombo.GetMol()
+        # Join main chain with Left Cap
+        combo = Chem.CombineMols(LCap_m1, main_mol_noDum)
+        edcombo = Chem.EditableMol(combo)
+        edcombo.AddBond(
+            LCap_atom, first_atom + LCap_add, order=Chem.rdchem.BondType.SINGLE
+        )
+        main_mol_noDum = edcombo.GetMol()
 
     # Right Cap
-    (
-        unit_name,
-        dum_R,
-        atom_R,
-        m1L,
-        neigh_atoms_info_R,
-        flag_R
-    ) = Init_info_Cap(
-        poly_name,
-        smiles_RCap_
-    )
+    if not smiles_RCap_:
+        # Decide whether to cap with H or CH3
+        second_atom_obj = main_mol_noDum.GetAtomWithIdx(second_atom)
+        atomic_num = second_atom_obj.GetAtomicNum()
+        degree = second_atom_obj.GetDegree()
+        num_implicit_hs = second_atom_obj.GetNumImplicitHs()
+        num_explicit_hs = second_atom_obj.GetNumExplicitHs()
+        total_hs = num_implicit_hs + num_explicit_hs
 
-    # Reject if SMILES is not correct
-    if flag_R == 'REJECT':
-        return unit_name, 'REJECT', 0
-
-    # Editable Mol for RightCap
-    RCap_m1 = Chem.MolFromSmiles(smiles_RCap_)
-    RCap_edit_m1 = Chem.EditableMol(RCap_m1)
-
-    # Remove dummy atoms
-    RCap_edit_m1.RemoveAtom(dum_R)
-
-    # Mol without dummy atom
-    RCap_m1 = RCap_edit_m1.GetMol()
-
-    # Linking atom
-    if dum_R < atom_R:
-        RCap_atom = atom_R - 1
+        if atomic_num == 6 and degree == 2 and total_hs == 2:
+            # It's a -CH2- group, cap with H
+            edmol = Chem.RWMol(main_mol_noDum)
+            h_idx = edmol.AddAtom(Chem.Atom(1))  # Add hydrogen atom
+            edmol.AddBond(second_atom, h_idx, order=Chem.rdchem.BondType.SINGLE)
+            main_mol_noDum = edmol.GetMol()
+        else:
+            # Cap with CH3
+            cap_mol = Chem.MolFromSmiles('C')
+            cap_add = cap_mol.GetNumAtoms()
+            combo = Chem.CombineMols(main_mol_noDum, cap_mol)
+            edcombo = Chem.EditableMol(combo)
+            edcombo.AddBond(
+                second_atom,
+                main_mol_noDum.GetNumAtoms(),  # Index of the cap atom
+                order=Chem.rdchem.BondType.SINGLE,
+            )
+            main_mol_noDum = edcombo.GetMol()
     else:
-        RCap_atom = atom_R
+        # Existing code for handling Right Cap
+        (
+            unit_name,
+            dum_R,
+            atom_R,
+            m1L,
+            neigh_atoms_info_R,
+            flag_R
+        ) = Init_info_Cap(
+            poly_name,
+            smiles_RCap_
+        )
 
-    # Join main chain with Left Cap
-    combo = Chem.CombineMols(main_mol_noDum, RCap_m1)
-    edcombo = Chem.EditableMol(combo)
-    edcombo.AddBond(
-        LCap_add + second_atom,
-        RCap_atom + main_mol_noDum.GetNumAtoms(),
-        order=Chem.rdchem.BondType.SINGLE,
-    )
-    main_mol_noDum = edcombo.GetMol()
+        # Reject if SMILES is not correct
+        if flag_R == 'REJECT':
+            return unit_name, 'REJECT', 0
+
+        # Editable Mol for RightCap
+        RCap_m1 = Chem.MolFromSmiles(smiles_RCap_)
+        RCap_edit_m1 = Chem.EditableMol(RCap_m1)
+
+        # Remove dummy atoms
+        RCap_edit_m1.RemoveAtom(dum_R)
+
+        # Mol without dummy atom
+        RCap_m1 = RCap_edit_m1.GetMol()
+
+        # Linking atom
+        if dum_R < atom_R:
+            RCap_atom = atom_R - 1
+        else:
+            RCap_atom = atom_R
+
+        # Join main chain with Right Cap
+        combo = Chem.CombineMols(main_mol_noDum, RCap_m1)
+        edcombo = Chem.EditableMol(combo)
+        edcombo.AddBond(
+            second_atom,
+            RCap_atom + main_mol_noDum.GetNumAtoms(),
+            order=Chem.rdchem.BondType.SINGLE,
+        )
+        main_mol_noDum = edcombo.GetMol()
+
     return Chem.MolToSmiles(main_mol_noDum)
-
 
 def Init_info_Cap(unit_name, smiles_each_ori):
     # Get index of dummy atoms and bond type associated with it

@@ -88,11 +88,10 @@ def unit_conformer_search_crest(
 def conformer_search_xtb(
         smiles,
         epsilon,
-        max_conformers = 1000,
-        top_n_MMFF = 100,
-        top_n_xtb = 10,
+        max_conformers=1000,
+        top_n_MMFF=100,
+        top_n_xtb=10,
 ):
-
     current_path = os.getcwd()
 
     conf_dir = os.path.join(current_path, 'conformer_search')
@@ -106,43 +105,45 @@ def conformer_search_xtb(
         raise ValueError(f"Invalid SMILES string generated: {smiles}")
     mol = Chem.AddHs(mol)
 
-    # generate multiple conformers
-    ids = AllChem.EmbedMultipleConfs(mol, numConfs = max_conformers, randomSeed = 1)
+    # Generate multiple conformers
+    ids = AllChem.EmbedMultipleConfs(mol, numConfs=max_conformers, randomSeed=1)
     props = AllChem.MMFFGetMoleculeProperties(mol)
 
-    # minimize the energy of each conformer and store the energy
+    # Minimize the energy of each conformer and store the energy
     minimized_conformers = []
     for conf_id in ids:
         ff = AllChem.MMFFGetMoleculeForceField(mol, props, confId=conf_id)
         energy = ff.Minimize()
         minimized_conformers.append((conf_id, energy))
 
-    # sort the conformers by energy and select the top N conformers
+    # Sort the conformers by energy and select the top N conformers
     minimized_conformers.sort(key=lambda x: x[1])
     top_conformers = minimized_conformers[:top_n_MMFF]
 
-    os.chdir(xtb_dir)
+    # Perform xTB optimization on the selected conformers
     for conf_id, _ in top_conformers:
-        xyz_filename = f'conf_{conf_id}.xyz'
+        xyz_file = os.path.join(xtb_dir, f'conf_{conf_id}.xyz')
         outfile_headname = f'conf_{conf_id}'
-        model_lib.mol_to_xyz(mol, conf_id, xyz_filename)
-        PEMDXtb(xtb_dir, xyz_filename, outfile_headname, epsilon,).run_local()
+        model_lib.mol_to_xyz(mol, conf_id, xyz_file)
+        PEMDXtb(xtb_dir, xyz_file, outfile_headname, epsilon).run_local()
         time.sleep(10)
 
-    print('all xtb finish, merging the xyz files...')
-    filenames = glob.glob('*.xtbopt.xyz')
-    output_filename = 'merged_xtb.xyz'
-    with open(output_filename, 'w') as outfile:
+    print('All xTB calculations finished, merging the xyz files...')
+    filenames = glob.glob(os.path.join(xtb_dir, '*.xtbopt.xyz'))
+    merged_xtb_file = os.path.join(xtb_dir, 'merged_xtb.xyz')
+    with open(merged_xtb_file, 'w') as outfile:
         for fname in filenames:
             with open(fname, 'r') as infile:
                 outfile.write(infile.read())
 
-    ordered_structures = sim_lib.order_energy_xtb(output_filename, top_n_xtb)
-    os.chdir(current_path)
-    return ordered_structures
+    # Call the modified order_energy_xtb function to sort structures by energy
+    sorted_xtb_file = os.path.join(xtb_dir, 'sorted_xtb.xyz')
+    sim_lib.order_energy_xtb(merged_xtb_file, top_n_xtb, sorted_xtb_file)
+
+    return sorted_xtb_file
 
 def conformer_search_gaussian(
-        structures,
+        xyz_file,
         core = 32,
         mem = '64GB',
         function = 'B3LYP',
@@ -158,6 +159,8 @@ def conformer_search_gaussian(
 
     os.makedirs(conf_dir, exist_ok=True)
     os.makedirs(gaussian_dir, exist_ok=True)
+
+    structures = sim_lib.read_xyz_file(xyz_file)
 
     job_ids = []
     for i, structure in enumerate(structures):
@@ -201,12 +204,30 @@ def conformer_search_gaussian(
         if all_completed:
             print("All gaussian tasks finished, order structure with energy calculated by gaussian...")
             # order the structures by energy calculated by gaussian
-            ordered_structures = sim_lib.order_energy_gaussian(gaussian_dir)
+            sorted_gaussian_file = os.path.join(gaussian_dir, 'sorted_gaussian.xyz')
+            sim_lib.order_energy_gaussian(gaussian_dir, sorted_gaussian_file)
+            # 提取最低能量的结构并保存为单独的 .xyz 文件
+            lowest_energy_structure_file = os.path.join(gaussian_dir, 'lowest_energy_structure.xyz')
+            with open(sorted_gaussian_file, 'r') as infile, open(lowest_energy_structure_file, 'w') as outfile:
+                lines = infile.readlines()
+                i = 0
+                while i < len(lines):
+                    num_atoms_line = lines[i].strip()
+                    if num_atoms_line.isdigit():
+                        num_atoms = int(num_atoms_line)
+                        # 提取结构（原子数行 + 注释行 + 原子坐标行）
+                        structure_lines = lines[i:i + num_atoms + 2]
+                        outfile.writelines(structure_lines)
+                        break  # 只提取第一个（最低能量）结构
+                    else:
+                        i += 1  # 跳过非结构开始的行
+            print(f"Lowest energy structure saved to {lowest_energy_structure_file}")
             break
         else:
             print("g16 conformer search not finish, waiting...")
             time.sleep(10)  # wait for 10 seconds
-    return ordered_structures
+    return sorted_gaussian_file
+
 
 def calc_resp_gaussian(
         sorted_df,
